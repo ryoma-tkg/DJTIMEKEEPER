@@ -28,7 +28,7 @@ export default {
               'from': { opacity: '0' },
               'to': { opacity: '1' },
           },
-          fadeOutDown: {
+fadeOutDown: {
               '0%': { 
                 opacity: '1', 
                 transform: 'translateY(0) translateZ(0)', 

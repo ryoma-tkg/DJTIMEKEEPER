@@ -550,6 +550,8 @@ import {
             const [displayedContent, setDisplayedContent] = useState(null); // 表示するコンテンツ（currentData のスナップショット）
             const [fadingOutContent, setFadingOutContent] = useState(null); // 消えていくコンテンツ（古い displayedContent）
 
+            const animationTimerRef = useRef(null);
+
             const schedule = useMemo(() => {
                 if (timetable.length === 0) return [];
                 const scheduleData = [];
@@ -652,52 +654,56 @@ import {
 
             // メインコンテンツの切り替えロジック (currentData に依存)
             useEffect(() => {
-                const CONTENT_FADE_OUT_DURATION = 500; // 0.5s
+                const CONTENT_FADE_OUT_DURATION = 500; // 0.5s (tailwind.config.js の 'fade-out-down' と合わせる)
                 const CONTENT_FADE_IN_DELAY = 100;    // 0.1s
 
-                // `currentData`（最新の状態）を表示すべき `newContent` とする
                 const newContent = currentData; 
-                
-                // newContent がまだ null（初期計算中）なら何もしない
-                if (!newContent) {
-                    return;
-                }
-                
-                // 表示内容が（IDベースで）変わったかチェック
-                if (newContent.id !== displayedContent?.id) {
-                    
-                    // --- IDが変わった時（DJが切り替わった時）---
-                    
-                    // 1. 今の表示内容 (displayedContent) を「フェードアウト」に回す
-                    setFadingOutContent(displayedContent);
-                    
-                    // 2. 新しい表示内容 (newContent) を「少し遅れて」フェードインさせる
-                    const fadeInTimer = setTimeout(() => {
-                        setDisplayedContent(newContent);
-                    }, CONTENT_FADE_IN_DELAY);
+                if (!newContent) return;
 
-                    // 3. フェードアウトした要素をDOMから消すタイマー
-                    const fadeOutTimer = setTimeout(() => {
-                        setFadingOutContent(null);
-                    }, CONTENT_FADE_OUT_DURATION + CONTENT_FADE_IN_DELAY); 
-
-                    return () => {
-                        clearTimeout(fadeInTimer);
-                        clearTimeout(fadeOutTimer);
-                    };
-                
-                } else {
-                    
-                    /*
-                     * ▼▼▼ これが重要っす！ ▼▼▼
-                     * --- IDが変わっていない時（同じDJの再生中）---
-                     * アニメーションはせず、表示内容（timeLeft, progress）だけを
-                     * 毎秒最新のものに更新する
-                     */
-                    setDisplayedContent(newContent);
+                // ---
+                // 1. IDが同じ時 (タイマー更新)
+                // ---
+                // ★先にタイマー更新の処理を持ってくるのがポイントっす
+                if (displayedContent?.id === newContent.id) {
+                    // アニメーションが動いてる（fadingOutContent がいる）時は
+                    // データの更新をスキップ（そうしないとフェードアウト中の中身まで変わっちゃう）
+                    if (fadingOutContent) {
+                        return;
+                    }
+                    setDisplayedContent(newContent); // アニメーションせずデータだけ更新
+                    return; // ここで処理終了
                 }
 
-            }, [currentData, displayedContent]);
+                // ---
+                // 2. IDが切り替わった時 (DJが変更された)
+                // ---
+                
+                // 2-1. アニメーションがすでに動いてる時は、重複させない
+                if (animationTimerRef.current) {
+                    clearTimeout(animationTimerRef.current.fadeInTimer);
+                    clearTimeout(animationTimerRef.current.fadeOutTimer);
+                }
+                
+                // 2-2. アニメーションの実行
+                setFadingOutContent(displayedContent); // 今の (古い) データをフェードアウトに送る
+                setDisplayedContent(null);             // ★★★最重要★★★ 
+                                                       // 今の表示を「無」にする。これで key が競合しなくなります！
+
+                // 2-3. タイマーをセット
+                const fadeInTimer = setTimeout(() => {
+                    setDisplayedContent(newContent); // 少し遅れて新しいコンテンツをフェードイン
+                }, CONTENT_FADE_IN_DELAY);
+
+                const fadeOutTimer = setTimeout(() => {
+                    setFadingOutContent(null); // 古い要素をDOMから削除
+                    animationTimerRef.current = null; // アニメーション完了
+                }, CONTENT_FADE_OUT_DURATION + CONTENT_FADE_IN_DELAY); 
+                
+                // 2-4. タイマーを Ref に保存
+                animationTimerRef.current = { fadeInTimer, fadeOutTimer };
+
+            }, [currentData, displayedContent, fadingOutContent]); // ★ fadingOutContent も依存配列に追加
+            /* ▲▲▲ この useEffect の修正っす！ ▲▲▲ */
 
 
             const timelineTransform = useMemo(() => {
