@@ -801,28 +801,30 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             return (
                 <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
                     {!dj.isBuffer && (
-                        <div className="w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0">
-                            {/* ★★★ 修正 ★★★ 
-                                  `opacity` アニメーションを削除し、
-                                  ロード中ならスピナー、完了したら画像、というシンプルな三項演算子に戻します
-                            */}
-                            <div className="flex items-center justify-center w-full h-full">
-                                {isImageReady ? (
-                                    // 1. 画像が準備OK (またはURLなし)
-                                    dj.imageUrl ? (
+                        // ★★★ ここからが修正箇所っす！ ★★★
+                        isImageReady ? (
+                            // 1. 画像が準備OK (またはURLなし)
+                            <div className="w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0">
+                                <div className="flex items-center justify-center w-full h-full">
+                                    {dj.imageUrl ? (
                                         <SimpleImage
                                             src={dj.imageUrl}
-                                            className="w-full h-full object-cover" // ★ `transition-opacity` や `opacity-0/100` を削除！
+                                            className="w-full h-full object-cover"
                                         />
                                     ) : (
                                         <UserIcon className="w-1/2 h-1/2 text-on-surface-variant" />
-                                    )
-                                ) : (
-                                    // 2. 画像URLはあるけど、まだロードされてない場合
-                                    <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
-                                )}
+                                    )}
+                                </div>
                             </div>
-                        </div>
+                        ) : (
+                            // 2. 画像URLはあるけど、まだロードされてない場合
+                            // 「黒い枠」を表示せず、スピナーだけを表示する
+                            <div className="w-full max-w-sm sm:max-w-md aspect-square rounded-full shadow-2xl flex-shrink-0 flex items-center justify-center">
+                                {/* bg-surface-container を削除！ */}
+                                <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
+                            </div>
+                        )
+                        // ★★★ 修正はここまでっす！ ★★★
                     )}
                     <div className={`flex flex-col ${dj.isBuffer ? 'items-center text-center' : 'text-center md:text-left'}`}>
                         <div className="flex flex-col space-y-3">
