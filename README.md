@@ -1,4 +1,4 @@
-# DJ Timekeeper Pro
+# DJ Timekeeper
 
 リアルタイムで同期するDJイベント用のタイムテーブル管理アプリです。
 Firebaseを利用して、編集モードとLiveモードでデータを瞬時に同期します。

@@ -531,26 +531,29 @@ import {
             return loaded;
         };
 
-        const LiveView = ({ timetable, eventConfig, setMode }) => {
+const LiveView = ({ timetable, eventConfig, setMode }) => {
             const [now, setNow] = useState(new Date());
             const timelineContainerRef = useRef(null);
             const [containerWidth, setContainerWidth] = useState(0);
             
-            /* ▼▼▼ メインのステートをこれ1個にまとめるっす！ ▼▼▼ */
-            // タイムラインの「今」の状態をすべて保持するオブジェクト
-            // （例: { id: 'dj_a', status: 'ON AIR', timeLeft: 120, progress: 50, nextDj: {...} }）
+            // 毎秒更新される「最新の」状態データ
             const [currentData, setCurrentData] = useState(null); 
-            /* ▲▲▲ ここまで ▲▲▲ */
             
             // 背景画像用のステート
             const [backgroundDj, setBackgroundDj] = useState(null);
             const [fadingOutBgDj, setFadingOutBgDj] = useState(null); 
 
+            // ★修正★
             // メインコンテンツ表示用のステート
-            const [displayedContent, setDisplayedContent] = useState(null); // 表示するコンテンツ（currentData のスナップショット）
-            const [fadingOutContent, setFadingOutContent] = useState(null); // 消えていくコンテンツ（古い displayedContent）
-
+            const [visibleContent, setVisibleContent] = useState(null); // 表示するコンテンツ
+            const [fadingOutContent, setFadingOutContent] = useState(null); // 消えていくコンテンツ
+            
+            // ★修正★
+            // 「今表示されている内容」を Ref で管理して、useEffect の無限ループを防ぐ
+            const displayedContentRef = useRef(null); 
+            // アニメーションのタイマーを Ref で管理して、重複を防ぐ
             const animationTimerRef = useRef(null);
+
 
             const schedule = useMemo(() => {
                 if (timetable.length === 0) return [];
@@ -583,7 +586,7 @@ import {
             useEffect(() => {
                 const currentIndex = schedule.findIndex(dj => now >= dj.startTime && now < dj.endTime);
                 
-                let newContentData = null; // このオブジェクトに "今" の状態を全部詰める
+                let newContentData = null; 
 
                 if (currentIndex !== -1) {
                     // --- ON AIR ---
@@ -593,7 +596,7 @@ import {
                     const remaining = (dj.endTime - now) / 1000;
                     
                     newContentData = {
-                        ...dj, // id, name, color, imageUrl, startTime, endTime など
+                        ...dj, 
                         status: 'ON AIR',
                         timeLeft: remaining,
                         progress: total > 0 ? ((total - remaining) / total) * 100 : 0,
@@ -605,11 +608,11 @@ import {
                     if (upcomingDj) {
                         // --- UPCOMING ---
                         newContentData = {
-                            ...upcomingDj, // id, name, color, imageUrl, startTime, endTime など
+                            ...upcomingDj, 
                             status: 'UPCOMING',
-                            timeLeft: (upcomingDj.startTime - now) / 1000, // 開始までの残り時間
+                            timeLeft: (upcomingDj.startTime - now) / 1000, 
                             progress: 0,
-                            nextDj: schedule[0] // NEXT UP は最初のDJ
+                            nextDj: schedule[0] 
                         };
                     } else {
                         // --- FINISHED ---
@@ -620,18 +623,16 @@ import {
                     }
                 }
                 
-                // 計算結果（"今" の状態）をステートにセット
                 setCurrentData(newContentData);
                 
             }, [now, schedule]);
 
             // 背景画像の切り替えロジック (currentData に依存)
             useEffect(() => {
-                // `currentData` から「今表示すべき背景」を決定
                 const newBgCandidate = (currentData?.status === 'ON AIR' && currentData.imageUrl && !currentData.isBuffer) ? currentData : null;
 
                 if (backgroundDj?.id === newBgCandidate?.id) {
-                    return; // 変更なし
+                    return; 
                 }
                 
                 const FADE_DURATION = 3000; // 3秒
@@ -650,59 +651,66 @@ import {
 
                 return () => clearTimeout(timer);
 
-            }, [currentData]); // ★ `currentData` が変わった時だけ実行
+            }, [currentData]); // ★ 依存配列は [currentData] だけでOKっす
 
             // メインコンテンツの切り替えロジック (currentData に依存)
+            /* ▼▼▼ この useEffect がバグの元だったので、ロジックを総入れ替えっす！ ▼▼▼ */
             useEffect(() => {
-                const CONTENT_FADE_OUT_DURATION = 500; // 0.5s (tailwind.config.js の 'fade-out-down' と合わせる)
-                const CONTENT_FADE_IN_DELAY = 100;    // 0.1s
-
                 const newContent = currentData; 
                 if (!newContent) return;
+
+                // Ref から「今画面に出てる」はずのデータを取得
+                const oldContent = displayedContentRef.current;
 
                 // ---
                 // 1. IDが同じ時 (タイマー更新)
                 // ---
-                // ★先にタイマー更新の処理を持ってくるのがポイントっす
-                if (displayedContent?.id === newContent.id) {
-                    // アニメーションが動いてる（fadingOutContent がいる）時は
-                    // データの更新をスキップ（そうしないとフェードアウト中の中身まで変わっちゃう）
-                    if (fadingOutContent) {
-                        return;
+                if (oldContent?.id === newContent.id) {
+                    // アニメーションが実行中でなければ、タイマーだけ更新
+                    if (!animationTimerRef.current) {
+                        setVisibleContent(newContent); // 表示されてるステートを更新
+                        displayedContentRef.current = newContent; // Ref も更新
                     }
-                    setDisplayedContent(newContent); // アニメーションせずデータだけ更新
                     return; // ここで処理終了
                 }
 
                 // ---
-                // 2. IDが切り替わった時 (DJが変更された)
+                // 2. IDが切り替えわった時 (DJが変更された)
                 // ---
-                
-                // 2-1. アニメーションがすでに動いてる時は、重複させない
+
+                // 実行中のアニメーションがあれば止める（連打対策）
                 if (animationTimerRef.current) {
                     clearTimeout(animationTimerRef.current.fadeInTimer);
                     clearTimeout(animationTimerRef.current.fadeOutTimer);
                 }
-                
-                // 2-2. アニメーションの実行
-                setFadingOutContent(displayedContent); // 今の (古い) データをフェードアウトに送る
-                setDisplayedContent(null);             // ★★★最重要★★★ 
-                                                       // 今の表示を「無」にする。これで key が競合しなくなります！
 
-                // 2-3. タイマーをセット
+                const CONTENT_FADE_OUT_DURATION = 500; // 0.5s
+                const CONTENT_FADE_IN_DELAY = 100;    // 0.1s
+
+                // 2-1. 今の表示 (oldContent) をフェードアウト役に回す
+                setFadingOutContent(oldContent);
+                
+                // 2-2. ★重要★
+                // `visibleContent` を `null` にして、次のフェードインとの key 競合を防ぐ
+                setVisibleContent(null); 
+                // ただし Ref はまだ古いままにしておく（次のDJに切り替わったと判定させないため）
+
+                // 2-3. 新しいコンテンツを「少し遅れて」表示役（visibleContent）にセット
                 const fadeInTimer = setTimeout(() => {
-                    setDisplayedContent(newContent); // 少し遅れて新しいコンテンツをフェードイン
+                    setVisibleContent(newContent);
+                    displayedContentRef.current = newContent; // ★重要★ 表示が始まったら Ref も更新
                 }, CONTENT_FADE_IN_DELAY);
 
+                // 2-4. フェードアウトが終わる頃に、フェードアウト役をDOMから消す
                 const fadeOutTimer = setTimeout(() => {
-                    setFadingOutContent(null); // 古い要素をDOMから削除
+                    setFadingOutContent(null);
                     animationTimerRef.current = null; // アニメーション完了
                 }, CONTENT_FADE_OUT_DURATION + CONTENT_FADE_IN_DELAY); 
-                
-                // 2-4. タイマーを Ref に保存
+
+                // 2-5. タイマーをRefに保存
                 animationTimerRef.current = { fadeInTimer, fadeOutTimer };
 
-            }, [currentData, displayedContent, fadingOutContent]); // ★ fadingOutContent も依存配列に追加
+            }, [currentData]); // ★ 依存配列は [currentData] だけにする！
             /* ▲▲▲ この useEffect の修正っす！ ▲▲▲ */
 
 
@@ -719,7 +727,7 @@ import {
 
                 const finalX = centerScreenOffset - centerItemOffset - (targetIndex * step);
                 return `translateX(${finalX}px)`;
-            }, [currentData, containerWidth, schedule]); // ★ `currentData` に依存
+            }, [currentData, containerWidth, schedule]);
             
             const formatTime = (seconds) => {
                 if (seconds < 0) seconds = 0;
@@ -727,11 +735,8 @@ import {
                 return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
             };
             
-            // 背景色の計算は `currentData` を参照
             const bgColorStyle = (currentData?.status === 'ON AIR') ? { background: `radial-gradient(ellipse 80% 60% at 50% 120%, ${currentData.color}33, transparent)` } : {};
             
-            /* ▼▼▼ メインコンテンツを描画するヘルパー関数っす！ ▼▼▼ */
-            // ★重要★ この関数は、引数で渡された `content` の中身だけを見て描画する
             const renderContent = (content) => {
                 if (!content) return null;
 
@@ -748,7 +753,7 @@ import {
                 
                 // ON AIR の場合
                 if (content.status === 'ON AIR') {
-                    const dj = content; // 分かりやすく `dj` って名前にしとくっす
+                    const dj = content; 
                     return (
                         <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
                             {!dj.isBuffer && (
@@ -793,7 +798,6 @@ import {
 
                 return null;
             };
-            /* ▲▲▲ ヘルパー関数ここまで ▲▲▲ */
 
             return (
                 <div className="fixed inset-0" style={bgColorStyle}>
@@ -811,21 +815,22 @@ import {
                     <button onClick={() => setMode('edit')} className="absolute top-4 md:top-8 right-4 flex items-center bg-surface-container hover:opacity-90 text-white font-bold py-2 px-4 rounded-full transition-opacity duration-200 text-sm z-20">編集</button>
 
                     {/* メインコンテンツエリア */}
-                    {/* ★修正★ Safariでのスクロールバーちらつき防止に `overflow-hidden` を追加 */}
                     <div className="absolute top-24 bottom-32 left-0 right-0 px-4 flex items-center justify-center overflow-hidden"> 
                         <div className="w-full h-full overflow-y-auto flex items-center justify-center relative">
                           
                           {/* 消えていくコンテンツ */}
                           {fadingOutContent && (
-                            <div key={fadingOutContent.id} className="w-full animate-fade-out-down absolute p-4">
+                            /* ▼▼▼ key に 'fadeout-' を追加して、競合を完全に防ぐっす！ ▼▼▼ */
+                            <div key={`fadeout-${fadingOutContent.id}`} className="w-full animate-fade-out-down absolute p-4">
                               {renderContent(fadingOutContent)}
                             </div>
                           )}
 
                           {/* 表示されるコンテンツ */}
-                          {displayedContent && (
-                            <div key={displayedContent.id} className="w-full animate-fade-in-up p-4">
-                              {renderContent(displayedContent)}
+                          {/* ★ 修正 ★ `displayedContent` -> `visibleContent` に変更 */}
+                          {visibleContent && (
+                            <div key={visibleContent.id} className="w-full animate-fade-in-up p-4">
+                              {renderContent(visibleContent)}
                             </div>
                           )}
 
@@ -833,7 +838,7 @@ import {
                     </div>
                     
                     {/* 下部タイムライン */}
-                    {currentData?.status !== 'FINISHED' && ( // ★ `currentData` を参照するように修正
+                    {currentData?.status !== 'FINISHED' && ( 
                         <div ref={timelineContainerRef} className="absolute bottom-0 left-0 right-0 w-full shrink-0 overflow-hidden mask-gradient z-10 pb-4 h-32">
                             <div 
                               className="flex h-full items-center space-x-6 px-4 py-2 will-change-transform"
@@ -850,7 +855,7 @@ import {
                                         border border-white/30 
                                         ${dj.isBuffer ? 'justify-center' : 'space-x-6'} 
                                        
-                                        ${(currentData?.status === 'ON AIR' && dj.id === currentData?.id) ? 'opacity-100 scale-100' : 'opacity-60 scale-90'}
+                                        ${(currentData?.status === 'ON AIR' && dj.id === currentData.id) ? 'opacity-100 scale-100' : 'opacity-60 scale-90'}
                                         transition-[opacity,transform] duration-1000 ease-in-out
                                         will-change-[opacity,transform]
                                       `}
