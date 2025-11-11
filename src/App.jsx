@@ -744,7 +744,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         const fadeOutTimer = setTimeout(() => {
             setFadingOutContent(null);
             animationTimerRef.current = null;
-        }, CONTENT_FADE_OUT_DURATION + CONTENT_FADE_IN_DELAY);
+        }, CONTENT_FADE_OUT_DURATION); // ★★★ 500ms に変更っす！
 
         animationTimerRef.current = { fadeInTimer, fadeOutTimer };
 
@@ -826,6 +826,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                                     absolute inset-0 flex items-center justify-center 
                                     transition-opacity duration-300 ease-in-out 
                                     ${isImageReady ? 'opacity-0' : 'opacity-100'}
+                                    will-change-opacity
                                 `}>
                                     <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
                                 </div>
