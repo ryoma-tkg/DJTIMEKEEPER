@@ -1,0 +1,24 @@
+/* Tailwindの基本を読み込むっす */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* index.htmlの<style>タグにあったカスタムCSSをコピペするっす */
+html, body {
+    font-family: 'IBM Plex Sans JP', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+body {
+    font-family: 'Montserrat', 'IBM Plex Sans JP', sans-serif;
+}
+.mask-gradient {
+    -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+    mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+}
+.dragging-item {
+    opacity: 0.5;
+    transform: scale(1.05);
+    background-color: #3f3f46; /* Zinc 700 */
+    outline: none; /* 掴んだ際の枠線を削除 */
+}
