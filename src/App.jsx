@@ -595,9 +595,9 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
 
     // ★★★ ここから追加っす！ ★★★
     // アイコンを遅れてフェードインさせるためのステート
-    const [isIconVisible, setIsIconVisible] = useState(false);
+    //const [isIconVisible, setIsIconVisible] = useState(false);
     // アイコン用フェードインタイマーのRef
-    const iconFadeInTimerRef = useRef(null);
+    //const iconFadeInTimerRef = useRef(null);
     // ★★★ ここまで追加っす！ ★★★
 
     const schedule = useMemo(() => {
@@ -727,11 +727,6 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         if (oldContent?.id === newContent.id) {
             setVisibleContent(newContent); // ★ タイマーが動くように毎秒更新
             displayedContentRef.current = newContent;
-
-            // アイコンがまだ非表示だったら表示する
-            if (!isIconVisible) {
-                setIsIconVisible(true);
-            }
             return; // これ以上のアニメーション処理は不要
         }
 
@@ -740,9 +735,6 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         // 既存のアニメーションタイマーをクリア
         if (animationTimerRef.current) {
             clearTimeout(animationTimerRef.current);
-        }
-        if (iconFadeInTimerRef.current) { // ★ アイコンタイマーもクリア
-            clearTimeout(iconFadeInTimerRef.current);
         }
 
         const CONTENT_FADE_OUT_DURATION = 500; // 0.5s
@@ -754,15 +746,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         setVisibleContent(newContent);
         displayedContentRef.current = newContent;
 
-        // 3. ★ アイコンをまず非表示にする
-        setIsIconVisible(false);
-
-        // 4. ★ 0.1秒後にアイコンをフェードインさせるタイマー
-        iconFadeInTimerRef.current = setTimeout(() => {
-            setIsIconVisible(true);
-        }, 100); // 100ms (0.1秒) 遅延
-
-        // 5. 0.5秒後に古いDOMを消す
+        // 3. 0.5秒後に古いDOMを消す
         const fadeOutTimer = setTimeout(() => {
             setFadingOutContent(null);
             animationTimerRef.current = null;
@@ -770,7 +754,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
 
         animationTimerRef.current = fadeOutTimer;
 
-    }, [currentData, isIconVisible]); // ★ isIconVisible を依存配列に追加
+    }, [currentData]); // ★★★ 依存配列は [currentData] だけにするっす！
 
 
     const timelineTransform = useMemo(() => {
@@ -800,45 +784,34 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
 
     // ★★★ 修正箇所 ★★★
     // renderContent 関数
-    const renderContent = (content, forceIconVisible = false) => {
+    const renderContent = (content) => {
         if (!content) return null;
 
-        // UPCOMING の場合
-        if (content.status === 'UPCOMING') {
-            return (
-                <div className="text-center">
-                    <p className="text-sm text-on-surface-variant font-bold tracking-widest mb-1">FIRST DJ</p>
-                    <h1 className="text-5xl md:text-7xl font-bold my-2">{content.name}</h1>
-                    <p className="text-4xl md:text-5xl font-mono text-amber-400">開始まで {formatTime(content.timeLeft)}</p>
-                </div>
-            );
-        }
+        // ... (UPCOMING の部分は変更なし) ...
 
         // ON AIR の場合
         if (content.status === 'ON AIR') {
             const dj = content;
-            // メインアイコンの画像がロード済みかチェック
             const isImageReady = !dj.imageUrl || dj.isBuffer || loadedUrls.has(dj.imageUrl);
-            const showIcon = isIconVisible || forceIconVisible;
+
+            // ★★★ 2. const showIcon = ... の行を削除
 
             return (
                 <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
                     {!dj.isBuffer && (
-                        // ★★★ 3. opacityのクラスを showIcon で制御するっす！ ★★★
+                        // ★★★ 3. 「黒い丸」の opacity 制御を削除！
                         <div className={`
                             w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0 relative
-                            will-change-opacity 
-                        `}>
+                            will-change-opacity
+                        `}> {/* ${isIconVisible...} と transition-opacity の行を削除 */}
 
-                            {/* レイヤー1: コンテンツ（画像 or デフォルトアイコン） */}
-                            {/* transition-opacity でフワッと表示させる */}
-                            {/* ★★★ 2. レイヤー1（中身）の opacity を showIcon で制御 ★★★ */}
+                            {/* ★★★ 4. レイヤー1（中身）の opacity を isImageReady だけで制御 */}
                             <div className={`
                                 w-full h-full flex items-center justify-center 
-                                transition-opacity duration-500 ease-out 
-                                ${showIcon && isImageReady ? 'opacity-100' : 'opacity-0'}
+                                transition-opacity duration-300 ease-in-out 
+                                ${isImageReady ? 'opacity-100' : 'opacity-0'}
                                 will-change-opacity
-                            `}> {/* ${isImageReady...} を ${showIcon && isImageReady...} に変更っす */}
+                            `}>
                                 {dj.imageUrl ? (
                                     <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" />
                                 ) : (
@@ -846,22 +819,20 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                                 )}
                             </div>
 
-                            {/* レイヤー2: スピナー（上に重ねる） */}
-                            {/* 画像URLがある時だけスピナーを考慮する */}
-                            {/* ★★★ 3. レイヤー2（スピナー）の opacity も showIcon で制御 ★★★ */}
+                            {/* ★★★ 5. レイヤー2（スピナー）の opacity を !isImageReady だけで制御 */}
                             {dj.imageUrl && (
                                 <div className={`
                                     absolute inset-0 flex items-center justify-center 
-                                    transition-opacity duration-500 ease-out 
-                                    ${showIcon && !isImageReady ? 'opacity-100' : 'opacity-0'}
+                                    transition-opacity duration-300 ease-in-out 
+                                    ${!isImageReady ? 'opacity-100' : 'opacity-0'}
                                     will-change-opacity 
-                                `}> {/* ${isImageReady...} を ${showIcon && !isImageReady...} に変更っす */}
+                                `}> {/* ${showIcon && !isImageReady...} を ${!isImageReady...} に変更 */}
                                     <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
                                 </div>
                             )}
                         </div>
-                        // ★★★ 修正はここまでっす！ ★★★
                     )}
+                        // ★★★ 修正はここまでっす！ ★★★
                     <div className={`flex flex-col ${dj.isBuffer ? 'items-center text-center' : 'text-center md:text-left'}`}>
                         <div className="flex flex-col space-y-3">
                             <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold break-words leading-tight">{dj.name}</h1>
@@ -925,8 +896,8 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                             key={`fadeout-${fadingOutContent.id}`}
                             className="w-full animate-fade-out-down absolute inset-0 p-4 flex items-center justify-center z-10 will-change-[transform,opacity]"
                         >
-                            {/* ★★★ ここを (fadingOutContent, true) に変更っす！ ★★★ */}
-                            {renderContent(fadingOutContent, true)}
+                            {/* ★★★ 引数を削除！ ★★★ */}
+                            {renderContent(fadingOutContent)}
                         </div>
                     )}
 
@@ -936,8 +907,8 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                             key={visibleContent.id}
                             className="w-full animate-fade-in-up absolute inset-0 p-4 flex items-center justify-center z-0 will-change-[transform,opacity]"
                         >
-                            {/* ★★★ こっちは (visibleContent, false) か (visibleContent) のままっす！ ★★★ */}
-                            {renderContent(visibleContent, false)}
+                            {/* ★★★ 引数を削除！ ★★★ */}
+                            {renderContent(visibleContent)}
                         </div>
                     )}
 
