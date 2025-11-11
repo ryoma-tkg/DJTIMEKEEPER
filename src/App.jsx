@@ -614,26 +614,19 @@ import {
 
                 if (backgroundDj?.id === newBgCandidate?.id) return;
 
+                // 1. まず、今の背景（もしあれば）をフェードアウト対象に設定
                 if (backgroundDj) {
                     setFadingOutDj(backgroundDj);
+                    
+                    // 2. フェードアウトアニメーション(1.5s)が終わったらクリアするタイマー
+                    setTimeout(() => setFadingOutDj(null), 1500); 
                 }
-                setBackgroundDj(null);
+                
+                // 3. 新しい背景を即座に設定（プリロード済みを信頼！）
+                //    newBgCandidate が null でも、背景が消えるだけなんでOKっす
+                setBackgroundDj(newBgCandidate);
 
-                if (newBgCandidate) {
-                    const img = new Image();
-                    img.src = newBgCandidate.imageUrl;
-                    img.onload = () => {
-                        setBackgroundDj(newBgCandidate);
-                        setTimeout(() => setFadingOutDj(null), 1500); 
-                    };
-                    img.onerror = () => {
-                        console.error("Background image could not be loaded.");
-                        setTimeout(() => setFadingOutDj(null), 1500);
-                    };
-                } else {
-                    setTimeout(() => setFadingOutDj(null), 1500);
-                }
-            }, [currentDj, status]);
+            }, [currentDj, status]); // 依存配列は [currentDj, status] のまま
 
             const timelineTransform = useMemo(() => {
                 if (schedule.length === 0 || containerWidth === 0) return 'translateX(0px)';
