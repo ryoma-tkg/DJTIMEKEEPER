@@ -28,7 +28,7 @@ export default {
               'from': { opacity: '0' },
               'to': { opacity: '1' },
           },
-          adeOutDown: {
+          fadeOutDown: {
                   '0%': { 
                     opacity: '1', 
                     transform: 'translateY(0) translateZ(0)', 
@@ -44,7 +44,7 @@ export default {
               'from': { opacity: '1', visibility: 'visible' },
               'to': { opacity: '0', visibility: 'hidden' },
           },
-            spinner: {
+          spinner: {
               '0%': { transform: 'rotate(0deg)' },
               '100%': { transform: 'rotate(360deg)' },
           }
