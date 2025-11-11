@@ -671,7 +671,7 @@ import {
                     {fadingOutDj && <BackgroundImage key={`fadeout-${fadingOutDj.id}`} dj={fadingOutDj} isFadingOut={true} />}
                     {backgroundDj && <BackgroundImage key={`bg-${backgroundDj.id}`} dj={backgroundDj} isFadingOut={false} />}
                     
-                    <header className="absolute top-4 left-1/2 -translate-x-1/2 w-max flex flex-col items-center gap-2 z-20">
+                    <header className="absolute top-4 left-1/2 -translate-x-1/2 w-max flex flex-col items-center space-y-2 z-20">
                            <h1 className="text-xl font-bold text-on-surface-variant tracking-wider">{eventConfig.title}</h1>
                            <div className="bg-black/30 backdrop-blur-sm text-on-surface font-bold py-2 px-4 rounded-full text-2xl tracking-wider font-mono text-center w-[10ch]">
                             {now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -683,14 +683,20 @@ import {
                         <div className="w-full h-full overflow-y-auto flex items-center justify-center">
                           <div key={`${status}-${djToDisplay?.id || 'finished'}`} className="w-full animate-fade-in-up">
                               {status === 'ON AIR' && djToDisplay && (
-                                  <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center gap-8">
+                                  /* ★修正2: gap-8 -> space-y-8 md:space-y-0 md:space-x-8 */
+                                  <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
                                       {!djToDisplay.isBuffer && (
-                                          <div className="w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl flex items-center justify-center overflow-hidden flex-shrink-0">
-                                              {djToDisplay.imageUrl ? <SimpleImage src={djToDisplay.imageUrl} className="w-full h-full object-cover" /> : <UserIcon className="w-1/2 h-1/2 text-on-surface-variant"/>}
+                                          /* ★修正3: aspect-square の子要素を div でラップ */
+                                          <div className="w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0">
+                                              {/* このラッパーdivがCSSフォールバックによって絶対配置されます */}
+                                              <div className="flex items-center justify-center w-full h-full">
+                                                  {djToDisplay.imageUrl ? <SimpleImage src={djToDisplay.imageUrl} className="w-full h-full object-cover" /> : <UserIcon className="w-1/2 h-1/2 text-on-surface-variant"/>}
+                                              </div>
                                           </div>
                                       )}
                                       <div className={`flex flex-col ${djToDisplay.isBuffer ? 'items-center text-center' : 'text-center md:text-left'}`}>
-                                          <div className="flex flex-col gap-3">
+                                          {/* ★修正4: gap-3 -> space-y-3 */}
+                                          <div className="flex flex-col space-y-3">
                                               <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold break-words leading-tight">{djToDisplay.name}</h1>
                                               
                                               <p className="text-2xl md:text-3xl font-semibold tracking-wider font-mono" style={{color: djToDisplay.color}}>
@@ -729,9 +735,11 @@ import {
                     
                     {status !== 'FINISHED' && (
                         <div ref={timelineContainerRef} className="w-full shrink-0 overflow-hidden mask-gradient z-10 pb-4">
-                            <div className="flex h-full items-center gap-6 px-4 py-2" style={{ transform: timelineTransform, transition: 'transform 0.5s ease-in-out' }}>
+                            {/* ★修正5: gap-6 -> space-x-6 */}
+                            <div className="flex h-full items-center space-x-6 px-4 py-2" style={{ transform: timelineTransform, transition: 'transform 0.5s ease-in-out' }}>
                                 {schedule.map((dj, index) => (
-                                    <div key={dj.id} className={`shrink-0 w-64 h-24 bg-surface-container/40 backdrop-blur-sm rounded-2xl p-4 flex items-center transition-all duration-500 border border-white/30 ${dj.isBuffer ? 'justify-center' : 'gap-6'} ${(status === 'ON AIR' && dj.id === currentDj?.id) ? 'opacity-100 scale-100' : 'opacity-60 scale-90'}`}>
+                                    /* ★修正6: gap-6 -> space-x-6 */
+                                    <div key={dj.id} className={`shrink-0 w-64 h-24 bg-surface-container/40 backdrop-blur-sm rounded-2xl p-4 flex items-center transition-all duration-500 border border-white/30 ${dj.isBuffer ? 'justify-center' : 'space-x-6'} ${(status === 'ON AIR' && dj.id === currentDj?.id) ? 'opacity-100 scale-100' : 'opacity-60 scale-90'}`}>
                                         {!dj.isBuffer && (
                                             <div className="w-14 h-14 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center overflow-hidden">
                                                 {dj.imageUrl ? <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover"/> : <UserIcon className="w-8 h-8 text-on-surface-variant"/>}
