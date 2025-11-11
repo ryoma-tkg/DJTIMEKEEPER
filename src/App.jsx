@@ -717,38 +717,41 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
 
         const oldContent = displayedContentRef.current;
 
+        // IDが変わってなかったら何もしない（初回ロード時もこれでOK）
         if (oldContent?.id === newContent.id) {
-            if (!animationTimerRef.current) {
+            if (!animationTimerRef.current && !visibleContent) {
                 setVisibleContent(newContent);
                 displayedContentRef.current = newContent;
             }
             return;
         }
 
+        // タイマーが残ってたらクリア
         if (animationTimerRef.current) {
-            clearTimeout(animationTimerRef.current.fadeInTimer);
-            clearTimeout(animationTimerRef.current.fadeOutTimer);
+            clearTimeout(animationTimerRef.current);
         }
 
         const CONTENT_FADE_OUT_DURATION = 500; // 0.5s
-        const CONTENT_FADE_IN_DELAY = 100;    // 0.1s
 
+        // ★★★ ここからが修正っす！ ★★★
+
+        // 1. 古いコンテンツを「消えるやつ」にセット
         setFadingOutContent(oldContent);
-        setVisibleContent(null);
 
-        const fadeInTimer = setTimeout(() => {
-            setVisibleContent(newContent);
-            displayedContentRef.current = newContent;
-        }, CONTENT_FADE_IN_DELAY);
+        // 2. 新しいコンテンツを「見えるやつ」に【即座に】セット（遅延させない！）
+        setVisibleContent(newContent);
+        displayedContentRef.current = newContent;
 
+        // 3. 古いコンテンツのDOMを 0.5秒後に削除するタイマー
         const fadeOutTimer = setTimeout(() => {
             setFadingOutContent(null);
             animationTimerRef.current = null;
-        }, CONTENT_FADE_OUT_DURATION); // ★★★ 500ms に変更っす！
+        }, CONTENT_FADE_OUT_DURATION); // 500ms (アニメーション時間と合わせる)
 
-        animationTimerRef.current = { fadeInTimer, fadeOutTimer };
+        animationTimerRef.current = fadeOutTimer;
+        // ★★★ 修正はここまでっす！ ★★★
 
-    }, [currentData]);
+    }, [currentData, visibleContent]);
 
 
     const timelineTransform = useMemo(() => {
@@ -895,7 +898,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                     {fadingOutContent && (
                         <div
                             key={`fadeout-${fadingOutContent.id}`}
-                            className="w-full animate-fade-out-down absolute inset-0 p-4 flex items-center justify-center z-10"
+                            className="w-full animate-fade-out-down absolute inset-0 p-4 flex items-center justify-center z-10 will-change-[transform,opacity]" // ★★★ 追加っす！
                         >
                             {renderContent(fadingOutContent)}
                         </div>
@@ -905,7 +908,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                     {visibleContent && (
                         <div
                             key={visibleContent.id}
-                            className="w-full animate-fade-in-up absolute inset-0 p-4 flex items-center justify-center z-0"
+                            className="w-full animate-fade-in-up absolute inset-0 p-4 flex items-center justify-center z-0 will-change-[transform,opacity]" // ★★★ 追加っす！
                         >
                             {renderContent(visibleContent)}
                         </div>
