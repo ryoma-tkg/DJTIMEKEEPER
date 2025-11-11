@@ -44,8 +44,8 @@ export default {
       animation: {
           'fade-in-up': 'fadeInUp 1.0s ease-out forwards', // 0.7s から 1.0s に延長
           'fade-out-down': 'fadeOutDown 0.5s ease-out forwards', /* 消えるのは早く 0.5s*/
-          'fade-in': 'fadeIn 1.5s ease-in-out forwards',
-          'fade-out': 'fadeOut 1.5s ease-in-out forwards',
+          'fade-in': 'fadeIn 2s ease-in-out forwards',
+          'fade-out': 'fadeOut 2s ease-in-out forwards',
           'spinner': 'spinner 1s linear infinite',
       }
       // ▲▲▲ ここまで ▲▲▲
