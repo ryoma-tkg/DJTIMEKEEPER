@@ -742,7 +742,18 @@ import {
                         <div ref={timelineContainerRef} className="absolute bottom-0 left-0 right-0 w-full shrink-0 overflow-hidden mask-gradient z-10 pb-4 h-32"> {/* 高さを h-32 (8rem) に明示的に指定 */}
                             <div className="flex h-full items-center space-x-6 px-4 py-2" style={{ transform: timelineTransform, transition: 'transform 0.5s ease-in-out' }}>
                                 {schedule.map((dj, index) => (
-                                    <div key={dj.id} className={`shrink-0 w-64 h-24 bg-surface-container/40 backdrop-blur-sm rounded-2xl p-4 flex items-center transition-all duration-500 border border-white/30 ${dj.isBuffer ? 'justify-center' : 'space-x-6'} ${(status === 'ON AIR' && dj.id === currentDj?.id) ? 'opacity-100 scale-100' : 'opacity-60 scale-90'}`}>
+                                    <div 
+                                      key={dj.id} 
+                                      className={`
+                                        shrink-0 w-64 h-24 bg-surface-container/40 backdrop-blur-sm rounded-2xl p-4 flex items-center 
+                                        border border-white/30 
+                                        ${dj.isBuffer ? 'justify-center' : 'space-x-6'} 
+                                        ${(status === 'ON AIR' && dj.id === currentDj?.id) ? 'opacity-100 scale-100' : 'opacity-60 scale-90'}
+                                        
+                                        /* 変更前: transition-all duration-500 */
+                                        transition-[opacity,transform] duration-500 ease-in-out
+                                      `}
+                                    >
                                         {!dj.isBuffer && (
                                             <div className="w-14 h-14 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center overflow-hidden">
                                                 {dj.imageUrl ? <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover"/> : <UserIcon className="w-8 h-8 text-on-surface-variant"/>}
