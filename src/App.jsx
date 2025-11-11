@@ -593,6 +593,12 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
     // アニメーションのタイマーを Ref で管理
     const animationTimerRef = useRef(null);
 
+    // ★★★ ここから追加っす！ ★★★
+    // アイコンを遅れてフェードインさせるためのステート
+    const [isIconVisible, setIsIconVisible] = useState(false);
+    // アイコン用フェードインタイマーのRef
+    const iconFadeInTimerRef = useRef(null);
+    // ★★★ ここまで追加っす！ ★★★
 
     const schedule = useMemo(() => {
         if (timetable.length === 0) return [];
@@ -719,39 +725,52 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
 
         // (A) DJが同じで、情報（残り時間など）だけ更新される場合
         if (oldContent?.id === newContent.id) {
+            setVisibleContent(newContent); // ★ タイマーが動くように毎秒更新
+            displayedContentRef.current = newContent;
 
-            // ★★★ タイマーが動くように、毎秒ステートを更新するっす！ ★★★
-            setVisibleContent(newContent);
-
-            displayedContentRef.current = newContent; // refも更新
+            // アイコンがまだ非表示だったら表示する
+            if (!isIconVisible) {
+                setIsIconVisible(true);
+            }
             return; // これ以上のアニメーション処理は不要
         }
 
         // (B) DJが切り替わった場合 (クロスフェード処理)
 
-        // 既に進行中のアニメーションタイマー（古いDOMを消すやつ）があればクリア
+        // 既存のアニメーションタイマーをクリア
         if (animationTimerRef.current) {
-            clearTimeout(animationTimerRef.current); // refにはタイマーIDだけを入れる
+            clearTimeout(animationTimerRef.current);
+        }
+        if (iconFadeInTimerRef.current) { // ★ アイコンタイマーもクリア
+            clearTimeout(iconFadeInTimerRef.current);
         }
 
-        const CONTENT_FADE_OUT_DURATION = 500; // 0.5s (tailwind.config.jsと合わせる)
+        const CONTENT_FADE_OUT_DURATION = 500; // 0.5s
 
-        // 1. 古いコンテンツを「消えるアニメーション用」ステートにセット
+        // 1. 古いコンテンツを「消える用」にセット
         setFadingOutContent(oldContent);
 
-        // 2. 新しいコンテンツを「入ってくるアニメーション用」ステートにセット
+        // 2. 新しいコンテンツを「入る用」にセット
         setVisibleContent(newContent);
         displayedContentRef.current = newContent;
 
-        // 3. 0.5秒後（消えるアニメーション完了時）に古いDOMを消す
+        // 3. ★ アイコンをまず非表示にする
+        setIsIconVisible(false);
+
+        // 4. ★ 0.1秒後にアイコンをフェードインさせるタイマー
+        iconFadeInTimerRef.current = setTimeout(() => {
+            setIsIconVisible(true);
+        }, 100); // 100ms (0.1秒) 遅延
+
+        // 5. 0.5秒後に古いDOMを消す
         const fadeOutTimer = setTimeout(() => {
             setFadingOutContent(null);
             animationTimerRef.current = null;
         }, CONTENT_FADE_OUT_DURATION);
 
-        animationTimerRef.current = fadeOutTimer; // タイマーIDをrefに保存
+        animationTimerRef.current = fadeOutTimer;
 
-    }, [currentData]); // ★★★ 依存配列は [currentData] だけっす！
+    }, [currentData, isIconVisible]); // ★ isIconVisible を依存配列に追加
 
 
     const timelineTransform = useMemo(() => {
@@ -806,7 +825,12 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                     {!dj.isBuffer && (
                         // ★★★ ここからが修正箇所っす！ ★★★
                         // 「黒い丸」を常に描画し、中身を opacity で切り替える
-                        <div className="w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0 relative">
+                        <div className={`
+                            w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0 relative
+                            transition-opacity duration-500 ease-out 
+                            ${isIconVisible ? 'opacity-100' : 'opacity-0'}
+                            will-change-opacity
+                        `}>
 
                             {/* レイヤー1: コンテンツ（画像 or デフォルトアイコン） */}
                             {/* transition-opacity でフワッと表示させる */}
@@ -814,6 +838,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                                 w-full h-full flex items-center justify-center 
                                 transition-opacity duration-300 ease-in-out 
                                 ${isImageReady ? 'opacity-100' : 'opacity-0'}
+                                will-change-opacity
                             `}>
                                 {dj.imageUrl ? (
                                     <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" />
@@ -829,7 +854,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                                     absolute inset-0 flex items-center justify-center 
                                     transition-opacity duration-300 ease-in-out 
                                     ${isImageReady ? 'opacity-0' : 'opacity-100'}
-                                    will-change-opacity 
+                                    will-change-opacity
                                 `}> {/* ★★★ これが当たってるか確認っす！ */}
                                     <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
                                 </div>
