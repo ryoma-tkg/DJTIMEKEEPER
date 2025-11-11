@@ -21,8 +21,8 @@ export default {
       },
       keyframes: {
           fadeInUp: {
-              '0%': { opacity: '0', transform: 'translateY(20px)' },
-              '100%': { opacity: '1', transform: 'translateY(0)' },
+              '0%': { opacity: '0', transform: 'translateY(20px) translateZ(0)' },
+              '100%': { opacity: '1', transform: 'translateY(0) translateZ(0)' },
           },
           fadeIn: {
               'from': { opacity: '0' },
@@ -38,7 +38,7 @@ export default {
           }
       },
       animation: {
-          'fade-in-up': 'fadeInUp 0.7s ease-out forwards',
+          'fade-in-up': 'fadeInUp 1.0s ease-out forwards', // 0.7s から 1.0s に延長
           'fade-in': 'fadeIn 1.5s ease-in-out forwards',
           'fade-out': 'fadeOut 1.5s ease-in-out forwards',
           'spinner': 'spinner 1s linear infinite',
