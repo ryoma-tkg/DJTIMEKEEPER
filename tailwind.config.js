@@ -29,8 +29,16 @@ export default {
               'to': { opacity: '1' },
           },
           fadeOutDown: {
-              '0%': { opacity: '1', transform: 'translateY(0) translateZ(0)' },
-              '100%': { opacity: '0', transform: 'translateY(20px) translateZ(0)' },
+              '0%': { 
+                opacity: '1', 
+                transform: 'translateY(0) translateZ(0)', 
+                visibility: 'visible' /* アニメ開始時は見えるように */
+              },
+              '100%': { 
+                opacity: '0', 
+                transform: 'translateY(20px) translateZ(0)', 
+                visibility: 'hidden' /* アニメ終了時に完全に隠す */
+              },
           },
           fadeOut: {
               'from': { opacity: '1' },
