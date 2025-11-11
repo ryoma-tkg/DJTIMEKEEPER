@@ -498,40 +498,68 @@ import {
             );
         });
 
-        const useImagePreloader = (urls) => {
-            const [loaded, setLoaded] = useState(false);
+const useImagePreloader = (urls) => {
+            const [loadedUrls, setLoadedUrls] = useState(new Set());
+            // 依存配列用に、URLリストを文字列化
+            const urlsKey = JSON.stringify(urls); 
+
             useEffect(() => {
                 let isCancelled = false;
                 const loadImages = async () => {
                     const filteredUrls = urls.filter(Boolean);
                     if (filteredUrls.length === 0) {
-                        setLoaded(true);
+                        setLoadedUrls(new Set()); // 空の Set
                         return;
                     }
+                    
+                    // 既存のロード済みSetをコピー
+                    const newLoadedUrls = new Set(loadedUrls); 
+                    let needsUpdate = false; // Set の更新が必要か
+
                     try {
                         await Promise.all(
                             filteredUrls.map(url => {
+                                if (newLoadedUrls.has(url)) {
+                                    return Promise.resolve(); // 既にロード済み
+                                }
+                                needsUpdate = true; // 新しいロードが必要
+                                
+                                // 新しい画像をロード
                                 return new Promise((resolve) => {
                                     const img = new Image();
                                     img.src = url;
-                                    img.onload = resolve;
-                                    img.onerror = resolve; // Continue even if one image fails
+                                    img.onload = () => {
+                                        if (!isCancelled) {
+                                            newLoadedUrls.add(url); // ロード成功
+                                        }
+                                        resolve();
+                                    };
+                                    img.onerror = resolve; // 失敗しても次へ
                                 });
                             })
                         );
-                        if (!isCancelled) setLoaded(true);
+                        
+                        if (!isCancelled && needsUpdate) {
+                             setLoadedUrls(newLoadedUrls); // 新しい Set で更新
+                        }
+                        
                     } catch (error) {
                         console.error("Failed to preload images", error);
-                        if (!isCancelled) setLoaded(true); // Mark as loaded even on error
                     }
                 };
+                
                 loadImages();
+                
                 return () => { isCancelled = true; };
-            }, [JSON.stringify(urls)]);
-            return loaded;
+            }, [urlsKey]); // urlsKey (文字列) に依存
+
+            // 全てのURLがロードされたかどうかの boolean も返す
+            const allLoaded = urls.filter(Boolean).every(url => loadedUrls.has(url));
+            
+            return { loadedUrls, allLoaded };
         };
 
-const LiveView = ({ timetable, eventConfig, setMode }) => {
+const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             const [now, setNow] = useState(new Date());
             const timelineContainerRef = useRef(null);
             const [containerWidth, setContainerWidth] = useState(0);
@@ -593,13 +621,18 @@ const LiveView = ({ timetable, eventConfig, setMode }) => {
                     const dj = schedule[currentIndex];
                     const nextDj = (currentIndex < schedule.length - 1) ? schedule[currentIndex + 1] : null;
                     const total = (dj.endTime - dj.startTime) / 1000;
-                    const remaining = (dj.endTime - now) / 1000;
+                    
+                    // ★ 修正 ★
+                    // ミリ秒単位の remaining
+                    const remainingMs = (dj.endTime - now); 
+                    // 表示用の残り秒数 (切り上げ)
+                    const remainingSeconds = Math.ceil(remainingMs / 1000); 
                     
                     newContentData = {
                         ...dj, 
                         status: 'ON AIR',
-                        timeLeft: remaining,
-                        progress: total > 0 ? ((total - remaining) / total) * 100 : 0,
+                        timeLeft: remainingSeconds, // ★ 切り上げた秒数を渡す
+                        progress: total > 0 ? ((total - (remainingMs / 1000)) / total) * 100 : 0, // progress は正確な値
                         nextDj: nextDj
                     };
 
@@ -607,10 +640,14 @@ const LiveView = ({ timetable, eventConfig, setMode }) => {
                     const upcomingDj = schedule.find(dj => now < dj.startTime);
                     if (upcomingDj) {
                         // --- UPCOMING ---
+                        // ★ 修正 ★
+                        const remainingMs = (upcomingDj.startTime - now);
+                        const remainingSeconds = Math.ceil(remainingMs / 1000);
+                        
                         newContentData = {
                             ...upcomingDj, 
                             status: 'UPCOMING',
-                            timeLeft: (upcomingDj.startTime - now) / 1000, 
+                            timeLeft: remainingSeconds, // ★ 切り上げた秒数を渡す
                             progress: 0,
                             nextDj: schedule[0] 
                         };
@@ -632,26 +669,43 @@ const LiveView = ({ timetable, eventConfig, setMode }) => {
                 const newBgCandidate = (currentData?.status === 'ON AIR' && currentData.imageUrl && !currentData.isBuffer) ? currentData : null;
 
                 if (backgroundDj?.id === newBgCandidate?.id) {
-                    return; 
+                    return; // 変更なし
                 }
                 
-                const FADE_DURATION = 3000; // 3秒
-                
-                setFadingOutBgDj(backgroundDj); 
-                setBackgroundDj(null); 
-                
-                const delay = backgroundDj ? FADE_DURATION : 0;
+                // 1. 新しい背景候補があり、かつ画像がロード済みか？
+                const isNewImageReady = newBgCandidate && loadedUrls.has(newBgCandidate.imageUrl);
 
-                const timer = setTimeout(() => {
-                    setFadingOutBgDj(null); 
-                    if (newBgCandidate) {
+                if (isNewImageReady) {
+                    // --- 画像準備OK -> 切り替え実行 ---
+                    const FADE_DURATION = 3000; // 3秒
+                    
+                    setFadingOutBgDj(backgroundDj); // 今のをフェードアウト役に
+                    setBackgroundDj(null); // 表示役を一旦消す
+                    
+                    const delay = backgroundDj ? FADE_DURATION : 0; // フェードアウト時間
+
+                    // フェードアウト時間後に、表示役をセットし、フェードアウト役を消す
+                    const timer = setTimeout(() => {
+                        setFadingOutBgDj(null); 
                         setBackgroundDj(newBgCandidate); 
-                    }
-                }, delay);
+                    }, delay);
 
-                return () => clearTimeout(timer);
+                    return () => clearTimeout(timer);
+                    
+                } else if (!newBgCandidate && backgroundDj) {
+                    // --- ON AIR 終了 -> 背景を消す ---
+                    const FADE_DURATION = 3000;
+                    setFadingOutBgDj(backgroundDj);
+                    setBackgroundDj(null);
+                    
+                     const timer = setTimeout(() => {
+                        setFadingOutBgDj(null);
+                    }, FADE_DURATION);
+                    return () => clearTimeout(timer);
+                }
+                // (newBgCandidate はあるがロード中、または newBgCandidate がない場合は何もしない)
 
-            }, [currentData]); // ★ 依存配列は [currentData] だけでOKっす
+            }, [currentData, loadedUrls, backgroundDj]); // ★ loadedUrls と backgroundDj も依存に追加
 
             // メインコンテンツの切り替えロジック (currentData に依存)
             /* ▼▼▼ この useEffect がバグの元だったので、ロジックを総入れ替えっす！ ▼▼▼ */
@@ -731,7 +785,9 @@ const LiveView = ({ timetable, eventConfig, setMode }) => {
             
             const formatTime = (seconds) => {
                 if (seconds < 0) seconds = 0;
-                const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60), s = Math.floor(seconds % 60);
+                const h = Math.floor(seconds / 3600);
+                const m = Math.floor((seconds % 3600) / 60);
+                const s = Math.floor(seconds % 60);
                 return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
             };
             
@@ -818,24 +874,35 @@ const LiveView = ({ timetable, eventConfig, setMode }) => {
                     <div className="absolute top-24 bottom-32 left-0 right-0 px-4 flex items-center justify-center overflow-hidden"> 
                         <div className="w-full h-full overflow-y-auto flex items-center justify-center relative">
                           
-                          {/* 消えていくコンテンツ */}
+                          {/* ★ 修正 ★
+                              Chromeの残像バグ対策
+                              両方に absolute + inset-0 + flex で重ねる
+                              fadingOutContent を z-10 (手前)
+                              visibleContent を z-0 (奥)
+                          */}
+                          
+                          {/* 消えていくコンテンツ (手前) */}
                           {fadingOutContent && (
-                            /* ▼▼▼ key に 'fadeout-' を追加して、競合を完全に防ぐっす！ ▼▼▼ */
-                            <div key={`fadeout-${fadingOutContent.id}`} className="w-full animate-fade-out-down absolute p-4">
+                            <div 
+                                key={`fadeout-${fadingOutContent.id}`} 
+                                className="w-full animate-fade-out-down absolute inset-0 p-4 flex items-center justify-center z-10"
+                            >
                               {renderContent(fadingOutContent)}
                             </div>
                           )}
 
-                          {/* 表示されるコンテンツ */}
-                          {/* ★ 修正 ★ `displayedContent` -> `visibleContent` に変更 */}
+                          {/* 表示されるコンテンツ (奥) */}
                           {visibleContent && (
-                            <div key={visibleContent.id} className="w-full animate-fade-in-up p-4">
+                            <div 
+                                key={visibleContent.id} 
+                                className="w-full animate-fade-in-up absolute inset-0 p-4 flex items-center justify-center z-0"
+                            >
                               {renderContent(visibleContent)}
                             </div>
                           )}
 
                         </div>
-                    </div>
+                    </div>  
                     
                     {/* 下部タイムライン */}
                     {currentData?.status !== 'FINISHED' && ( 
@@ -889,7 +956,8 @@ const LiveView = ({ timetable, eventConfig, setMode }) => {
             const storageRef = useRef(null);
             
             const imageUrlsToPreload = useMemo(() => timetable.map(dj => dj.imageUrl), [timetable]);
-            const imagesLoaded = useImagePreloader(imageUrlsToPreload);
+            const { loadedUrls, allLoaded: imagesLoaded } = useImagePreloader(imageUrlsToPreload);
+            //const imagesLoaded = useImagePreloader(imageUrlsToPreload);
 
             useEffect(() => {
                 setTimeout(() => setIsInitialLoading(false), 2000);
@@ -1036,7 +1104,8 @@ const firebaseConfig = {
                             )}
                             {mode === 'edit' ? 
                                 <TimetableEditor {...{eventConfig, setEventConfig, timetable, setTimetable, setMode: handleSetMode, storage: storageRef.current}} /> : 
-                                <LiveView {...{timetable, eventConfig, setMode: handleSetMode}} />
+                                // ★ 修正 ★ LiveView に loadedUrls を渡す
+                                <LiveView {...{timetable, eventConfig, setMode: handleSetMode, loadedUrls}} />
                             }
                         </>
                     );
