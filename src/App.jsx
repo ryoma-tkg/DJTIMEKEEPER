@@ -841,7 +841,9 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         if (content.status === 'ON AIR') {
             const dj = content;
             const isImageReady = !dj.imageUrl || dj.isBuffer || loadedUrls.has(dj.imageUrl);
-            const isFadingIn = mode === 'FADE_IN'; // ★★★ FADE_IN モードか判定
+
+            // ★★★ 修正っす！ ★★★
+            const isFadingIn = mode === 'FADE_IN'; // FADE_IN モードか判定
 
             // ★★★ ログっす！ ★★★
             console.log(
@@ -854,10 +856,14 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                     {!dj.isBuffer && (
                         // ★★★ 修正っす！ ★★★
                         // FADE_IN の時だけ isIconVisible のロジックを適用する
+                        // FADE_OUT の時は isIconVisible を無視して opacity-100 にする
                         <div className={`
                             w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0 relative
                             will-change-opacity
-                            ${isFadingIn ? `transition-opacity duration-500 ease-in-out ${isIconVisible ? 'opacity-100' : 'opacity-0'}` : 'opacity-100'}
+                            ${isFadingIn
+                                ? `transition-opacity duration-500 ease-in-out ${isIconVisible ? 'opacity-100' : 'opacity-0'}`
+                                : 'opacity-100'
+                            }
                         `}>
 
                             {/* ★★★ 修正っす！ ★★★ */}
@@ -1086,6 +1092,8 @@ const App = () => {
         return () => unsubscribe();
     }, [isAuthenticated, appStatus]);
 
+
+
     const saveDataToFirestore = useCallback(() => {
         if (appStatus !== 'online' || !isAuthenticated || !dbRef.current) return;
 
@@ -1096,8 +1104,6 @@ const App = () => {
             console.error("Error saving data to Firestore:", error);
         });
     }, [timetable, eventConfig, isAuthenticated, appStatus]);
-
-
 
     useEffect(() => {
         if (appStatus === 'online' && !isInitialLoading) {
