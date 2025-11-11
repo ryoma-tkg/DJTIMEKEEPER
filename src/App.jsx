@@ -800,7 +800,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
 
     // ★★★ 修正箇所 ★★★
     // renderContent 関数
-    const renderContent = (content) => {
+    const renderContent = (content, forceIconVisible = false) => {
         if (!content) return null;
 
         // UPCOMING の場合
@@ -819,16 +819,16 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             const dj = content;
             // メインアイコンの画像がロード済みかチェック
             const isImageReady = !dj.imageUrl || dj.isBuffer || loadedUrls.has(dj.imageUrl);
+            const showIcon = isIconVisible || forceIconVisible;
 
             return (
                 <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
                     {!dj.isBuffer && (
-                        // ★★★ ここからが修正箇所っす！ ★★★
-                        // 「黒い丸」を常に描画し、中身を opacity で切り替える
+                        // ★★★ 3. opacityのクラスを showIcon で制御するっす！ ★★★
                         <div className={`
                             w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0 relative
                             transition-opacity duration-500 ease-out 
-                            ${isIconVisible ? 'opacity-100' : 'opacity-0'}
+                            ${showIcon ? 'opacity-100' : 'opacity-0'}
                             will-change-opacity
                         `}>
 
@@ -923,9 +923,10 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                     {fadingOutContent && (
                         <div
                             key={`fadeout-${fadingOutContent.id}`}
-                            className="w-full animate-fade-out-down absolute inset-0 p-4 flex items-center justify-center z-10 will-change-[transform,opacity]" // ★★★ これを追加っす！
+                            className="w-full animate-fade-out-down absolute inset-0 p-4 flex items-center justify-center z-10 will-change-[transform,opacity]"
                         >
-                            {renderContent(fadingOutContent)}
+                            {/* ★★★ ここを (fadingOutContent, true) に変更っす！ ★★★ */}
+                            {renderContent(fadingOutContent, true)}
                         </div>
                     )}
 
@@ -933,9 +934,10 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                     {visibleContent && (
                         <div
                             key={visibleContent.id}
-                            className="w-full animate-fade-in-up absolute inset-0 p-4 flex items-center justify-center z-0 will-change-[transform,opacity]" // ★★★ これも追加っす！
+                            className="w-full animate-fade-in-up absolute inset-0 p-4 flex items-center justify-center z-0 will-change-[transform,opacity]"
                         >
-                            {renderContent(visibleContent)}
+                            {/* ★★★ こっちは (visibleContent, false) か (visibleContent) のままっす！ ★★★ */}
+                            {renderContent(visibleContent, false)}
                         </div>
                     )}
 
