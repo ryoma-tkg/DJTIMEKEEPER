@@ -717,23 +717,21 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
 
         const oldContent = displayedContentRef.current;
 
-        // IDが変わってなかったら何もしない（初回ロード時もこれでOK）
         if (oldContent?.id === newContent.id) {
-            if (!animationTimerRef.current && !visibleContent) {
+            if (!animationTimerRef.current) {
                 setVisibleContent(newContent);
                 displayedContentRef.current = newContent;
             }
             return;
         }
 
-        // タイマーが残ってたらクリア
         if (animationTimerRef.current) {
-            clearTimeout(animationTimerRef.current);
+            clearTimeout(animationTimerRef.current.fadeInTimer);
+            clearTimeout(animationTimerRef.current.fadeOutTimer);
         }
 
         const CONTENT_FADE_OUT_DURATION = 500; // 0.5s
-
-        // ★★★ ここからが修正っす！ ★★★
+        const CONTENT_FADE_IN_DELAY = 100;    // 0.1s
 
         // 1. 古いコンテンツを「消えるやつ」にセット
         setFadingOutContent(oldContent);
@@ -749,7 +747,8 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         }, CONTENT_FADE_OUT_DURATION); // 500ms (アニメーション時間と合わせる)
 
         animationTimerRef.current = fadeOutTimer;
-        // ★★★ 修正はここまでっす！ ★★★
+
+        animationTimerRef.current = { fadeInTimer, fadeOutTimer };
 
     }, [currentData, visibleContent]);
 
