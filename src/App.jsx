@@ -827,19 +827,18 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                         // ★★★ 3. opacityのクラスを showIcon で制御するっす！ ★★★
                         <div className={`
                             w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0 relative
-                            transition-opacity duration-500 ease-out 
-                            ${showIcon ? 'opacity-100' : 'opacity-0'}
-                            will-change-opacity
+                            will-change-opacity 
                         `}>
 
                             {/* レイヤー1: コンテンツ（画像 or デフォルトアイコン） */}
                             {/* transition-opacity でフワッと表示させる */}
+                            {/* ★★★ 2. レイヤー1（中身）の opacity を showIcon で制御 ★★★ */}
                             <div className={`
                                 w-full h-full flex items-center justify-center 
-                                transition-opacity duration-300 ease-in-out 
-                                ${isImageReady ? 'opacity-100' : 'opacity-0'}
+                                transition-opacity duration-500 ease-out 
+                                ${showIcon && isImageReady ? 'opacity-100' : 'opacity-0'}
                                 will-change-opacity
-                            `}>
+                            `}> {/* ${isImageReady...} を ${showIcon && isImageReady...} に変更っす */}
                                 {dj.imageUrl ? (
                                     <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" />
                                 ) : (
@@ -849,13 +848,14 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
 
                             {/* レイヤー2: スピナー（上に重ねる） */}
                             {/* 画像URLがある時だけスピナーを考慮する */}
+                            {/* ★★★ 3. レイヤー2（スピナー）の opacity も showIcon で制御 ★★★ */}
                             {dj.imageUrl && (
                                 <div className={`
                                     absolute inset-0 flex items-center justify-center 
-                                    transition-opacity duration-300 ease-in-out 
-                                    ${isImageReady ? 'opacity-0' : 'opacity-100'}
-                                    will-change-opacity
-                                `}> {/* ★★★ これが当たってるか確認っす！ */}
+                                    transition-opacity duration-500 ease-out 
+                                    ${showIcon && !isImageReady ? 'opacity-100' : 'opacity-0'}
+                                    will-change-opacity 
+                                `}> {/* ${isImageReady...} を ${showIcon && !isImageReady...} に変更っす */}
                                     <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
                                 </div>
                             )}
