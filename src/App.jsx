@@ -536,22 +536,19 @@ import {
             const timelineContainerRef = useRef(null);
             const [containerWidth, setContainerWidth] = useState(0);
             
-            // ロジック上の「現在のDJ」
-            const [currentDj, setCurrentDj] = useState(null);
-            
-            const [nextDj, setNextDj] = useState(null);
-            const [status, setStatus] = useState('LOADING');
-            const [timeLeft, setTimeLeft] = useState(0);
-            const [progress, setProgress] = useState(0);
+            /* ▼▼▼ メインのステートをこれ1個にまとめるっす！ ▼▼▼ */
+            // タイムラインの「今」の状態をすべて保持するオブジェクト
+            // （例: { id: 'dj_a', status: 'ON AIR', timeLeft: 120, progress: 50, nextDj: {...} }）
+            const [currentData, setCurrentData] = useState(null); 
+            /* ▲▲▲ ここまで ▲▲▲ */
             
             // 背景画像用のステート
             const [backgroundDj, setBackgroundDj] = useState(null);
-            const [fadingOutBgDj, setFadingOutBgDj] = useState(null); // 名前を fadinOutDj -> fadingOutBgDj に変更
+            const [fadingOutBgDj, setFadingOutBgDj] = useState(null); 
 
-            /* ▼▼▼ メインコンテンツ表示用のステートを追加っす！ ▼▼▼ */
-            const [displayedContent, setDisplayedContent] = useState(null); // 表示するコンテンツ（DJオブジェクトまたはステータス）
-            const [fadingOutContent, setFadingOutContent] = useState(null); // 消えていくコンテンツ
-            /* ▲▲▲ ここまで ▲▲▲ */
+            // メインコンテンツ表示用のステート
+            const [displayedContent, setDisplayedContent] = useState(null); // 表示するコンテンツ（currentData のスナップショット）
+            const [fadingOutContent, setFadingOutContent] = useState(null); // 消えていくコンテンツ（古い displayedContent）
 
             const schedule = useMemo(() => {
                 if (timetable.length === 0) return [];
@@ -580,97 +577,94 @@ import {
                 };
             }, []);
             
-            // 毎秒実行: ロジック上の「今」の状態を計算してステートにセットする
+            // 毎秒実行: 「今」の状態を計算して、"currentData" ステートを更新する
             useEffect(() => {
                 const currentIndex = schedule.findIndex(dj => now >= dj.startTime && now < dj.endTime);
                 
-                let newCurrentDj = null;
-                let newStatus = 'LOADING';
-                let newTimeLeft = 0;
-                let newProgress = 0;
-                let newNextDj = null;
+                let newContentData = null; // このオブジェクトに "今" の状態を全部詰める
 
                 if (currentIndex !== -1) {
                     // --- ON AIR ---
-                    newStatus = 'ON AIR';
-                    newCurrentDj = schedule[currentIndex];
-                    if (currentIndex < schedule.length - 1) newNextDj = schedule[currentIndex + 1];
+                    const dj = schedule[currentIndex];
+                    const nextDj = (currentIndex < schedule.length - 1) ? schedule[currentIndex + 1] : null;
+                    const total = (dj.endTime - dj.startTime) / 1000;
+                    const remaining = (dj.endTime - now) / 1000;
                     
-                    const total = (schedule[currentIndex].endTime - schedule[currentIndex].startTime) / 1000;
-                    const remaining = (schedule[currentIndex].endTime - now) / 1000;
-                    newTimeLeft = remaining;
-                    newProgress = total > 0 ? ((total - remaining) / total) * 100 : 0;
+                    newContentData = {
+                        ...dj, // id, name, color, imageUrl, startTime, endTime など
+                        status: 'ON AIR',
+                        timeLeft: remaining,
+                        progress: total > 0 ? ((total - remaining) / total) * 100 : 0,
+                        nextDj: nextDj
+                    };
 
                 } else {
                     const upcomingDj = schedule.find(dj => now < dj.startTime);
                     if (upcomingDj) {
                         // --- UPCOMING ---
-                        newStatus = 'UPCOMING';
-                        newCurrentDj = upcomingDj; // 表示対象は「次のDJ」
-                        newTimeLeft = (upcomingDj.startTime - now) / 1000;
-                        newNextDj = schedule[0]; // NEXT UP は最初のDJ
+                        newContentData = {
+                            ...upcomingDj, // id, name, color, imageUrl, startTime, endTime など
+                            status: 'UPCOMING',
+                            timeLeft: (upcomingDj.startTime - now) / 1000, // 開始までの残り時間
+                            progress: 0,
+                            nextDj: schedule[0] // NEXT UP は最初のDJ
+                        };
                     } else {
                         // --- FINISHED ---
-                        newStatus = 'FINISHED';
+                        newContentData = {
+                            id: 'finished',
+                            status: 'FINISHED'
+                        };
                     }
-                    newProgress = 0;
                 }
-
-                // 計算結果をステートに一括セット
-                setCurrentDj(newCurrentDj);
-                setStatus(newStatus);
-                setNextDj(newNextDj);
-                setTimeLeft(newTimeLeft);
-                setProgress(newProgress);
+                
+                // 計算結果（"今" の状態）をステートにセット
+                setCurrentData(newContentData);
                 
             }, [now, schedule]);
 
-            // 背景画像の切り替えロジック
+            // 背景画像の切り替えロジック (currentData に依存)
             useEffect(() => {
-                const newBgCandidate = (status === 'ON AIR' && currentDj && currentDj.imageUrl && !currentDj.isBuffer) ? currentDj : null;
+                // `currentData` から「今表示すべき背景」を決定
+                const newBgCandidate = (currentData?.status === 'ON AIR' && currentData.imageUrl && !currentData.isBuffer) ? currentData : null;
 
                 if (backgroundDj?.id === newBgCandidate?.id) {
-                    return; 
+                    return; // 変更なし
                 }
                 
                 const FADE_DURATION = 3000; // 3秒
                 
-                setFadingOutBgDj(backgroundDj); // 今の背景をフェードアウト用にセット
-                setBackgroundDj(null); // 今の背景を消す
+                setFadingOutBgDj(backgroundDj); 
+                setBackgroundDj(null); 
                 
                 const delay = backgroundDj ? FADE_DURATION : 0;
 
                 const timer = setTimeout(() => {
-                    setFadingOutBgDj(null); // フェードアウト用をDOMから削除
+                    setFadingOutBgDj(null); 
                     if (newBgCandidate) {
-                        setBackgroundDj(newBgCandidate); // 新しい背景をフェードイン
+                        setBackgroundDj(newBgCandidate); 
                     }
                 }, delay);
 
                 return () => clearTimeout(timer);
 
-            }, [currentDj, status]); // backgroundDjも依存配列に追加
+            }, [currentData]); // ★ `currentData` が変わった時だけ実行
 
-            /* ▼▼▼ メインコンテンツの切り替えロジック（ここが重要っす！） ▼▼▼ */
+            // メインコンテンツの切り替えロジック (currentData に依存)
             useEffect(() => {
-                const CONTENT_FADE_OUT_DURATION = 500; // 0.5s（tailwind.config.jsで設定した時間）
-                const CONTENT_FADE_IN_DELAY = 100;    // 0.1s（フェードアウトと少し重ねる）
+                const CONTENT_FADE_OUT_DURATION = 500; // 0.5s
+                const CONTENT_FADE_IN_DELAY = 100;    // 0.1s
 
-                // 「表示すべき内容」を決定する。DJか、ステータス（'FINISHED'）か。
-                let newContent = null;
-                if (status === 'ON AIR' || status === 'UPCOMING') {
-                    newContent = currentDj;
-                } else if (status === 'FINISHED') {
-                    newContent = { id: 'finished', status: 'FINISHED' }; // FINISHED用のダミーオブジェクト
-                }
+                // `currentData`（最新の状態）を表示すべき `newContent` とする
+                const newContent = currentData; 
                 
                 // 表示内容が（IDベースで）変わったかチェック
                 if (newContent?.id !== displayedContent?.id) {
                     
-                    // 1. 今の表示内容を「フェードアウト」に回す
+                    // 1. 今の表示内容 (displayedContent) を「フェードアウト」に回す
                     setFadingOutContent(displayedContent);
                     
-                    // 2. 新しい表示内容を「少し遅れて」フェードインさせる
+                    // 2. 新しい表示内容 (newContent) を「少し遅れて」フェードインさせる
                     const fadeInTimer = setTimeout(() => {
                         setDisplayedContent(newContent);
                     }, CONTENT_FADE_IN_DELAY);
@@ -678,7 +672,7 @@ import {
                     // 3. フェードアウトした要素をDOMから消すタイマー
                     const fadeOutTimer = setTimeout(() => {
                         setFadingOutContent(null);
-                    }, CONTENT_FADE_OUT_DURATION + CONTENT_FADE_IN_DELAY); // フェードアウト時間 + 遅延時間
+                    }, CONTENT_FADE_OUT_DURATION + CONTENT_FADE_IN_DELAY); 
 
                     return () => {
                         clearTimeout(fadeInTimer);
@@ -686,8 +680,7 @@ import {
                     };
                 }
 
-            }, [currentDj, status, displayedContent]); // displayedContent も依存配列に
-            /* ▲▲▲ ここまで ▲▲▲ */
+            }, [currentData, displayedContent]); // ★ `currentData` が変わった時だけ実行
 
 
             const timelineTransform = useMemo(() => {
@@ -695,15 +688,15 @@ import {
                 const itemWidth = 256, gap = 24, step = itemWidth + gap;
                 const centerScreenOffset = containerWidth / 2, centerItemOffset = itemWidth / 2;
                 
-                let targetIndex = schedule.findIndex(dj => dj.id === currentDj?.id);
+                let targetIndex = schedule.findIndex(dj => dj.id === currentData?.id);
                 if (targetIndex === -1) {
-                    if (status === 'FINISHED') targetIndex = schedule.length -1;
+                    if (currentData?.status === 'FINISHED') targetIndex = schedule.length -1;
                     else targetIndex = 0;
                 }
 
                 const finalX = centerScreenOffset - centerItemOffset - (targetIndex * step);
                 return `translateX(${finalX}px)`;
-            }, [currentDj, containerWidth, schedule, status]);
+            }, [currentData, containerWidth, schedule]); // ★ `currentData` に依存
             
             const formatTime = (seconds) => {
                 if (seconds < 0) seconds = 0;
@@ -711,69 +704,63 @@ import {
                 return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
             };
             
-            // 背景色の計算はロジック上のcurrentDjを参照する
-            const bgColorStyle = (currentDj && status === 'ON AIR') ? { background: `radial-gradient(ellipse 80% 60% at 50% 120%, ${currentDj.color}33, transparent)` } : {};
+            // 背景色の計算は `currentData` を参照
+            const bgColorStyle = (currentData?.status === 'ON AIR') ? { background: `radial-gradient(ellipse 80% 60% at 50% 120%, ${currentData.color}33, transparent)` } : {};
             
             /* ▼▼▼ メインコンテンツを描画するヘルパー関数っす！ ▼▼▼ */
-            // この関数が DJ / UPCOMING / FINISHED のJSXを返します
+            // ★重要★ この関数は、引数で渡された `content` の中身だけを見て描画する
             const renderContent = (content) => {
                 if (!content) return null;
 
-                const dj = (content.status === 'FINISHED') ? null : content;
+                // UPCOMING の場合
+                if (content.status === 'UPCOMING') {
+                    return (
+                        <div className="text-center">
+                            <p className="text-sm text-on-surface-variant font-bold tracking-widest mb-1">FIRST DJ</p>
+                            <h1 className="text-5xl md:text-7xl font-bold my-2">{content.name}</h1>
+                            <p className="text-4xl md:text-5xl font-mono text-amber-400">開始まで {formatTime(content.timeLeft)}</p>
+                        </div>
+                    );
+                }
+                
+                // ON AIR の場合
+                if (content.status === 'ON AIR') {
+                    const dj = content; // 分かりやすく `dj` って名前にしとくっす
+                    return (
+                        <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
+                            {!dj.isBuffer && (
+                                <div className="w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0">
+                                    <div className="flex items-center justify-center w-full h-full">
+                                        {dj.imageUrl ? <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" /> : <UserIcon className="w-1/2 h-1/2 text-on-surface-variant"/>}
+                                    </div>
+                                </div>
+                            )}
+                            <div className={`flex flex-col ${dj.isBuffer ? 'items-center text-center' : 'text-center md:text-left'}`}>
+                                <div className="flex flex-col space-y-3">
+                                    <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold break-words leading-tight">{dj.name}</h1>
+                                    
+                                    <p className="text-2xl md:text-3xl font-semibold tracking-wider font-mono" style={{color: dj.color}}>
+                                        {dj.startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {dj.endTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                    </p>
 
-                // ON AIR または UPCOMING
-                if (dj) {
-                    // UPCOMING の場合
-                    // (statusはロジック上の最新を参照)
-                    if (status === 'UPCOMING' && dj.id === currentDj.id) {
-                        return (
-                            <div className="text-center">
-                                <p className="text-sm text-on-surface-variant font-bold tracking-widest mb-1">FIRST DJ</p>
-                                <h1 className="text-5xl md:text-7xl font-bold my-2">{dj.name}</h1>
-                                <p className="text-4xl md:text-5xl font-mono text-amber-400">開始まで {formatTime(timeLeft)}</p>
-                            </div>
-                        );
-                    }
-                    
-                    // ON AIR の場合
-                    // (statusはロジック上の最新を参照)
-                    if (status === 'ON AIR' && dj.id === currentDj.id) {
-                        return (
-                            <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
-                                {!dj.isBuffer && (
-                                    <div className="w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0">
-                                        <div className="flex items-center justify-center w-full h-full">
-                                            {dj.imageUrl ? <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" /> : <UserIcon className="w-1/2 h-1/2 text-on-surface-variant"/>}
-                                        </div>
+                                    <p className="flex items-baseline justify-center md:justify-start text-6xl sm:text-7xl md:text-8xl text-on-surface my-2 whitespace-nowrap">
+                                        <span className="text-3xl sm:text-4xl text-on-surface-variant mr-4 font-sans font-bold">残り</span>
+                                        <span className="font-mono inline-block text-left w-[5ch]">{formatTime(dj.timeLeft)}</span>
+                                    </p>
+                                    
+                                    <div className={`bg-surface-container rounded-full h-3.5 overflow-hidden w-full`}>
+                                        <div className="h-full rounded-full transition-all duration-500 ease-linear" style={{ width: `${dj.progress}%`, backgroundColor: dj.color }}></div>
+                                    </div>
+                                </div>
+                                {dj.nextDj && (
+                                    <div className="mt-8 pt-6 border-t border-on-surface-variant/20">
+                                        <p className="text-sm text-on-surface-variant font-bold tracking-widest mb-1">NEXT UP</p>
+                                        <p className="text-2xl font-semibold">{dj.nextDj.name} <span className="text-lg font-sans text-on-surface-variant ml-2 font-mono">{dj.nextDj.startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} ~</span></p>
                                     </div>
                                 )}
-                                <div className={`flex flex-col ${dj.isBuffer ? 'items-center text-center' : 'text-center md:text-left'}`}>
-                                    <div className="flex flex-col space-y-3">
-                                        <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold break-words leading-tight">{dj.name}</h1>
-                                        
-                                        <p className="text-2xl md:text-3xl font-semibold tracking-wider font-mono" style={{color: dj.color}}>
-                                            {dj.startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {dj.endTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                        </p>
-
-                                        <p className="flex items-baseline justify-center md:justify-start text-6xl sm:text-7xl md:text-8xl text-on-surface my-2 whitespace-nowrap">
-                                            <span className="text-3xl sm:text-4xl text-on-surface-variant mr-4 font-sans font-bold">残り</span>
-                                            <span className="font-mono inline-block text-left w-[5ch]">{formatTime(timeLeft)}</span>
-                                        </p>
-                                        
-                                        <div className={`bg-surface-container rounded-full h-3.5 overflow-hidden w-full`}>
-                                            <div className="h-full rounded-full transition-all duration-500 ease-linear" style={{ width: `${progress}%`, backgroundColor: dj.color }}></div>
-                                        </div>
-                                    </div>
-                                    {nextDj && (
-                                        <div className="mt-8 pt-6 border-t border-on-surface-variant/20">
-                                            <p className="text-sm text-on-surface-variant font-bold tracking-widest mb-1">NEXT UP</p>
-                                            <p className="text-2xl font-semibold">{nextDj.name} <span className="text-lg font-sans text-on-surface-variant ml-2 font-mono">{nextDj.startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} ~</span></p>
-                                        </div>
-                                    )}
-                                </div>
-                            </main>
-                        );
-                    }
+                            </div>
+                        </main>
+                    );
                 }
 
                 // FINISHED の場合
@@ -781,8 +768,6 @@ import {
                      return ( <div className="text-center"><h1 className="text-5xl md:text-7xl font-bold">EVENT FINISHED</h1></div> );
                 }
 
-                // フェードアウト中だが、statusが切り替わった場合（例：ON AIR -> FINISHED）
-                // ここで null を返さないと、古い ON AIR の表示が残ってしまう
                 return null;
             };
             /* ▲▲▲ ヘルパー関数ここまで ▲▲▲ */
@@ -803,11 +788,8 @@ import {
                     <button onClick={() => setMode('edit')} className="absolute top-4 md:top-8 right-4 flex items-center bg-surface-container hover:opacity-90 text-white font-bold py-2 px-4 rounded-full transition-opacity duration-200 text-sm z-20">編集</button>
 
                     {/* メインコンテンツエリア */}
-                    <div className="absolute top-24 bottom-32 left-0 right-0 px-4 flex items-center justify-center">
-                        {/* ★修正★ 
-                          w-full h-full ... のコンテナを 'relative' にして、
-                          2つのアニメーション要素を 'absolute' で重ねられるようにするっす
-                        */}
+                    {/* ★修正★ Safariでのスクロールバーちらつき防止に `overflow-hidden` を追加 */}
+                    <div className="absolute top-24 bottom-32 left-0 right-0 px-4 flex items-center justify-center overflow-hidden"> 
                         <div className="w-full h-full overflow-y-auto flex items-center justify-center relative">
                           
                           {/* 消えていくコンテンツ */}
@@ -828,7 +810,7 @@ import {
                     </div>
                     
                     {/* 下部タイムライン */}
-                    {status !== 'FINISHED' && (
+                    {currentData?.status !== 'FINISHED' && ( // ★ `currentData` を参照するように修正
                         <div ref={timelineContainerRef} className="absolute bottom-0 left-0 right-0 w-full shrink-0 overflow-hidden mask-gradient z-10 pb-4 h-32">
                             <div 
                               className="flex h-full items-center space-x-6 px-4 py-2 will-change-transform"
@@ -844,7 +826,8 @@ import {
                                         shrink-0 w-64 h-24 bg-surface-container/40 backdrop-blur-sm rounded-2xl p-4 flex items-center 
                                         border border-white/30 
                                         ${dj.isBuffer ? 'justify-center' : 'space-x-6'} 
-                                        ${(status === 'ON AIR' && dj.id === currentDj?.id) ? 'opacity-100 scale-100' : 'opacity-60 scale-90'}
+                                       
+                                        ${(currentData?.status === 'ON AIR' && dj.id === currentData?.id) ? 'opacity-100 scale-100' : 'opacity-60 scale-90'}
                                         transition-[opacity,transform] duration-1000 ease-in-out
                                         will-change-[opacity,transform]
                                       `}
