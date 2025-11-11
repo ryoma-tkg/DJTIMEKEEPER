@@ -731,6 +731,14 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         // 2. IDが切り替えわった時 (DJが変更された)
         // ---
 
+        const isNewImageReady = !newContent.imageUrl || newContent.isBuffer || loadedUrls.has(newContent.imageUrl);
+
+        // もしロードされてないなら、トランジションを開始せずに待機！
+        // loadedUrls が更新されたら、このuseEffectが再実行されるっす
+        if (!isNewImageReady) {
+            return;
+        }
+
         // 実行中のアニメーションがあれば止める（連打対策）
         if (animationTimerRef.current) {
             clearTimeout(animationTimerRef.current.fadeInTimer);
@@ -763,7 +771,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         // 2-5. タイマーをRefに保存
         animationTimerRef.current = { fadeInTimer, fadeOutTimer };
 
-    }, [currentData]); // ★ 依存配列は [currentData] だけにする！
+    }, [currentData, loadedUrls]); // ★ 依存配列は [currentData] だけにする！
     /* ▲▲▲ この useEffect の修正っす！ ▲▲▲ */
 
 
@@ -813,7 +821,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             // ★★★ ここから修正っす！ ★★★
             // メインアイコンの画像がロード済みかチェック
             const isImageReady = !dj.imageUrl || dj.isBuffer || loadedUrls.has(dj.imageUrl);
-
+            /*
             // まだロードされてなかったら、スピナー（くるくる）を表示する
             if (!isImageReady) {
                 return (
@@ -822,6 +830,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                     </div>
                 );
             }
+            */
             return (
                 <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
                     {!dj.isBuffer && (
@@ -874,8 +883,16 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             {fadingOutBgDj && <BackgroundImage key={fadingOutBgDj.id} dj={fadingOutBgDj} isFadingOut={true} />}
             {backgroundDj && <BackgroundImage key={backgroundDj.id} dj={backgroundDj} isFadingOut={false} />}
 
-            {/* ヘッダー と 編集ボタン */}
-            {/* ... (変更なし) ... */}
+            {/* ★★★ ここから修正っす！ ★★★ */}
+            {/* 消えていたヘッダーと編集ボタンを復活！ */}
+            <header className="absolute top-4 md:top-8 left-1/2 -translate-x-1/2 w-max flex flex-col items-center space-y-2 z-20">
+                <h1 className="text-xl font-bold text-on-surface-variant tracking-wider">{eventConfig.title}</h1>
+                <div className="bg-black/30 backdrop-blur-sm text-on-surface font-bold py-2 px-4 rounded-full text-2xl tracking-wider font-mono text-center w-[10ch]">
+                    {now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </div>
+            </header>
+            <button onClick={() => setMode('edit')} className="absolute top-4 md:top-8 right-4 flex items-center bg-surface-container hover:opacity-90 text-white font-bold py-2 px-4 rounded-full transition-opacity duration-200 text-sm z-20">編集</button>
+            {/* ★★★ ここまで修正っす！ ★★★ */}
 
             {/* メインコンテンツエリア */}
             <div className="absolute top-24 bottom-32 left-0 right-0 px-4 flex items-center justify-center overflow-hidden">
