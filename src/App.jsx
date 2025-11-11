@@ -802,28 +802,35 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                 <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
                     {!dj.isBuffer && (
                         // ★★★ ここからが修正箇所っす！ ★★★
-                        isImageReady ? (
-                            // 1. 画像が準備OK (またはURLなし)
-                            <div className="w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0">
-                                <div className="flex items-center justify-center w-full h-full">
-                                    {dj.imageUrl ? (
-                                        <SimpleImage
-                                            src={dj.imageUrl}
-                                            className="w-full h-full object-cover"
-                                        />
-                                    ) : (
-                                        <UserIcon className="w-1/2 h-1/2 text-on-surface-variant" />
-                                    )}
+                        // 「黒い丸」を常に描画し、中身を opacity で切り替える
+                        <div className="w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0 relative">
+
+                            {/* レイヤー1: コンテンツ（画像 or デフォルトアイコン） */}
+                            {/* transition-opacity でフワッと表示させる */}
+                            <div className={`
+                                w-full h-full flex items-center justify-center 
+                                transition-opacity duration-300 ease-in-out 
+                                ${isImageReady ? 'opacity-100' : 'opacity-0'}
+                            `}>
+                                {dj.imageUrl ? (
+                                    <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" />
+                                ) : (
+                                    <UserIcon className="w-1/2 h-1/2 text-on-surface-variant" />
+                                )}
+                            </div>
+
+                            {/* レイヤー2: スピナー（上に重ねる） */}
+                            {/* 画像URLがある時だけスピナーを考慮する */}
+                            {dj.imageUrl && (
+                                <div className={`
+                                    absolute inset-0 flex items-center justify-center 
+                                    transition-opacity duration-300 ease-in-out 
+                                    ${isImageReady ? 'opacity-0' : 'opacity-100'}
+                                `}>
+                                    <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
                                 </div>
-                            </div>
-                        ) : (
-                            // 2. 画像URLはあるけど、まだロードされてない場合
-                            // 「黒い枠」を表示せず、スピナーだけを表示する
-                            <div className="w-full max-w-sm sm:max-w-md aspect-square rounded-full shadow-2xl flex-shrink-0 flex items-center justify-center">
-                                {/* bg-surface-container を削除！ */}
-                                <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
-                            </div>
-                        )
+                            )}
+                        </div>
                         // ★★★ 修正はここまでっす！ ★★★
                     )}
                     <div className={`flex flex-col ${dj.isBuffer ? 'items-center text-center' : 'text-center md:text-left'}`}>
