@@ -717,40 +717,42 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
 
         const oldContent = displayedContentRef.current;
 
+        // (A) DJが同じで、情報（残り時間など）だけ更新される場合
         if (oldContent?.id === newContent.id) {
-            if (!animationTimerRef.current) {
+            // まだ何も表示されてない初回ロード時
+            if (!visibleContent) {
                 setVisibleContent(newContent);
                 displayedContentRef.current = newContent;
             }
+            // 既に表示されてる場合は、何もしない（renderContentが勝手に残り時間を更新する）
             return;
         }
 
+        // (B) DJが切り替わった場合
+
+        // 既に進行中のアニメーションタイマー（古いDOMを消すやつ）があればクリア
         if (animationTimerRef.current) {
-            clearTimeout(animationTimerRef.current.fadeInTimer);
-            clearTimeout(animationTimerRef.current.fadeOutTimer);
+            clearTimeout(animationTimerRef.current); // refにはタイマーIDだけを入れる
         }
 
         const CONTENT_FADE_OUT_DURATION = 500; // 0.5s
-        const CONTENT_FADE_IN_DELAY = 100;    // 0.1s
 
-        // 1. 古いコンテンツを「消えるやつ」にセット
+        // 1. 古いコンテンツを「消えるアニメーション用」ステートにセット
         setFadingOutContent(oldContent);
 
-        // 2. 新しいコンテンツを「見えるやつ」に【即座に】セット（遅延させない！）
+        // 2. 新しいコンテンツを「入ってくるアニメーション用」ステートにセット
         setVisibleContent(newContent);
         displayedContentRef.current = newContent;
 
-        // 3. 古いコンテンツのDOMを 0.5秒後に削除するタイマー
+        // 3. 0.5秒後（消えるアニメーション完了時）に古いDOMを消す
         const fadeOutTimer = setTimeout(() => {
             setFadingOutContent(null);
             animationTimerRef.current = null;
-        }, CONTENT_FADE_OUT_DURATION); // 500ms (アニメーション時間と合わせる)
+        }, CONTENT_FADE_OUT_DURATION);
 
-        animationTimerRef.current = fadeOutTimer;
+        animationTimerRef.current = fadeOutTimer; // タイマーIDをrefに保存
 
-        animationTimerRef.current = { fadeInTimer, fadeOutTimer };
-
-    }, [currentData, visibleContent]);
+    }, [currentData]); // ★★★ 依存配列は [currentData] だけにするっす！
 
 
     const timelineTransform = useMemo(() => {
@@ -828,8 +830,8 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                                     absolute inset-0 flex items-center justify-center 
                                     transition-opacity duration-300 ease-in-out 
                                     ${isImageReady ? 'opacity-0' : 'opacity-100'}
-                                    will-change-opacity
-                                `}>
+                                    will-change-opacity 
+                                `}> {/* ★★★ will-change-opacity を確認っす！ */}
                                     <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
                                 </div>
                             )}
@@ -897,7 +899,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                     {fadingOutContent && (
                         <div
                             key={`fadeout-${fadingOutContent.id}`}
-                            className="w-full animate-fade-out-down absolute inset-0 p-4 flex items-center justify-center z-10 will-change-[transform,opacity]" // ★★★ 追加っす！
+                            className="w-full animate-fade-out-down absolute inset-0 p-4 flex items-center justify-center z-10 will-change-[transform,opacity]" // ★★★ これを追加っす！
                         >
                             {renderContent(fadingOutContent)}
                         </div>
@@ -907,7 +909,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                     {visibleContent && (
                         <div
                             key={visibleContent.id}
-                            className="w-full animate-fade-in-up absolute inset-0 p-4 flex items-center justify-center z-0 will-change-[transform,opacity]" // ★★★ 追加っす！
+                            className="w-full animate-fade-in-up absolute inset-0 p-4 flex items-center justify-center z-0 will-change-[transform,opacity]" // ★★★ これも追加っす！
                         >
                             {renderContent(visibleContent)}
                         </div>
