@@ -667,7 +667,7 @@ import {
             const bgColorStyle = (djToDisplay && status === 'ON AIR') ? { background: `radial-gradient(ellipse 80% 60% at 50% 120%, ${djToDisplay.color}33, transparent)` } : {};
             
             return (
-                <div className="fixed inset-0 flex flex-col pt-4 md:pt-8 overflow-hidden" style={bgColorStyle}>
+                <div className="fixed inset-0 flex flex-col pt-4 md:pt-8" style={bgColorStyle}>
                     {fadingOutDj && <BackgroundImage key={`fadeout-${fadingOutDj.id}`} dj={fadingOutDj} isFadingOut={true} />}
                     {backgroundDj && <BackgroundImage key={`bg-${backgroundDj.id}`} dj={backgroundDj} isFadingOut={false} />}
                     
