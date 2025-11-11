@@ -550,7 +550,7 @@ const useImagePreloader = (urls) => {
                 );
 
                 if (!isCancelled && needsUpdate) {
-                    console.log('[useImagePreloader] Images loaded:', newLoadedUrls); // ★★★ ログ追加っす！ ★★★
+                    console.log('[useImagePreloader] Images loaded:', newLoadedUrls);
                     setLoadedUrls(newLoadedUrls); // 新しい Set で更新
                 }
 
@@ -717,24 +717,24 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
     }, [currentData, backgroundDj, loadedUrls, isBackgroundReady]);
 
 
-    // メインコンテンツの切り替えロジック
+    // メインコンテンツの切り替えロジック (3回目修正のまま)
     useEffect(() => {
         const newContent = currentData;
-        if (!newContent) return;
+        if (!newContent) return; // データがなければ何もしない
 
         const oldContent = displayedContentRef.current;
 
         // (A) DJが同じで、情報（残り時間など）だけ更新される場合
         if (oldContent?.id === newContent.id) {
-            // console.log(`[LiveView] DJ CHANGE: NO (Update ${newContent.id})`); // ログうるさいのでコメントアウト
-            setVisibleContent(newContent);
+            setVisibleContent(newContent); // ★ タイマーが動くように毎秒更新
             displayedContentRef.current = newContent;
-            return;
+            return; // これ以上のアニメーション処理は不要
         }
 
         // (B) DJが切り替わった場合 (クロスフェード処理)
-        console.log(`[LiveView] DJ CHANGE: YES (From ${oldContent?.id} to ${newContent.id})`); // ★★★ ログ追加っす！ ★★★
+        console.log(`[LiveView] DJ CHANGE: YES (From ${oldContent?.id} to ${newContent.id})`);
 
+        // 既存のアニメーションタイマーをクリア
         if (animationTimerRef.current) {
             clearTimeout(animationTimerRef.current);
         }
@@ -742,7 +742,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         // ★★★ ここから追加っす！ ★★★
         // アイコンの表示ステートをリセット
         setIsIconVisible(false);
-        console.log('[LiveView] 1. Set isIconVisible: false'); // ★★★ ログ追加っす！ ★★★
+        console.log('[LiveView] 1. Set isIconVisible: false');
         // 既存のアイコンフェードインチューマーがあればクリア
         if (iconFadeInTimerRef.current) {
             clearTimeout(iconFadeInTimerRef.current);
@@ -750,7 +750,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         }
         // ★★★ ここまで追加っす！ ★★★
 
-        const CONTENT_FADE_OUT_DURATION = 500;
+        const CONTENT_FADE_OUT_DURATION = 500; // 0.5s
 
         // 1. 古いコンテンツを「消える用」にセット
         setFadingOutContent(oldContent);
@@ -767,14 +767,13 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
 
         animationTimerRef.current = fadeOutTimer;
 
-    }, [currentData]);
-
+    }, [currentData]); // ★★★ 依存配列は [currentData] だけにするっす！
 
     // ★★★ ここから追加っす！ ★★★
     // 新しいコンテンツ（visibleContent）が表示されたら、
     // わずかに遅れてアイコン（isIconVisible）をフェードインさせる
     useEffect(() => {
-        console.log(`[LiveView] 2. visibleContent changed to: ${visibleContent?.id}`); // ★★★ ログ追加っす！ ★★★
+        console.log(`[LiveView] 2. visibleContent changed to: ${visibleContent?.id}`);
         // 既存のタイマーがあればクリア
         if (iconFadeInTimerRef.current) {
             clearTimeout(iconFadeInTimerRef.current);
@@ -784,14 +783,14 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             // メインのアニメーション(fade-in-up)が始まってからアイコンをフェードインさせる
             // 50ms (0.05秒) のディレイ
             iconFadeInTimerRef.current = setTimeout(() => {
-                console.log(`[LiveView] 4. Timer Fired! Setting isIconVisible: true (DJ: ${visibleContent.id})`); // ★★★ ログ追加っす！ ★★★
+                console.log(`[LiveView] 4. Timer Fired! Setting isIconVisible: true (DJ: ${visibleContent.id})`);
                 setIsIconVisible(true);
             }, 50);
-            console.log('[LiveView] 3. Setting icon timer (50ms)...'); // ★★★ ログ追加っす！ ★★★
+            console.log('[LiveView] 3. Setting icon timer (50ms)...');
 
         } else if (visibleContent) {
             // ON AIR 以外 (バッファ、UPCOMING, FINISHED) の場合は、ディレイなしで即時表示
-            console.log(`[LiveView] 3. (No timer) Setting isIconVisible: true (for ${visibleContent.id})`); // ★★★ ログ追加っす！ ★★★
+            console.log(`[LiveView] 3. (No timer) Setting isIconVisible: true (for ${visibleContent.id})`);
             setIsIconVisible(true);
         }
 
@@ -833,7 +832,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
 
     // ★★★ 修正箇所 ★★★
     // renderContent 関数
-    const renderContent = (content, logLabel) => { // ★★★ ログ用引数を追加
+    const renderContent = (content, mode) => { // ★★★ mode 引数を追加っす！
         if (!content) return null;
 
         // ... (UPCOMING の部分は変更なし) ...
@@ -842,10 +841,11 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         if (content.status === 'ON AIR') {
             const dj = content;
             const isImageReady = !dj.imageUrl || dj.isBuffer || loadedUrls.has(dj.imageUrl);
+            const isFadingIn = mode === 'FADE_IN'; // ★★★ FADE_IN モードか判定
 
-            // ★★★ これが重要っす！ ★★★
+            // ★★★ ログっす！ ★★★
             console.log(
-                `%c[renderContent] ${logLabel}`, 'font-weight: bold;',
+                `%c[renderContent] ${mode}`, 'font-weight: bold;',
                 `DJ: ${dj.id}, isIconVisible: ${isIconVisible}, isImageReady: ${isImageReady}`
             );
 
@@ -853,17 +853,15 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                 <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
                     {!dj.isBuffer && (
                         // ★★★ 修正っす！ ★★★
-                        // アイコンの「黒い丸」コンテナに transition-opacity と
-                        // isIconVisible に連動した opacity を追加
+                        // FADE_IN の時だけ isIconVisible のロジックを適用する
                         <div className={`
                             w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0 relative
                             will-change-opacity
-                            transition-opacity duration-500 ease-in-out 
-                            ${isIconVisible ? 'opacity-100' : 'opacity-0'}
+                            ${isFadingIn ? `transition-opacity duration-500 ease-in-out ${isIconVisible ? 'opacity-100' : 'opacity-0'}` : 'opacity-100'}
                         `}>
 
                             {/* ★★★ 修正っす！ ★★★ */}
-                            {/* レイヤー1（中身）: isImageReady が true なら transition を適用しない */}
+                            {/* 中身のロジックは前回（5回目）のままでOK */}
                             <div className={`
                                 w-full h-full flex items-center justify-center 
                                 ${isImageReady ? 'opacity-100' : 'opacity-0 transition-opacity duration-300 ease-in-out'}
@@ -877,7 +875,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                             </div>
 
                             {/* ★★★ 修正っす！ ★★★ */}
-                            {/* レイヤー2（スピナー）: isImageReady が true なら transition を適用しない */}
+                            {/* 中身のロジックは前回（5回目）のままでOK */}
                             {dj.imageUrl && (
                                 <div className={`
                                     absolute inset-0 flex items-center justify-center 
@@ -952,7 +950,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                             key={`fadeout-${fadingOutContent.id}`}
                             className="w-full animate-fade-out-down absolute inset-0 p-4 flex items-center justify-center z-10 will-change-[transform,opacity]"
                         >
-                            {renderContent(fadingOutContent, 'FADE_OUT')} {/* ★★★ ログ用引数を追加 */}
+                            {renderContent(fadingOutContent, 'FADE_OUT')} {/* ★★★ mode引数を渡すっす！ ★★★ */}
                         </div>
                     )}
 
@@ -962,7 +960,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                             key={visibleContent.id}
                             className="w-full animate-fade-in-up absolute inset-0 p-4 flex items-center justify-center z-0 will-change-[transform,opacity]"
                         >
-                            {renderContent(visibleContent, 'FADE_IN')} {/* ★★★ ログ用引数を追加 */}
+                            {renderContent(visibleContent, 'FADE_IN')} {/* ★★★ mode引数を渡すっす！ ★★★ */}
                         </div>
                     )}
 
@@ -1088,8 +1086,6 @@ const App = () => {
         return () => unsubscribe();
     }, [isAuthenticated, appStatus]);
 
-
-
     const saveDataToFirestore = useCallback(() => {
         if (appStatus !== 'online' || !isAuthenticated || !dbRef.current) return;
 
@@ -1100,6 +1096,8 @@ const App = () => {
             console.error("Error saving data to Firestore:", error);
         });
     }, [timetable, eventConfig, isAuthenticated, appStatus]);
+
+
 
     useEffect(() => {
         if (appStatus === 'online' && !isInitialLoading) {
