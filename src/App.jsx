@@ -667,35 +667,39 @@ import {
             const bgColorStyle = (djToDisplay && status === 'ON AIR') ? { background: `radial-gradient(ellipse 80% 60% at 50% 120%, ${djToDisplay.color}33, transparent)` } : {};
             
             return (
-                <div className="fixed inset-0 flex flex-col pt-4 md:pt-8" style={bgColorStyle}>
+                /* ★修正1: 親から flex-col と pt-* (padding) を削除 */
+                <div className="fixed inset-0" style={bgColorStyle}>
                     {fadingOutDj && <BackgroundImage key={`fadeout-${fadingOutDj.id}`} dj={fadingOutDj} isFadingOut={true} />}
                     {backgroundDj && <BackgroundImage key={`bg-${backgroundDj.id}`} dj={backgroundDj} isFadingOut={false} />}
                     
-                    <header className="absolute top-4 left-1/2 -translate-x-1/2 w-max flex flex-col items-center space-y-2 z-20">
+                    {/* ★修正2: ヘッダーと編集ボタンは absolute 配置で上端からの位置を指定 */}
+                    <header className="absolute top-4 md:top-8 left-1/2 -translate-x-1/2 w-max flex flex-col items-center space-y-2 z-20">
                            <h1 className="text-xl font-bold text-on-surface-variant tracking-wider">{eventConfig.title}</h1>
                            <div className="bg-black/30 backdrop-blur-sm text-on-surface font-bold py-2 px-4 rounded-full text-2xl tracking-wider font-mono text-center w-[10ch]">
                             {now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                         </div>
                     </header>
-                    <button onClick={() => setMode('edit')} className="absolute top-4 right-4 flex items-center bg-surface-container hover:opacity-90 text-white font-bold py-2 px-4 rounded-full transition-opacity duration-200 text-sm z-20">編集</button>
+                    <button onClick={() => setMode('edit')} className="absolute top-4 md:top-8 right-4 flex items-center bg-surface-container hover:opacity-90 text-white font-bold py-2 px-4 rounded-full transition-opacity duration-200 text-sm z-20">編集</button>
 
-                    <div className="flex-1 flex items-center justify-center w-full relative px-4 min-h-0">
+                    {/* ★修正3: メインコンテンツエリアを absolute 配置に変更 */}
+                    {/* flex-1 と min-h-0 を削除 */}
+                    {/* ヘッダー用に top-24 (96px), タイムライン用に bottom-32 (128px) を空ける */}
+                    <div className="absolute top-24 bottom-32 left-0 right-0 px-4 flex items-center justify-center">
+                        {/* この w-full h-full のラッパーは、
+                          親(absolute)の領域内でスクロールと中央寄せを実現するために必要
+                        */}
                         <div className="w-full h-full overflow-y-auto flex items-center justify-center">
                           <div key={`${status}-${djToDisplay?.id || 'finished'}`} className="w-full animate-fade-in-up">
                               {status === 'ON AIR' && djToDisplay && (
-                                  /* ★修正2: gap-8 -> space-y-8 md:space-y-0 md:space-x-8 */
                                   <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
                                       {!djToDisplay.isBuffer && (
-                                          /* ★修正3: aspect-square の子要素を div でラップ */
                                           <div className="w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0">
-                                              {/* このラッパーdivがCSSフォールバックによって絶対配置されます */}
                                               <div className="flex items-center justify-center w-full h-full">
                                                   {djToDisplay.imageUrl ? <SimpleImage src={djToDisplay.imageUrl} className="w-full h-full object-cover" /> : <UserIcon className="w-1/2 h-1/2 text-on-surface-variant"/>}
                                               </div>
                                           </div>
                                       )}
                                       <div className={`flex flex-col ${djToDisplay.isBuffer ? 'items-center text-center' : 'text-center md:text-left'}`}>
-                                          {/* ★修正4: gap-3 -> space-y-3 */}
                                           <div className="flex flex-col space-y-3">
                                               <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold break-words leading-tight">{djToDisplay.name}</h1>
                                               
@@ -733,12 +737,11 @@ import {
                         </div>
                     </div>
                     
+                    {/* ★修正4: タイムラインエリアも absolute 配置に変更 */}
                     {status !== 'FINISHED' && (
-                        <div ref={timelineContainerRef} className="w-full shrink-0 overflow-hidden mask-gradient z-10 pb-4">
-                            {/* ★修正5: gap-6 -> space-x-6 */}
+                        <div ref={timelineContainerRef} className="absolute bottom-0 left-0 right-0 w-full shrink-0 overflow-hidden mask-gradient z-10 pb-4 h-32"> {/* 高さを h-32 (8rem) に明示的に指定 */}
                             <div className="flex h-full items-center space-x-6 px-4 py-2" style={{ transform: timelineTransform, transition: 'transform 0.5s ease-in-out' }}>
                                 {schedule.map((dj, index) => (
-                                    /* ★修正6: gap-6 -> space-x-6 */
                                     <div key={dj.id} className={`shrink-0 w-64 h-24 bg-surface-container/40 backdrop-blur-sm rounded-2xl p-4 flex items-center transition-all duration-500 border border-white/30 ${dj.isBuffer ? 'justify-center' : 'space-x-6'} ${(status === 'ON AIR' && dj.id === currentDj?.id) ? 'opacity-100 scale-100' : 'opacity-60 scale-90'}`}>
                                         {!dj.isBuffer && (
                                             <div className="w-14 h-14 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center overflow-hidden">
