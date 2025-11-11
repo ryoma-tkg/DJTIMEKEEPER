@@ -663,9 +663,9 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
 
     }, [now, schedule]);
 
-    // ★★★ 修正箇所 1 ★★★
+    // ★★★ 修正箇所 ★★★
     // 背景画像の切り替えロジック (currentData に依存)
-    // isNewImageReady チェックを削除して、アニメーションを即開始するっす！
+    // `delay` のロジックを復活させたっす！
     useEffect(() => {
         const newBgCandidate = (currentData?.status === 'ON AIR' && currentData.imageUrl && !currentData.isBuffer) ? currentData : null;
 
@@ -675,37 +675,41 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
 
         const FADE_DURATION = 3000; // 3秒
 
+        // ★★★ 修正 ★★★
+        // 既に背景(backgroundDj)がいたら3秒、いなかったら(nullなら)0秒待つ！
+        const delay = backgroundDj ? FADE_DURATION : 0;
+
         // 1. まず、今の背景をフェードアウト役に設定
         setFadingOutBgDj(backgroundDj);
-        // 2. 表示役を一旦 null にする
+
+        // 2. 表示役を（アニメーションのために）一旦 null に
         setBackgroundDj(null);
 
-        // 3. 新しい背景がある場合 (newBgCandidate が null じゃない)
+        // 3. 新しい背景がある場合
         if (newBgCandidate) {
-            // フェードアウト時間 (3秒) 後に、
-            // 表示役をセットし、フェードアウト役を消す
+            // 'delay' 時間後に、表示役をセットし、フェードアウト役を消す
             const timer = setTimeout(() => {
                 setFadingOutBgDj(null);
-                setBackgroundDj(newBgCandidate);
-            }, FADE_DURATION);
+                setBackgroundDj(newBgCandidate); // 新しいのを表示
+            }, delay); // ★★★ 修正 ★★★ FADE_DURATION を delay に変更
 
             return () => clearTimeout(timer);
 
         } else {
             // 4. 新しい背景がない場合 (バッファー or 終了)
-            // フェードアウト時間 (3秒) 後に、フェードアウト役を消すだけ
+            // 'delay' 時間後に、フェードアウト役を消すだけ
             const timer = setTimeout(() => {
                 setFadingOutBgDj(null);
-            }, FADE_DURATION);
+            }, delay); // ★★★ 修正 ★★★ FADE_DURATION を delay に変更
 
             return () => clearTimeout(timer);
         }
 
-    }, [currentData, backgroundDj]); // ★ loadedUrls を依存配列から削除！
+    }, [currentData, backgroundDj]); // 依存配列は [currentData, backgroundDj] のままっす
 
 
-    // ★★★ 修正箇所 2 ★★★
     // メインコンテンツの切り替えロジック (currentData に依存)
+    // (ここは前回修正したままっす！)
     useEffect(() => {
         const newContent = currentData;
         if (!newContent) return;
@@ -729,15 +733,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         // 2. IDが切り替えわった時 (DJが変更された)
         // ---
 
-        // ★★★ 修正 ★★★
-        // isNewImageReady のチェック (969〜977行目) を丸ごと削除！
-        // ロード状況に関わらず、即アニメーションを開始するっす！
-        /*
-        const isNewImageReady = !newContent.imageUrl || newContent.isBuffer || loadedUrls.has(newContent.imageUrl);
-        if (!isNewImageReady) {
-            return;
-        }
-        */
+        // isNewImageReady のチェックは削除済み（OK）
 
         // 実行中のアニメーションがあれば止める（連打対策）
         if (animationTimerRef.current) {
@@ -751,15 +747,13 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         // 2-1. 今の表示 (oldContent) をフェードアウト役に回す
         setFadingOutContent(oldContent);
 
-        // 2-2. ★重要★
-        // `visibleContent` を `null` にして、次のフェードインとの key 競合を防ぐ
+        // 2-2. `visibleContent` を `null` に
         setVisibleContent(null);
-        // ただし Ref はまだ古いままにしておく（次のDJに切り替わったと判定させないため）
 
         // 2-3. 新しいコンテンツを「少し遅れて」表示役（visibleContent）にセット
         const fadeInTimer = setTimeout(() => {
             setVisibleContent(newContent);
-            displayedContentRef.current = newContent; // ★重要★ 表示が始まったら Ref も更新
+            displayedContentRef.current = newContent; // 表示が始まったら Ref も更新
         }, CONTENT_FADE_IN_DELAY);
 
         // 2-4. フェードアウトが終わる頃に、フェードアウト役をDOMから消す
@@ -771,7 +765,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         // 2-5. タイマーをRefに保存
         animationTimerRef.current = { fadeInTimer, fadeOutTimer };
 
-    }, [currentData]); // ★ 依存配列から loadedUrls を削除！ [currentData] だけにするっす！
+    }, [currentData]); // 依存配列は [currentData] のみ（OK）
 
 
     const timelineTransform = useMemo(() => {
@@ -817,25 +811,21 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         if (content.status === 'ON AIR') {
             const dj = content;
 
-            // ★★★ 修正箇所 3 ★★★
             // メインアイコンの画像がロード済みかチェック
+            // (ここは前回修正したままっす！)
             const isImageReady = !dj.imageUrl || dj.isBuffer || loadedUrls.has(dj.imageUrl);
 
-            // 以前コメントアウトされてたスピナーロジックを、
-            // アイコン部分に適用するっす！
             return (
                 <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
                     {!dj.isBuffer && (
                         <div className="w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0">
                             <div className="flex items-center justify-center w-full h-full">
-                                { /* ★★★ ここから修正っす！ ★★★ */}
                                 {isImageReady ? (
                                     dj.imageUrl ? <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" /> : <UserIcon className="w-1/2 h-1/2 text-on-surface-variant" />
                                 ) : (
                                     /* 画像URLはあるけど、まだロードされてない場合 */
                                     <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
                                 )}
-                                { /* ★★★ 修正はここまで ★★★ */}
                             </div>
                         </div>
                     )}
@@ -881,7 +871,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             {fadingOutBgDj && <BackgroundImage key={fadingOutBgDj.id} dj={fadingOutBgDj} isFadingOut={true} />}
             {backgroundDj && <BackgroundImage key={backgroundDj.id} dj={backgroundDj} isFadingOut={false} />}
 
-            {/* ヘッダーと編集ボタン (これは元のままっす) */}
+            {/* ヘッダーと編集ボタン */}
             <header className="absolute top-4 md:top-8 left-1/2 -translate-x-1/2 w-max flex flex-col items-center space-y-2 z-20">
                 <h1 className="text-xl font-bold text-on-surface-variant tracking-wider">{eventConfig.title}</h1>
                 <div className="bg-black/30 backdrop-blur-sm text-on-surface font-bold py-2 px-4 rounded-full text-2xl tracking-wider font-mono text-center w-[10ch]">
@@ -894,8 +884,6 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             {/* メインコンテンツエリア */}
             <div className="absolute top-24 bottom-32 left-0 right-0 px-4 flex items-center justify-center overflow-hidden">
                 <div className="w-full h-full overflow-y-auto flex items-center justify-center relative">
-
-                    {/* Chromeの残像バグ対策 (これは元のままっす) */}
 
                     {/* 消えていくコンテンツ (手前) */}
                     {fadingOutContent && (
@@ -1061,12 +1049,7 @@ const App = () => {
 
     const handleSetMode = (newMode) => {
         if (newMode === 'live' && !imagesLoaded) {
-            // ★★★ ここも一応修正っす！ ★★★
-            // もし画像がロードされてなかったら、アラートを出すとか、
-            // わかりやすく「まだダメ」って伝えるのが親切かもっす！
-            // とりあえず、コンソールにログを出しとくっす。
             console.warn("Images not fully preloaded. Waiting...");
-            // ここでローディング画面を出す処理を入れても良いかもっす
             alert("まだ画像の準備中っす！ちょっと待ってからもう一回押してくださいっす！");
             return;
         }
@@ -1128,7 +1111,7 @@ const firebaseConfig = {
                     )}
                     {mode === 'edit' ?
                         <TimetableEditor {...{ eventConfig, setEventConfig, timetable, setTimetable, setMode: handleSetMode, storage: storageRef.current }} /> :
-                        // ★ 修正 ★ LiveView に loadedUrls を渡す (これは元のままっす)
+                        // LiveView に loadedUrls を渡す
                         <LiveView {...{ timetable, eventConfig, setMode: handleSetMode, loadedUrls }} />
                     }
                 </>
