@@ -881,7 +881,7 @@ import {
             const imagesLoaded = useImagePreloader(imageUrlsToPreload);
 
             useEffect(() => {
-                setTimeout(() => setIsInitialLoading(false), 1500);
+                setTimeout(() => setIsInitialLoading(false), 2000);
                 /*
                 if (!window.firebaseConfig.apiKey || window.firebaseConfig.apiKey.includes("AIzaSy...")) {
                     setAppStatus('config_error');
