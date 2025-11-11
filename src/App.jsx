@@ -612,21 +612,35 @@ import {
             useEffect(() => {
                 const newBgCandidate = (status === 'ON AIR' && currentDj && currentDj.imageUrl && !currentDj.isBuffer) ? currentDj : null;
 
+                // IDが同じなら何もしない (バッファーからバッファーへの切り替え等)
                 if (backgroundDj?.id === newBgCandidate?.id) return;
-
-                // 1. まず、今の背景（もしあれば）をフェードアウト対象に設定
-                if (backgroundDj) {
-                    setFadingOutDj(backgroundDj);
-                    
-                    // 2. フェードアウトアニメーション(1.5s)が終わったらクリアするタイマー
-                    setTimeout(() => setFadingOutDj(null), 1500); 
-                }
                 
-                // 3. 新しい背景を即座に設定（プリロード済みを信頼！）
-                //    newBgCandidate が null でも、背景が消えるだけなんでOKっす
-                setBackgroundDj(newBgCandidate);
+                const FADE_DURATION = 1500; // アニメーション時間（1.5秒）
+                
+                // 1. 今の背景(backgroundDj)をフェードアウト対象に移動
+                setFadingOutDj(backgroundDj);
+                
+                // 2. 新しい背景を（一時的に）クリア
+                setBackgroundDj(null); 
+                
+                // 3. フェードアウトを待つ時間
+                //    もし今、背景がなかったら(backgroundDj=null)、待たずにすぐフェードイン
+                const delay = backgroundDj ? FADE_DURATION : 0;
 
-            }, [currentDj, status]); // 依存配列は [currentDj, status] のまま
+                // 4. フェードアウト＆フェードインのタイマー
+                const timer = setTimeout(() => {
+                    // 5. フェードアウトしたやつをDOMから消す
+                    setFadingOutDj(null);
+                    // 6. 新しい背景をセットしてフェードイン開始
+                    if (newBgCandidate) {
+                        setBackgroundDj(newBgCandidate);
+                    }
+                }, delay);
+
+                // コンポーネントがアンマウントされたり、DJが高速で切り替わったらタイマー解除
+                return () => clearTimeout(timer);
+
+            }, [currentDj, status]);
 
             const timelineTransform = useMemo(() => {
                 if (schedule.length === 0 || containerWidth === 0) return 'translateX(0px)';
@@ -665,7 +679,7 @@ import {
                     </header>
                     <button onClick={() => setMode('edit')} className="absolute top-4 right-4 flex items-center bg-surface-container hover:opacity-90 text-white font-bold py-2 px-4 rounded-full transition-opacity duration-200 text-sm z-20">編集</button>
 
-                    <div className="flex-grow flex items-center justify-center w-full relative px-4">
+                    <div className="flex-grow flex items-center justify-center w-full relative px-4 overflow-y-auto">
                         <div key={`${status}-${djToDisplay?.id || 'finished'}`} className="w-full animate-fade-in-up">
                             {status === 'ON AIR' && djToDisplay && (
                                 <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center gap-8">
