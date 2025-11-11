@@ -831,7 +831,6 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                             )}
                         </div>
                     )}
-                        // ★★★ 修正はここまでっす！ ★★★
                     <div className={`flex flex-col ${dj.isBuffer ? 'items-center text-center' : 'text-center md:text-left'}`}>
                         <div className="flex flex-col space-y-3">
                             <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold break-words leading-tight">{dj.name}</h1>
