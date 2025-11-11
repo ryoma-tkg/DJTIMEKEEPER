@@ -799,19 +799,18 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             return (
                 <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
                     {!dj.isBuffer && (
-                        // ★★★ 3. 「黒い丸」の opacity 制御を削除！
                         <div className={`
                             w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0 relative
                             will-change-opacity
-                        `}> {/* ${isIconVisible...} と transition-opacity の行を削除 */}
+                        `}> {/* */}
 
-                            {/* ★★★ 4. レイヤー1（中身）の opacity を isImageReady だけで制御 */}
+                            {/* ★★★ 修正っす！ ★★★ */}
+                            {/* レイヤー1（中身）: isImageReady が true なら transition を適用しない */}
                             <div className={`
                                 w-full h-full flex items-center justify-center 
-                                transition-opacity duration-300 ease-in-out 
-                                ${isImageReady ? 'opacity-100' : 'opacity-0'}
+                                ${isImageReady ? 'opacity-100' : 'opacity-0 transition-opacity duration-300 ease-in-out'}
                                 will-change-opacity
-                            `}>
+                            `}> {/* */}
                                 {dj.imageUrl ? (
                                     <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" />
                                 ) : (
@@ -819,14 +818,14 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                                 )}
                             </div>
 
-                            {/* ★★★ 5. レイヤー2（スピナー）の opacity を !isImageReady だけで制御 */}
+                            {/* ★★★ 修正っす！ ★★★ */}
+                            {/* レイヤー2（スピナー）: isImageReady が true なら transition を適用しない */}
                             {dj.imageUrl && (
                                 <div className={`
                                     absolute inset-0 flex items-center justify-center 
-                                    transition-opacity duration-300 ease-in-out 
-                                    ${!isImageReady ? 'opacity-100' : 'opacity-0'}
+                                    ${!isImageReady ? 'opacity-100 transition-opacity duration-300 ease-in-out' : 'opacity-0'}
                                     will-change-opacity 
-                                `}> {/* ${showIcon && !isImageReady...} を ${!isImageReady...} に変更 */}
+                                `}> {/* */}
                                     <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
                                 </div>
                             )}
