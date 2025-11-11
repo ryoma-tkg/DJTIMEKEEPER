@@ -550,6 +550,7 @@ const useImagePreloader = (urls) => {
                 );
 
                 if (!isCancelled && needsUpdate) {
+                    console.log('[useImagePreloader] Images loaded:', newLoadedUrls); // ★★★ ログ追加っす！ ★★★
                     setLoadedUrls(newLoadedUrls); // 新しい Set で更新
                 }
 
@@ -593,10 +594,12 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
     // アニメーションのタイマーを Ref で管理
     const animationTimerRef = useRef(null);
 
-    // ★★★ 削除っす！ ★★★
-    // const [isIconVisible, setIsIconVisible] = useState(false);
-    // const iconFadeInTimerRef = useRef(null);
-    // ★★★ 削除っす！ ★★★
+    // ★★★ ここから追加っす！ ★★★
+    // アイコンを遅れてフェードインさせるためのステート
+    const [isIconVisible, setIsIconVisible] = useState(false);
+    // アイコン用フェードインタイマーのRef
+    const iconFadeInTimerRef = useRef(null);
+    // ★★★ ここまで追加っす！ ★★★
 
     const schedule = useMemo(() => {
         if (timetable.length === 0) return [];
@@ -714,36 +717,40 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
     }, [currentData, backgroundDj, loadedUrls, isBackgroundReady]);
 
 
-    // メインコンテンツの切り替えロジック (3回目修正のまま)
+    // メインコンテンツの切り替えロジック
     useEffect(() => {
         const newContent = currentData;
-        if (!newContent) return; // データがなければ何もしない
+        if (!newContent) return;
 
         const oldContent = displayedContentRef.current;
 
         // (A) DJが同じで、情報（残り時間など）だけ更新される場合
         if (oldContent?.id === newContent.id) {
-            setVisibleContent(newContent); // ★ タイマーが動くように毎秒更新
+            // console.log(`[LiveView] DJ CHANGE: NO (Update ${newContent.id})`); // ログうるさいのでコメントアウト
+            setVisibleContent(newContent);
             displayedContentRef.current = newContent;
-            return; // これ以上のアニメーション処理は不要
+            return;
         }
 
         // (B) DJが切り替わった場合 (クロスフェード処理)
+        console.log(`[LiveView] DJ CHANGE: YES (From ${oldContent?.id} to ${newContent.id})`); // ★★★ ログ追加っす！ ★★★
 
-        // 既存のアニメーションタイマーをクリア
         if (animationTimerRef.current) {
             clearTimeout(animationTimerRef.current);
         }
 
-        // ★★★ 削除っす！ ★★★
-        // setIsIconVisible(false);
-        // if (iconFadeInTimerRef.current) {
-        //     clearTimeout(iconFadeInTimerRef.current);
-        //     iconFadeInTimerRef.current = null;
-        // }
-        // ★★★ 削除っす！ ★★★
+        // ★★★ ここから追加っす！ ★★★
+        // アイコンの表示ステートをリセット
+        setIsIconVisible(false);
+        console.log('[LiveView] 1. Set isIconVisible: false'); // ★★★ ログ追加っす！ ★★★
+        // 既存のアイコンフェードインチューマーがあればクリア
+        if (iconFadeInTimerRef.current) {
+            clearTimeout(iconFadeInTimerRef.current);
+            iconFadeInTimerRef.current = null;
+        }
+        // ★★★ ここまで追加っす！ ★★★
 
-        const CONTENT_FADE_OUT_DURATION = 500; // 0.5s
+        const CONTENT_FADE_OUT_DURATION = 500;
 
         // 1. 古いコンテンツを「消える用」にセット
         setFadingOutContent(oldContent);
@@ -760,13 +767,43 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
 
         animationTimerRef.current = fadeOutTimer;
 
-    }, [currentData]); // ★★★ 依存配列は [currentData] だけにするっす！
+    }, [currentData]);
 
-    // ★★★ 削除っす！ ★★★
-    // useEffect(() => {
-    //   ... (isIconVisible をセットするタイマー) ...
-    // }, [visibleContent]);
-    // ★★★ 削除っす！ ★★★
+
+    // ★★★ ここから追加っす！ ★★★
+    // 新しいコンテンツ（visibleContent）が表示されたら、
+    // わずかに遅れてアイコン（isIconVisible）をフェードインさせる
+    useEffect(() => {
+        console.log(`[LiveView] 2. visibleContent changed to: ${visibleContent?.id}`); // ★★★ ログ追加っす！ ★★★
+        // 既存のタイマーがあればクリア
+        if (iconFadeInTimerRef.current) {
+            clearTimeout(iconFadeInTimerRef.current);
+        }
+
+        if (visibleContent && visibleContent.status === 'ON AIR' && !visibleContent.isBuffer) {
+            // メインのアニメーション(fade-in-up)が始まってからアイコンをフェードインさせる
+            // 50ms (0.05秒) のディレイ
+            iconFadeInTimerRef.current = setTimeout(() => {
+                console.log(`[LiveView] 4. Timer Fired! Setting isIconVisible: true (DJ: ${visibleContent.id})`); // ★★★ ログ追加っす！ ★★★
+                setIsIconVisible(true);
+            }, 50);
+            console.log('[LiveView] 3. Setting icon timer (50ms)...'); // ★★★ ログ追加っす！ ★★★
+
+        } else if (visibleContent) {
+            // ON AIR 以外 (バッファ、UPCOMING, FINISHED) の場合は、ディレイなしで即時表示
+            console.log(`[LiveView] 3. (No timer) Setting isIconVisible: true (for ${visibleContent.id})`); // ★★★ ログ追加っす！ ★★★
+            setIsIconVisible(true);
+        }
+
+        // クリーンアップ
+        return () => {
+            if (iconFadeInTimerRef.current) {
+                clearTimeout(iconFadeInTimerRef.current);
+                iconFadeInTimerRef.current = null;
+            }
+        };
+    }, [visibleContent]); // visibleContent が変わるたびに実行
+    // ★★★ ここまで追加っす！ ★★★
 
 
     const timelineTransform = useMemo(() => {
@@ -796,7 +833,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
 
     // ★★★ 修正箇所 ★★★
     // renderContent 関数
-    const renderContent = (content) => {
+    const renderContent = (content, logLabel) => { // ★★★ ログ用引数を追加
         if (!content) return null;
 
         // ... (UPCOMING の部分は変更なし) ...
@@ -806,23 +843,32 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             const dj = content;
             const isImageReady = !dj.imageUrl || dj.isBuffer || loadedUrls.has(dj.imageUrl);
 
+            // ★★★ これが重要っす！ ★★★
+            console.log(
+                `%c[renderContent] ${logLabel}`, 'font-weight: bold;',
+                `DJ: ${dj.id}, isIconVisible: ${isIconVisible}, isImageReady: ${isImageReady}`
+            );
+
             return (
                 <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
                     {!dj.isBuffer && (
                         // ★★★ 修正っす！ ★★★
-                        // transition-opacity と isIconVisible を削除
+                        // アイコンの「黒い丸」コンテナに transition-opacity と
+                        // isIconVisible に連動した opacity を追加
                         <div className={`
                             w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0 relative
                             will-change-opacity
-                        `}> {/* */}
+                            transition-opacity duration-500 ease-in-out 
+                            ${isIconVisible ? 'opacity-100' : 'opacity-0'}
+                        `}>
 
                             {/* ★★★ 修正っす！ ★★★ */}
-                            {/* レイヤー1（中身）: transition-opacity を削除！ */}
+                            {/* レイヤー1（中身）: isImageReady が true なら transition を適用しない */}
                             <div className={`
                                 w-full h-full flex items-center justify-center 
-                                ${isImageReady ? 'opacity-100' : 'opacity-0'}
+                                ${isImageReady ? 'opacity-100' : 'opacity-0 transition-opacity duration-300 ease-in-out'}
                                 will-change-opacity
-                            `}> {/* */}
+                            `}>
                                 {dj.imageUrl ? (
                                     <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" />
                                 ) : (
@@ -831,13 +877,13 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                             </div>
 
                             {/* ★★★ 修正っす！ ★★★ */}
-                            {/* レイヤー2（スピナー）: transition-opacity を削除！ */}
+                            {/* レイヤー2（スピナー）: isImageReady が true なら transition を適用しない */}
                             {dj.imageUrl && (
                                 <div className={`
                                     absolute inset-0 flex items-center justify-center 
-                                    ${!isImageReady ? 'opacity-100' : 'opacity-0'}
+                                    ${!isImageReady ? 'opacity-100 transition-opacity duration-300 ease-in-out' : 'opacity-0'}
                                     will-change-opacity 
-                                `}> {/* */}
+                                `}>
                                     <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
                                 </div>
                             )}
@@ -906,8 +952,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                             key={`fadeout-${fadingOutContent.id}`}
                             className="w-full animate-fade-out-down absolute inset-0 p-4 flex items-center justify-center z-10 will-change-[transform,opacity]"
                         >
-                            {/* ★★★ 引数を削除！ ★★★ */}
-                            {renderContent(fadingOutContent)}
+                            {renderContent(fadingOutContent, 'FADE_OUT')} {/* ★★★ ログ用引数を追加 */}
                         </div>
                     )}
 
@@ -917,8 +962,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                             key={visibleContent.id}
                             className="w-full animate-fade-in-up absolute inset-0 p-4 flex items-center justify-center z-0 will-change-[transform,opacity]"
                         >
-                            {/* ★★★ 引数を削除！ ★★★ */}
-                            {renderContent(visibleContent)}
+                            {renderContent(visibleContent, 'FADE_IN')} {/* ★★★ ログ用引数を追加 */}
                         </div>
                     )}
 
@@ -1044,6 +1088,8 @@ const App = () => {
         return () => unsubscribe();
     }, [isAuthenticated, appStatus]);
 
+
+
     const saveDataToFirestore = useCallback(() => {
         if (appStatus !== 'online' || !isAuthenticated || !dbRef.current) return;
 
@@ -1054,8 +1100,6 @@ const App = () => {
             console.error("Error saving data to Firestore:", error);
         });
     }, [timetable, eventConfig, isAuthenticated, appStatus]);
-
-
 
     useEffect(() => {
         if (appStatus === 'online' && !isInitialLoading) {
