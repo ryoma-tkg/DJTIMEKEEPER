@@ -669,8 +669,8 @@ import {
             return (
                 /* ★修正1: 親から flex-col と pt-* (padding) を削除 */
                 <div className="fixed inset-0" style={bgColorStyle}>
-                    {fadingOutDj && <BackgroundImage key={`fadeout-${fadingOutDj.id}`} dj={fadingOutDj} isFadingOut={true} />}
-                    {backgroundDj && <BackgroundImage key={`bg-${backgroundDj.id}`} dj={backgroundDj} isFadingOut={false} />}
+                    {fadingOutDj && <BackgroundImage key={fadingOutDj.id} dj={fadingOutDj} isFadingOut={true} />}
+                    {backgroundDj && <BackgroundImage key={backgroundDj.id} dj={backgroundDj} isFadingOut={false} />}
                     
                     {/* ★修正2: ヘッダーと編集ボタンは absolute 配置で上端からの位置を指定 */}
                     <header className="absolute top-4 md:top-8 left-1/2 -translate-x-1/2 w-max flex flex-col items-center space-y-2 z-20">
