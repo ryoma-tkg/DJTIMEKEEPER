@@ -679,7 +679,7 @@ import {
                     </header>
                     <button onClick={() => setMode('edit')} className="absolute top-4 right-4 flex items-center bg-surface-container hover:opacity-90 text-white font-bold py-2 px-4 rounded-full transition-opacity duration-200 text-sm z-20">編集</button>
 
-                    <div className="flex-grow flex items-center justify-center w-full relative px-4 min-h-0">
+                    <div className="flex-1 flex items-center justify-center w-full relative px-4 min-h-0">
                         <div className="w-full h-full overflow-y-auto flex items-center justify-center">
                           <div key={`${status}-${djToDisplay?.id || 'finished'}`} className="w-full animate-fade-in-up">
                               {status === 'ON AIR' && djToDisplay && (
