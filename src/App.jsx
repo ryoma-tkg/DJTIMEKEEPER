@@ -482,16 +482,11 @@ const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTimetable,
     );
 };
 
-// ★★★ 修正箇所 1 ★★★
-// isReady を受け取るように変更
+// BackgroundImage コンポーネント (3回目修正のまま)
 const BackgroundImage = memo(({ dj, isFadingOut, isReady }) => {
     const shouldRender = dj && dj.imageUrl && !dj.isBuffer;
     if (!shouldRender) return null;
 
-    // ★★★ 修正 ★★★
-    // isFadingOut: 強制的に fadeOut
-    // !isFadingOut && isReady: fadeIn
-    // !isFadingOut && !isReady: opacity-0 (非表示)
     let animationClass = '';
     if (isFadingOut) {
         animationClass = 'animate-fade-out';
@@ -586,8 +581,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
     const [backgroundDj, setBackgroundDj] = useState(null);
     const [fadingOutBgDj, setFadingOutBgDj] = useState(null);
 
-    // ★★★ 修正箇所 2 ★★★
-    // 背景がロード済みかどうかのステートを追加
+    // 背景がロード済みかどうかのステート (3回目修正のまま)
     const [isBackgroundReady, setIsBackgroundReady] = useState(false);
 
     // メインコンテンツ表示用のステート
@@ -627,7 +621,6 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         };
     }, []);
 
-    // 毎秒実行: 「今」の状態を計算して、"currentData" ステートを更新する
     // 毎秒実行: 「今」の状態を計算
     useEffect(() => {
         const currentIndex = schedule.findIndex(dj => now >= dj.startTime && now < dj.endTime);
@@ -639,17 +632,14 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             const dj = schedule[currentIndex];
             const nextDj = (currentIndex < schedule.length - 1) ? schedule[currentIndex + 1] : null;
             const total = (dj.endTime - dj.startTime) / 1000;
-
-            // ミリ秒単位の remaining
             const remainingMs = (dj.endTime - now);
-            // 表示用の残り秒数 (切り上げ)
             const remainingSeconds = Math.ceil(remainingMs / 1000);
 
             newContentData = {
                 ...dj,
                 status: 'ON AIR',
-                timeLeft: remainingSeconds, // 切り上げた秒数を渡す
-                progress: total > 0 ? ((total - (remainingMs / 1000)) / total) * 100 : 0, // progress は正確な値
+                timeLeft: remainingSeconds,
+                progress: total > 0 ? ((total - (remainingMs / 1000)) / total) * 100 : 0,
                 nextDj: nextDj
             };
 
@@ -663,7 +653,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                 newContentData = {
                     ...upcomingDj,
                     status: 'UPCOMING',
-                    timeLeft: remainingSeconds, // 切り上げた秒数を渡す
+                    timeLeft: remainingSeconds,
                     progress: 0,
                     nextDj: schedule[0]
                 };
@@ -681,14 +671,11 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
     }, [now, schedule]);
 
 
-    // ★★★ 修正箇所 3 ★★★
-    // 背景画像の切り替えロジック (currentData と loadedUrls に依存)
+    // 背景画像の切り替えロジック (3回目修正のまま)
     useEffect(() => {
         const newBgCandidate = (currentData?.status === 'ON AIR' && currentData.imageUrl && !currentData.isBuffer) ? currentData : null;
 
-        // 1. IDが同じ場合 (タイマー更新中)
         if (backgroundDj?.id === newBgCandidate?.id) {
-            // もし画像がロードされたら、isBackgroundReady ステートだけ更新
             const newIsReady = newBgCandidate ? loadedUrls.has(newBgCandidate.imageUrl) : false;
             if (isBackgroundReady !== newIsReady) {
                 setIsBackgroundReady(newIsReady);
@@ -696,44 +683,34 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             return;
         }
 
-        // 2. IDが切り替わった場合
         const FADE_DURATION = 3000;
-        // delayは、前の背景(backgroundDj)がいたら3秒、いなかったら0秒
         const delay = backgroundDj ? FADE_DURATION : 0;
 
-        // 2-1. 今の背景をフェードアウト役に
         setFadingOutBgDj(backgroundDj);
-
-        // 2-2. 表示役を null に ＆ ロード状態をリセット
         setBackgroundDj(null);
-        setIsBackgroundReady(false); // ★重要★
+        setIsBackgroundReady(false);
 
-        // 2-3. 新しい背景がある場合
         if (newBgCandidate) {
-            // 'delay' 時間後に、
             const timer = setTimeout(() => {
-                setFadingOutBgDj(null); // フェードアウト役を消す
-                setBackgroundDj(newBgCandidate); // 新しい表示役をセット
-                // ★重要★ 新しい表示役のロード状態をチェックしてセット
+                setFadingOutBgDj(null);
+                setBackgroundDj(newBgCandidate);
                 setIsBackgroundReady(loadedUrls.has(newBgCandidate.imageUrl));
             }, delay);
 
             return () => clearTimeout(timer);
 
         } else {
-            // 2-4. 新しい背景がない場合 (バッファー or 終了)
             const timer = setTimeout(() => {
-                setFadingOutBgDj(null); // フェードアウト役を消すだけ
+                setFadingOutBgDj(null);
             }, delay);
 
             return () => clearTimeout(timer);
         }
 
-    }, [currentData, backgroundDj, loadedUrls, isBackgroundReady]); // ★ loadedUrlsとisBackgroundReadyを依存配列に追加
+    }, [currentData, backgroundDj, loadedUrls, isBackgroundReady]);
 
 
-    // メインコンテンツの切り替えロジック (currentData に依存)
-    // (ここは1回目の修正（キビキビ動く）のままっす！)
+    // メインコンテンツの切り替えロジック (3回目修正のまま)
     useEffect(() => {
         const newContent = currentData;
         if (!newContent) return;
@@ -771,7 +748,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
 
         animationTimerRef.current = { fadeInTimer, fadeOutTimer };
 
-    }, [currentData]); // 依存配列は [currentData] のみ
+    }, [currentData]);
 
 
     const timelineTransform = useMemo(() => {
@@ -799,6 +776,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
 
     const bgColorStyle = (currentData?.status === 'ON AIR') ? { background: `radial-gradient(ellipse 80% 60% at 50% 120%, ${currentData.color}33, transparent)` } : {};
 
+    // renderContent 関数 (3回目修正のまま)
     const renderContent = (content) => {
         if (!content) return null;
 
@@ -816,35 +794,24 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         // ON AIR の場合
         if (content.status === 'ON AIR') {
             const dj = content;
-
-            // ★★★ 修正箇所 4 ★★★
-            // メインアイコンの画像がロード済みかチェック
             const isImageReady = !dj.imageUrl || dj.isBuffer || loadedUrls.has(dj.imageUrl);
 
             return (
                 <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
                     {!dj.isBuffer && (
                         <div className="w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0">
-                            {/* ★★★ 修正 ★★★ relative を追加 */}
                             <div className="flex items-center justify-center w-full h-full relative">
-
-                                { /* ★★★ 修正 ★★★ スピナーを画像の上に絶対配置する */}
                                 {(!isImageReady && dj.imageUrl) && (
                                     <div className="absolute inset-0 flex items-center justify-center z-10">
                                         <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
                                     </div>
                                 )}
-
-                                { /* ★★★ 修正 ★★★ 
-                                     画像は常にレンダリングし、isImageReady で opacity を制御する 
-                                */ }
                                 {dj.imageUrl ? (
                                     <SimpleImage
                                         src={dj.imageUrl}
                                         className={`w-full h-full object-cover transition-opacity duration-500 ease-in-out ${isImageReady ? 'opacity-100' : 'opacity-0'}`}
                                     />
                                 ) : (
-                                    // 画像URLがない場合は、デフォルトアイコン
                                     <UserIcon className="w-1/2 h-1/2 text-on-surface-variant" />
                                 )}
                             </div>
@@ -888,10 +855,11 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
 
     return (
         <div className="fixed inset-0" style={bgColorStyle}>
-            {/* ★★★ 修正箇所 5 ★★★ */}
-            {/* 背景画像 isReadyを渡す */}
-            {fadingOutBgDj && <BackgroundImage key={fadingOutBgDj.id} dj={fadingOutBgDj} isFadingOut={true} isReady={true} />} {/* 消えるやつは常にReady扱い */}
-            {backgroundDj && <BackgroundImage key={backgroundDj.id} dj={backgroundDj} isFadingOut={false} isReady={isBackgroundReady} />}
+
+            {/* ★★★ 修正箇所 ★★★ */}
+            {/* 背景画像を一時的にコメントアウト */}
+            {/* {fadingOutBgDj && <BackgroundImage key={fadingOutBgDj.id} dj={fadingOutBgDj} isFadingOut={true} isReady={true} />} */}
+            {/* {backgroundDj && <BackgroundImage key={backgroundDj.id} dj={backgroundDj} isFadingOut={false} isReady={isBackgroundReady} />} */}
 
             {/* ヘッダーと編集ボタン */}
             <header className="absolute top-4 md:top-8 left-1/2 -translate-x-1/2 w-max flex flex-col items-center space-y-2 z-20">
