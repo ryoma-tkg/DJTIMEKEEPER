@@ -679,49 +679,51 @@ import {
                     </header>
                     <button onClick={() => setMode('edit')} className="absolute top-4 right-4 flex items-center bg-surface-container hover:opacity-90 text-white font-bold py-2 px-4 rounded-full transition-opacity duration-200 text-sm z-20">編集</button>
 
-                    <div className="flex-grow flex items-center justify-center w-full relative px-4 overflow-y-auto">
-                        <div key={`${status}-${djToDisplay?.id || 'finished'}`} className="w-full animate-fade-in-up">
-                            {status === 'ON AIR' && djToDisplay && (
-                                <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center gap-8">
-                                    {!djToDisplay.isBuffer && (
-                                        <div className="w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl flex items-center justify-center overflow-hidden flex-shrink-0">
-                                            {djToDisplay.imageUrl ? <SimpleImage src={djToDisplay.imageUrl} className="w-full h-full object-cover" /> : <UserIcon className="w-1/2 h-1/2 text-on-surface-variant"/>}
-                                        </div>
-                                    )}
-                                    <div className={`flex flex-col ${djToDisplay.isBuffer ? 'items-center text-center' : 'text-center md:text-left'}`}>
-                                        <div className="flex flex-col gap-3">
-                                            <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold break-words leading-tight">{djToDisplay.name}</h1>
-                                            
-                                            <p className="text-2xl md:text-3xl font-semibold tracking-wider font-mono" style={{color: djToDisplay.color}}>
-                                                {djToDisplay.startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {djToDisplay.endTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                            </p>
+                    <div className="flex-grow flex items-center justify-center w-full relative px-4 min-h-0">
+                        <div className="w-full h-full overflow-y-auto flex items-center justify-center">
+                          <div key={`${status}-${djToDisplay?.id || 'finished'}`} className="w-full animate-fade-in-up">
+                              {status === 'ON AIR' && djToDisplay && (
+                                  <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center gap-8">
+                                      {!djToDisplay.isBuffer && (
+                                          <div className="w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl flex items-center justify-center overflow-hidden flex-shrink-0">
+                                              {djToDisplay.imageUrl ? <SimpleImage src={djToDisplay.imageUrl} className="w-full h-full object-cover" /> : <UserIcon className="w-1/2 h-1/2 text-on-surface-variant"/>}
+                                          </div>
+                                      )}
+                                      <div className={`flex flex-col ${djToDisplay.isBuffer ? 'items-center text-center' : 'text-center md:text-left'}`}>
+                                          <div className="flex flex-col gap-3">
+                                              <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold break-words leading-tight">{djToDisplay.name}</h1>
+                                              
+                                              <p className="text-2xl md:text-3xl font-semibold tracking-wider font-mono" style={{color: djToDisplay.color}}>
+                                                  {djToDisplay.startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {djToDisplay.endTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                              </p>
 
-                                            <p className="flex items-baseline justify-center md:justify-start text-6xl sm:text-7xl md:text-8xl text-on-surface my-2 whitespace-nowrap">
-                                                <span className="text-3xl sm:text-4xl text-on-surface-variant mr-4 font-sans font-bold">残り</span>
-                                                <span className="font-mono inline-block text-left w-[5ch]">{formatTime(timeLeft)}</span>
-                                            </p>
-                                            
-                                            <div className={`bg-surface-container rounded-full h-3.5 overflow-hidden w-full`}>
-                                                <div className="h-full rounded-full transition-all duration-500 ease-linear" style={{ width: `${progress}%`, backgroundColor: djToDisplay.color }}></div>
-                                            </div>
-                                        </div>
-                                        {nextDj && (
-                                            <div className="mt-8 pt-6 border-t border-on-surface-variant/20">
-                                                <p className="text-sm text-on-surface-variant font-bold tracking-widest mb-1">NEXT UP</p>
-                                                <p className="text-2xl font-semibold">{nextDj.name} <span className="text-lg font-sans text-on-surface-variant ml-2 font-mono">{nextDj.startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} ~</span></p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </main>
-                            )}
-                            {status === 'UPCOMING' && djToDisplay && (
-                                 <div className="text-center">
-                                     <p className="text-sm text-on-surface-variant font-bold tracking-widest mb-1">FIRST DJ</p>
-                                     <h1 className="text-5xl md:text-7xl font-bold my-2">{djToDisplay.name}</h1>
-                                     <p className="text-4xl md:text-5xl font-mono text-amber-400">開始まで {formatTime(timeLeft)}</p>
-                                 </div>
-                            )}
-                            {status === 'FINISHED' && ( <div className="text-center"><h1 className="text-5xl md:text-7xl font-bold">EVENT FINISHED</h1></div> )}
+                                              <p className="flex items-baseline justify-center md:justify-start text-6xl sm:text-7xl md:text-8xl text-on-surface my-2 whitespace-nowrap">
+                                                  <span className="text-3xl sm:text-4xl text-on-surface-variant mr-4 font-sans font-bold">残り</span>
+                                                  <span className="font-mono inline-block text-left w-[5ch]">{formatTime(timeLeft)}</span>
+                                              </p>
+                                              
+                                              <div className={`bg-surface-container rounded-full h-3.5 overflow-hidden w-full`}>
+                                                  <div className="h-full rounded-full transition-all duration-500 ease-linear" style={{ width: `${progress}%`, backgroundColor: djToDisplay.color }}></div>
+                                              </div>
+                                          </div>
+                                          {nextDj && (
+                                              <div className="mt-8 pt-6 border-t border-on-surface-variant/20">
+                                                  <p className="text-sm text-on-surface-variant font-bold tracking-widest mb-1">NEXT UP</p>
+                                                  <p className="text-2xl font-semibold">{nextDj.name} <span className="text-lg font-sans text-on-surface-variant ml-2 font-mono">{nextDj.startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} ~</span></p>
+                                              </div>
+                                          )}
+                                      </div>
+                                  </main>
+                              )}
+                              {status === 'UPCOMING' && djToDisplay && (
+                                  <div className="text-center">
+                                      <p className="text-sm text-on-surface-variant font-bold tracking-widest mb-1">FIRST DJ</p>
+                                      <h1 className="text-5xl md:text-7xl font-bold my-2">{djToDisplay.name}</h1>
+                                      <p className="text-4xl md:text-5xl font-mono text-amber-400">開始まで {formatTime(timeLeft)}</p>
+                                  </div>
+                              )}
+                              {status === 'FINISHED' && ( <div className="text-center"><h1 className="text-5xl md:text-7xl font-bold">EVENT FINISHED</h1></div> )}
+                          </div>
                         </div>
                     </div>
                     
