@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "react-scripts build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
+  "homepage": "https://github.com/ryoma-tkg/DJTIMEKEEPER",
   "dependencies": {
     "firebase": "^12.5.0",
     "react": "^19.2.0",
