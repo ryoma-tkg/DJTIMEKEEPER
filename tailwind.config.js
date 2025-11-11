@@ -37,12 +37,12 @@ export default {
           '100%': {
             opacity: '0',
             transform: 'translateY(20px) translateZ(0)',
-            //visibility: 'hidden' /* アニメ終了時に完全に隠す */
+            visibility: 'hidden' /* アニメ終了時に完全に隠す */
           },
         },
         fadeOut: {
           'from': { opacity: '1', visibility: 'visible' },
-          'to': { opacity: '0', /*visibility: 'hidden'*/ },
+          'to': { opacity: '0', visibility: 'hidden' },
         },
         spinner: {
           '0%': { transform: 'rotate(0deg)' },
