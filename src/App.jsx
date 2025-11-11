@@ -658,8 +658,15 @@ import {
                 // `currentData`（最新の状態）を表示すべき `newContent` とする
                 const newContent = currentData; 
                 
+                // newContent がまだ null（初期計算中）なら何もしない
+                if (!newContent) {
+                    return;
+                }
+                
                 // 表示内容が（IDベースで）変わったかチェック
-                if (newContent?.id !== displayedContent?.id) {
+                if (newContent.id !== displayedContent?.id) {
+                    
+                    // --- IDが変わった時（DJが切り替わった時）---
                     
                     // 1. 今の表示内容 (displayedContent) を「フェードアウト」に回す
                     setFadingOutContent(displayedContent);
@@ -678,9 +685,19 @@ import {
                         clearTimeout(fadeInTimer);
                         clearTimeout(fadeOutTimer);
                     };
+                
+                } else {
+                    
+                    /*
+                     * ▼▼▼ これが重要っす！ ▼▼▼
+                     * --- IDが変わっていない時（同じDJの再生中）---
+                     * アニメーションはせず、表示内容（timeLeft, progress）だけを
+                     * 毎秒最新のものに更新する
+                     */
+                    setDisplayedContent(newContent);
                 }
 
-            }, [currentData, displayedContent]); // ★ `currentData` が変わった時だけ実行
+            }, [currentData, displayedContent]);
 
 
             const timelineTransform = useMemo(() => {
