@@ -28,21 +28,21 @@ export default {
               'from': { opacity: '0' },
               'to': { opacity: '1' },
           },
-fadeOutDown: {
-              '0%': { 
-                opacity: '1', 
-                transform: 'translateY(0) translateZ(0)', 
-                visibility: 'visible' /* アニメ開始時は見えるように */
-              },
-              '100%': { 
-                opacity: '0', 
-                transform: 'translateY(20px) translateZ(0)', 
-                visibility: 'hidden' /* アニメ終了時に完全に隠す */
-              },
+          adeOutDown: {
+                  '0%': { 
+                    opacity: '1', 
+                    transform: 'translateY(0) translateZ(0)', 
+                    visibility: 'visible' /* アニメ開始時は見えるように */
+                  },
+                  '100%': { 
+                    opacity: '0', 
+                    transform: 'translateY(20px) translateZ(0)', 
+                    visibility: 'hidden' /* アニメ終了時に完全に隠す */
+                  },
           },
           fadeOut: {
-              'from': { opacity: '1' },
-              'to': { opacity: '0' },
+              'from': { opacity: '1', visibility: 'visible' },
+              'to': { opacity: '0', visibility: 'hidden' },
           },
             spinner: {
               '0%': { transform: 'rotate(0deg)' },
@@ -52,8 +52,8 @@ fadeOutDown: {
       animation: {
           'fade-in-up': 'fadeInUp 1.0s ease-out forwards', // 0.7s から 1.0s に延長
           'fade-out-down': 'fadeOutDown 0.5s ease-out forwards', /* 消えるのは早く 0.5s*/
-          'fade-in': 'fadeIn 2s ease-in-out forwards',
-          'fade-out': 'fadeOut 2s ease-in-out forwards',
+          'fade-in': 'fadeIn 2.0s ease-in-out forwards',
+          'fade-out': 'fadeOut 2.0s ease-in-out forwards',
           'spinner': 'spinner 1s linear infinite',
       }
       // ▲▲▲ ここまで ▲▲▲
