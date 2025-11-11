@@ -570,34 +570,26 @@ const useImagePreloader = (urls) => {
 };
 
 const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
+    // ... (既存のステート) ...
     const [now, setNow] = useState(new Date());
     const timelineContainerRef = useRef(null);
     const [containerWidth, setContainerWidth] = useState(0);
-
-    // 毎秒更新される「最新の」状態データ
     const [currentData, setCurrentData] = useState(null);
-
-    // 背景画像用のステート
+    // ... (既存の背景画像ステート) ...
     const [backgroundDj, setBackgroundDj] = useState(null);
     const [fadingOutBgDj, setFadingOutBgDj] = useState(null);
-
-    // 背景がロード済みかどうかのステート (3回目修正のまま)
     const [isBackgroundReady, setIsBackgroundReady] = useState(false);
-
-    // メインコンテンツ表示用のステート
+    // ... (既存のメインコンテンツステート) ...
     const [visibleContent, setVisibleContent] = useState(null); // 表示するコンテンツ
     const [fadingOutContent, setFadingOutContent] = useState(null); // 消えていくコンテンツ
-
-    // 「今表示されている内容」を Ref で管理
     const displayedContentRef = useRef(null);
-    // アニメーションのタイマーを Ref で管理
     const animationTimerRef = useRef(null);
 
     // ★★★ ここから追加っす！ ★★★
     // アイコンを遅れてフェードインさせるためのステート
-    //const [isIconVisible, setIsIconVisible] = useState(false);
+    const [isIconVisible, setIsIconVisible] = useState(false);
     // アイコン用フェードインタイマーのRef
-    //const iconFadeInTimerRef = useRef(null);
+    const iconFadeInTimerRef = useRef(null);
     // ★★★ ここまで追加っす！ ★★★
 
     const schedule = useMemo(() => {
@@ -737,6 +729,16 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             clearTimeout(animationTimerRef.current);
         }
 
+        // ★★★ ここから追加っす！ ★★★
+        // アイコンの表示ステートをリセット
+        setIsIconVisible(false);
+        // 既存のアイコンフェードインチューマーがあればクリア
+        if (iconFadeInTimerRef.current) {
+            clearTimeout(iconFadeInTimerRef.current);
+            iconFadeInTimerRef.current = null;
+        }
+        // ★★★ ここまで追加っす！ ★★★
+
         const CONTENT_FADE_OUT_DURATION = 500; // 0.5s
 
         // 1. 古いコンテンツを「消える用」にセット
@@ -755,6 +757,36 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         animationTimerRef.current = fadeOutTimer;
 
     }, [currentData]); // ★★★ 依存配列は [currentData] だけにするっす！
+
+    useEffect(() => {
+        // 既存のタイマーがあればクリア
+        if (iconFadeInTimerRef.current) {
+            clearTimeout(iconFadeInTimerRef.current);
+        }
+
+        if (visibleContent && visibleContent.status === 'ON AIR' && !visibleContent.isBuffer) {
+            // メインのアニメーション(fade-in-up)が始まってからアイコンをフェードインさせる
+            // 50ms (0.05秒) のディレイ
+            iconFadeInTimerRef.current = setTimeout(() => {
+                setIsIconVisible(true);
+            }, 50);
+
+        } else if (visibleContent) {
+            // ON AIR 以外 (バッファ、UPCOMING, FINISHED) の場合は、ディレイなしで即時表示
+            // (isIconVisible は true になるが、renderContent 側で
+            // transition-opacity が適用されるのは ON AIR の時だけ)
+            setIsIconVisible(true);
+        }
+
+        // クリーンアップ
+        return () => {
+            if (iconFadeInTimerRef.current) {
+                clearTimeout(iconFadeInTimerRef.current);
+                iconFadeInTimerRef.current = null;
+            }
+        };
+    }, [visibleContent]); // visibleContent が変わるたびに実行
+    // ★★★ ここまで追加っす！ ★★★
 
 
     const timelineTransform = useMemo(() => {
@@ -799,10 +831,15 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             return (
                 <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
                     {!dj.isBuffer && (
+                        // ★★★ 修正っす！ ★★★
+                        // アイコンの「黒い丸」コンテナに transition-opacity と
+                        // isIconVisible に連動した opacity を追加
                         <div className={`
                             w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0 relative
                             will-change-opacity
-                        `}> {/* */}
+                            transition-opacity duration-500 ease-in-out 
+                            ${isIconVisible ? 'opacity-100' : 'opacity-0'}
+                        `}>
 
                             {/* ★★★ 修正っす！ ★★★ */}
                             {/* レイヤー1（中身）: isImageReady が true なら transition を適用しない */}
@@ -810,7 +847,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                                 w-full h-full flex items-center justify-center 
                                 ${isImageReady ? 'opacity-100' : 'opacity-0 transition-opacity duration-300 ease-in-out'}
                                 will-change-opacity
-                            `}> {/* */}
+                            `}>
                                 {dj.imageUrl ? (
                                     <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" />
                                 ) : (
@@ -825,7 +862,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                                     absolute inset-0 flex items-center justify-center 
                                     ${!isImageReady ? 'opacity-100 transition-opacity duration-300 ease-in-out' : 'opacity-0'}
                                     will-change-opacity 
-                                `}> {/* */}
+                                `}>
                                     <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
                                 </div>
                             )}
