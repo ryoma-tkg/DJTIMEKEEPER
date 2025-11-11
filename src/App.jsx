@@ -788,7 +788,6 @@ import {
                     }
                 });
             } catch (e) {
-                // もし import が失敗してたら (めったにないけど)
                 console.error("Firebase services setup failed:", e);
                 clearTimeout(connectionTimeout);
                 setAppStatus('offline');
