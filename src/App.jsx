@@ -809,6 +809,19 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         // ON AIR の場合
         if (content.status === 'ON AIR') {
             const dj = content;
+
+            // ★★★ ここから修正っす！ ★★★
+            // メインアイコンの画像がロード済みかチェック
+            const isImageReady = !dj.imageUrl || dj.isBuffer || loadedUrls.has(dj.imageUrl);
+
+            // まだロードされてなかったら、スピナー（くるくる）を表示する
+            if (!isImageReady) {
+                return (
+                    <div className="flex flex-col items-center justify-center h-full">
+                        <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
+                    </div>
+                );
+            }
             return (
                 <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
                     {!dj.isBuffer && (
