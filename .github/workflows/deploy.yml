@@ -1,0 +1,60 @@
+# ワークフローの名前
+name: Deploy Vite App to GitHub Pages
+
+# 実行するタイミング
+on:
+  # 'main' ブランチに push されたら実行
+  push:
+    branches:
+      - main # ご自身のブランチ名が 'master' なら、そっちに変えてください
+
+# 必要な権限を設定
+permissions:
+  contents: read
+  pages: write      # Pagesにデプロイするために必要
+  id-token: write   # OIDCトークンを発行するために必要
+
+# 環境変数の設定 (デプロイを高速化するため)
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+# 実行するジョブ
+jobs:
+  deploy:
+    # 実行環境
+    runs-on: ubuntu-latest
+    
+    # ジョブのステップ
+    steps:
+      # 1. リポジトリのコードをチェックアウト
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Node.js の環境をセットアップ
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # '18' や '20' など、プロジェクトに合わせる
+          cache: 'npm'       # npmのキャッシュを有効化
+
+      # 3. 依存パッケージのインストール
+      - name: Install dependencies
+        run: npm ci # 'npm install' より高速で確実っす
+
+      # 4. Viteアプリのビルド
+      # 'package.json' の "build": "vite build" が実行される
+      - name: Build Vite app
+        run: npm run build
+
+      # 5. GitHub Pages用にビルド結果をアーティファクトとしてアップロード
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # ★★★ ここがViteの重要ポイントっす！ ★★★
+          path: './dist' 
+
+      # 6. GitHub Pages にデプロイ
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
