@@ -629,7 +629,9 @@ import {
             useEffect(() => {
                 const newBgCandidate = (status === 'ON AIR' && currentDj && currentDj.imageUrl && !currentDj.isBuffer) ? currentDj : null;
 
-                if (backgroundDj?.id === newBgCandidate?.id) return;
+                if (backgroundDj?.id === newBgCandidate?.id) {
+                    return; 
+                }
                 
                 const FADE_DURATION = 3000; // 3秒
                 
@@ -647,7 +649,7 @@ import {
 
                 return () => clearTimeout(timer);
 
-            }, [currentDj, status, backgroundDj]); // backgroundDjも依存配列に追加
+            }, [currentDj, status]); // backgroundDjも依存配列に追加
 
             /* ▼▼▼ メインコンテンツの切り替えロジック（ここが重要っす！） ▼▼▼ */
             useEffect(() => {
