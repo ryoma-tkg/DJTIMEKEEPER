@@ -1,17 +1,76 @@
-# React + Vite
+# DJ Timekeeper Pro
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+リアルタイムで同期するDJイベント用のタイムテーブル管理アプリです。
+Firebaseを利用して、編集モードとLiveモードでデータを瞬時に同期します。
 
-Currently, two official plugins are available:
+## 主な機能
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **編集モード**: DJの追加、削除、順番の入れ替え、時間の調整をドラッグ＆ドロップで直感的に行えます。
+- **Liveモード**: 現在再生中のDJ、残り時間、次のDJを全画面で表示する本番用ビューです。
+- **リアルタイム同期**: Firebase Firestore を使用し、編集モードでの変更が即座にLiveモードに反映されます。
+- **画像アップロード**: DJのアイコンをFirebase Storageにアップロードし、タイムテーブルに表示できます。
 
-## React Compiler
+## 使い方
 
-The React Compiler is currently not compatible with SWC. See [this issue](https://github.com/vitejs/vite-plugin-react/issues/428) for tracking the progress.
+### 編集モード ( `/` )
 
-## Expanding the ESLint configuration
+アプリのメイン画面です。ここでタイムテーブルのすべてを管理します。
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
-# DJTIMEKEEPER
+- **イベント設定**: イベントタイトルと、全体の**開始時間**を設定できます。
+- **DJを追加**: DJ名、持ち時間（分）、イメージカラー、アイコン画像URLを設定してDJを追加します。
+- **バッファーを追加**: DJ間の転換時間として「バッファー」を追加できます。
+- **並び替え**: DJの左側にあるグリップアイコンを掴んで、ドラッグ＆ドロップで順番を入れ替えられます。
+- **コピー・削除**: 各DJアイテムのボタンから、DJの複製や削除が可能です。
+- **Liveモードへ**: タイムテーブルが完成したら、右上の「Liveモード」ボタンで本番用画面に切り替えられます。
+
+### Liveモード ( `/live` ※ボタン経由 )
+
+本番中にフロアのスクリーンなどに映し出すためのビューです。
+
+- **現在のDJ**: 現在のDJ名と残り時間が大きく表示されます。
+- **次のDJ**: 「NEXT UP」として次のDJ名と開始時刻が表示されます。
+- **ダイナミック背景**: 現在再生中のDJのアイコン画像が、背景にブラー（ぼかし）エフェクトで表示されます。
+- **リアルタイムタイムライン**: 画面下部には、現在のDJが中央に来るようにスクロールするタイムラインが表示されます。
+
+## 技術仕様
+
+- **フロントエンド**: React (Vite + SWC)
+- **スタイリング**: Tailwind CSS
+- **バックエンド (BaaS)**: Firebase
+  - **認証**: 匿名認証 (Anonymous Authentication)
+  - **データベース**: Firestore (リアルタイム同期用)
+  - **ストレージ**: Firebase Storage (アイコン画像アップロード用)
+
+## セットアップ方法
+
+### 1. Firebase プロジェクトの準備
+
+このアプリはFirebaseに強く依存しているため、Firebaseプロジェクトのセットアップが必須です。
+
+1.  Firebaseコンソールで新しいプロジェクトを作成します。
+2.  以下のサービスを有効にします。
+    - **Authentication**: 「匿名認証」を有効にします。
+    - **Firestore**: データベースを作成します（テスト環境のままのルールでOKです）。
+    - **Storage**: ストレージを作成します（テスト環境のままのルールでOKです）。
+3.  ウェブアプリを登録し、`firebaseConfig` オブジェクト（APIキーなどが含まれる）を取得します。
+
+### 2. Firebase設定ファイルの編集
+
+取得した `firebaseConfig` を `src/firebase.js` にコピペします。
+
+```javascript
+// src/firebase.js
+
+// ... (import文) ...
+
+// ここにご自身のFirebaseプロジェクトの設定を貼り付けてください
+const firebaseConfig = {
+  apiKey: "AIzaSy...",
+  authDomain: "your-project.firebaseapp.com",
+  projectId: "your-project",
+  storageBucket: "your-project.appspot.com",
+  messagingSenderId: "...",
+  appId: "..."
+};
+
+// ... (以降の初期化コード) ...
