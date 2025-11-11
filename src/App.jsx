@@ -762,7 +762,7 @@ import {
                     return;
                 }*/
 
-                const { initializeApp, getAuth, onAuthStateChanged, signInAnonymously, getFirestore, getStorage } = window.firebase;
+                //const { initializeApp, getAuth, onAuthStateChanged, signInAnonymously, getFirestore, getStorage } = window.firebase;
                 
                 const connectionTimeout = setTimeout(() => {
                     if (appStatus === 'connecting') {
@@ -799,8 +799,8 @@ import {
             useEffect(() => {
                 if (appStatus !== 'online' || !isAuthenticated || !dbRef.current) return;
 
-                const { doc, onSnapshot } = window.firebase;
-                const docRef = doc(dbRef.current, 'artifacts', window.appId, 'public', 'sharedTimetable');
+                //const { doc, onSnapshot } = window.firebase;
+                const docRef = doc(dbRef.current, 'artifacts', appId, 'public', 'sharedTimetable');
 
                 const unsubscribe = onSnapshot(docRef, (docSnap) => {
                     if (docSnap.exists()) {
@@ -821,8 +821,8 @@ import {
             const saveDataToFirestore = useCallback(() => {
                 if (appStatus !== 'online' || !isAuthenticated || !dbRef.current) return;
                 
-                const { doc, setDoc } = window.firebase;
-                const docRef = doc(dbRef.current, 'artifacts', window.appId, 'public', 'sharedTimetable');
+                //const { doc, setDoc } = window.firebase;
+                const docRef = doc(dbRef.current, 'artifacts', appId, 'public', 'sharedTimetable');
                 const dataToSave = { timetable, eventConfig };
                 setDoc(docRef, dataToSave, { merge: true }).catch(error => {
                      console.error("Error saving data to Firestore:", error);
