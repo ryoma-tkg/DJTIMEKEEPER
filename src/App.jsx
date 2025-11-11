@@ -879,7 +879,6 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
     return (
         <div className="fixed inset-0" style={bgColorStyle}>
             {/* 背景画像 */}
-            {/* 呼び出しは変更なし */}
             {fadingOutBgDj && <BackgroundImage key={fadingOutBgDj.id} dj={fadingOutBgDj} isFadingOut={true} />}
             {backgroundDj && <BackgroundImage key={backgroundDj.id} dj={backgroundDj} isFadingOut={false} />}
 
@@ -892,7 +891,8 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                 </div>
             </header>
             <button onClick={() => setMode('edit')} className="absolute top-4 md:top-8 right-4 flex items-center bg-surface-container hover:opacity-90 text-white font-bold py-2 px-4 rounded-full transition-opacity duration-200 text-sm z-20">編集</button>
-            {/* ★★★ ここまで修正っす！ ★★★ */}
+            {/* ★★★ 修正はここまで ★★★ */}
+
 
             {/* メインコンテンツエリア */}
             <div className="absolute top-24 bottom-32 left-0 right-0 px-4 flex items-center justify-center overflow-hidden">
@@ -1074,7 +1074,8 @@ const App = () => {
         setMode(newMode);
     };
 
-    const isLoading = isInitialLoading || (mode === 'live' && !imagesLoaded);
+    //const isLoading = isInitialLoading || (mode === 'live' && !imagesLoaded);
+    const isLoading = isInitialLoading;
 
     if (isLoading) {
         return (
