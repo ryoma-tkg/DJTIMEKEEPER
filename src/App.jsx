@@ -753,17 +753,22 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         // --- UPCOMING ---
         if (content.status === 'UPCOMING') {
             const dj = content;
+
+            const eventStartTime = eventConfig.startTime;
+            const eventEndTime = schedule.length > 0
+                ? schedule[schedule.length - 1].endTime.toTimeString().slice(0, 5)
+                : '??:??'; // 念のためのフォールバックっす
+
             return (
                 <main className="w-full max-w-6xl mx-auto flex flex-col items-center justify-center text-center">
                     <h2 className="text-2xl md:text-3xl text-on-surface-variant font-bold tracking-widest mb-4">UPCOMING</h2>
-                    <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold break-words leading-tight">{dj.name}</h1>
+                    <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold break-words leading-tight">{eventConfig.title}</h1>
                     <p className="text-2xl md:text-3xl font-semibold tracking-wider font-mono mt-4" style={{ color: dj.color }}>
-                        {dj.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ~
+                        {eventStartTime} - {eventEndTime}
                     </p>
-                    <p className="flex items-baseline justify-center text-6xl sm:text-7xl md:text-8xl text-on-surface my-4 whitespace-nowrap">
-                        <span className="text-3xl sm:text-4xl text-on-surface-variant mr-4 font-sans font-bold">開始まで</span>
-
-                        <span className="font-mono inline-block text-left w-[5ch]">{formatTime(dj.timeLeft)}</span>
+                    <p className="flex flex-col items-center justify-center text-6xl sm:text-7xl md:text-8xl text-on-surface my-12">
+                        <span className="text-3xl sm:text-4xl text-on-surface-variant font-sans font-bold mb-2">開始まで</span>
+                        <span className="font-mono inline-block text-center w-[5ch]">{formatTime(dj.timeLeft)}</span>
                     </p>
                 </main>
             );
@@ -818,17 +823,25 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                         </div>
                     )}
                     <div className={`flex flex-col ${dj.isBuffer ? 'items-center text-center' : 'text-center md:text-left'}`}>
-                        <div className="flex flex-col space-y-3">
-                            <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold break-words leading-tight">{dj.name}</h1>
-
-                            <p className="text-2xl md:text-3xl font-semibold tracking-wider font-mono" style={{ color: dj.color }}>
+                        <div className="flex flex-col">
+                            <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold break-words leading-tight mb-3">{dj.name}</h1>
+                            <p className="text-2xl md:text-3xl font-semibold tracking-wider font-mono mb-3" style={{ color: dj.color }}>
                                 {dj.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {dj.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </p>
 
-                            <p className="flex items-baseline justify-center md:justify-start text-6xl sm:text-7xl md:text-8xl text-on-surface my-2 whitespace-nowrap">
-                                <span className="text-3xl sm:text-4xl text-on-surface-variant mr-4 font-sans font-bold">残り</span>
-                                <span className="font-mono inline-block text-left w-[5ch]">{formatTime(dj.timeLeft)}</span>
-                            </p>
+                            {dj.isBuffer ? (
+                                // 【バッファの時】 (UPCOMING画面と同じスタイル)
+                                <p className="flex flex-col items-center justify-center text-6xl sm:text-7xl md:text-8xl text-on-surface my-4">
+                                    <span className="text-3xl sm:text-4xl text-on-surface-variant font-sans font-bold mb-2 mt-4">残り</span>
+                                    <span className="font-mono inline-block text-center w-[5ch]">{formatTime(dj.timeLeft)}</span>
+                                </p>
+                            ) : (
+                                // 【通常のDJの時】 (元のスタイル)
+                                <p className="flex items-baseline justify-center md:justify-start text-6xl sm:text-7xl md:text-8xl text-on-surface my-2 whitespace-nowrap">
+                                    <span className="text-3xl sm:text-4xl text-on-surface-variant mr-4 font-sans font-bold">残り</span>
+                                    <span className="font-mono inline-block text-left w-[5ch]">{formatTime(dj.timeLeft)}</span>
+                                </p>
+                            )}
 
                             <div className={`bg-surface-container rounded-full h-3.5 overflow-hidden w-full`}>
                                 <div className="h-full rounded-full transition-all duration-500 ease-linear" style={{ width: `${dj.progress}%`, backgroundColor: dj.color }}></div>
