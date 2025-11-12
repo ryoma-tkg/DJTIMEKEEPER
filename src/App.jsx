@@ -856,23 +856,20 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         // ON AIR の場合
         if (content.status === 'ON AIR') {
             const dj = content;
+            // リアルタイムのロード状態
             const isImageReady = !dj.imageUrl || dj.isBuffer || loadedUrls.has(dj.imageUrl);
 
-            // ★★★ 修正っす！ ★★★
-            const isFadingIn = mode === 'FADE_IN'; // FADE_IN モードか判定
+            // ★★★ ここからが今回の修正っす！ ★★★
+            const isFadingIn = mode === 'FADE_IN';
 
-            // ★★★ ログっす！ ★★★
-            // console.log(
-            //     `%c[renderContent] ${mode}`, 'font-weight: bold;',
-            //     `DJ: ${dj.id}, isIconVisible: ${isIconVisible}, isImageReady: ${isImageReady}`
-            // );
+            // FADE_OUT の時は isImageReady を強制的に true 扱いにする (スピナーを絶対に出さない)
+            // これで Safari で FADE_OUT 時に画像が消えるバグを防ぐっす
+            const effectiveImageReady = isFadingIn ? isImageReady : true;
+            // ★★★ ここまでが今回の修正っす！ ★★★
 
             return (
                 <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
                     {!dj.isBuffer && (
-                        // ★★★ 修正っす！ ★★★
-                        // FADE_IN の時だけ isIconVisible のロジックを適用する
-                        // FADE_OUT の時は isIconVisible を無視して opacity-100 にする
                         <div className={`
                             w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0 relative
                             will-change-opacity
@@ -882,12 +879,11 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                             }
                         `}>
 
-                            {/* ★★★ ここからが今回の修正っす！ ★★★ */}
-                            {/* レイヤー1（中身）: transition-opacity を削除！ */}
+                            {/* レイヤー1（中身）: transition-opacity はなし */}
                             <div className={`
                                 w-full h-full flex items-center justify-center 
                                 will-change-opacity
-                                ${isImageReady ? 'opacity-100' : 'opacity-0'}
+                                ${effectiveImageReady ? 'opacity-100' : 'opacity-0'}
                             `}>
                                 {dj.imageUrl ? (
                                     <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" />
@@ -896,18 +892,16 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                                 )}
                             </div>
 
-                            {/* ★★★ ここも今回の修正っす！ ★★★ */}
-                            {/* レイヤー2（スピナー）: transition-opacity を削除！ */}
+                            {/* レイヤー2（スピナー）: transition-opacity はなし */}
                             {dj.imageUrl && (
                                 <div className={`
                                     absolute inset-0 flex items-center justify-center 
                                     will-change-opacity 
-                                    ${!isImageReady ? 'opacity-100' : 'opacity-0'}
+                                    ${!effectiveImageReady ? 'opacity-100' : 'opacity-0'}
                                 `}>
                                     <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
                                 </div>
                             )}
-                            {/* ★★★ ここまでが今回の修正っす！ ★★★ */}
                         </div>
                     )}
                     <div className={`flex flex-col ${dj.isBuffer ? 'items-center text-center' : 'text-center md:text-left'}`}>
@@ -1124,12 +1118,16 @@ const App = () => {
 
     useEffect(() => {
         if (appStatus === 'online' && !isInitialLoading) {
+            // Debounce saving data to Firestore
             const handler = setTimeout(() => {
                 saveDataToFirestore();
-            }, 1000);
-            return () => clearTimeout(handler);
+            }, 1000); // 1秒間のデバウンス
+
+            return () => {
+                clearTimeout(handler);
+            };
         }
-    }, [timetable, eventConfig, saveDataToFirestore, appStatus, isInitialLoading]);
+    }, [timetable, eventConfig, saveDataToFirestore, appStatus, isInitialLoading]); // 依存配列に isInitialLoading を追加
 
     const handleSetMode = (newMode) => {
         if (newMode === 'live' && !imagesLoaded) {
