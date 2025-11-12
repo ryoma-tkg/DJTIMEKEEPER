@@ -494,58 +494,80 @@ const useImagePreloader = (urls) => {
 
     useEffect(() => {
         let isCancelled = false;
-        const loadImages = async () => {
-            const filteredUrls = urls.filter(Boolean);
-            if (filteredUrls.length === 0) {
-                setLoadedUrls(new Set()); // 空の Set
-                return;
+        // urlsKey からURLリストを復元（これが「最新」のリスト）
+        const filteredUrls = JSON.parse(urlsKey);
+
+        // ★ 1. (クリーンアップ)
+        // まず、新しいURLリスト (filteredUrls) に存在しない
+        // 古いURLを現在のState (loadedUrls) から安全に削除する
+        setLoadedUrls(prevSet => {
+            const newSet = new Set();
+            let changed = false;
+
+            prevSet.forEach(url => {
+                if (filteredUrls.includes(url)) {
+                    newSet.add(url);
+                } else {
+                    changed = true; // 削除されたURLがあった
+                }
+            });
+
+            // 削除されたURLがなく、サイズも同じなら (追加もなかった)
+            if (!changed && prevSet.size === filteredUrls.length) {
+                return prevSet; // Stateの参照を変えない（不要な再レンダリング防止）
             }
+            return newSet;
+        });
 
-            // 既存のロード済みSetをコピー
-            const newLoadedUrls = new Set(loadedUrls);
-            let needsUpdate = false; // Set の更新が必要か
-
+        // ★ 2. ロード処理 (filteredUrls 全てに対して)
+        const loadImages = async () => {
             try {
                 await Promise.all(
                     filteredUrls.map(url => {
-                        if (newLoadedUrls.has(url)) {
-                            return Promise.resolve(); // 既にロード済み
+                        // urlがnullやundefinedでないことを確認
+                        if (!url) {
+                            return Promise.resolve();
                         }
-                        needsUpdate = true; // 新しいロードが必要
 
-                        // 新しい画像をロード
                         return new Promise((resolve) => {
                             const img = new Image();
                             img.src = url;
                             img.onload = () => {
                                 if (!isCancelled) {
-                                    newLoadedUrls.add(url); // ロード成功
+                                    // ★ 3. (最重要) 
+                                    // ロード完了時に関数型更新で「追加」する
+                                    // これが並行処理でStateを安全に更新する唯一の方法っす
+                                    setLoadedUrls(prevSet => {
+                                        // 既に (クリーンアップ後のSetに) あれば何もしない
+                                        if (prevSet.has(url)) return prevSet;
+
+                                        // 破壊的変更をせず、新しいSetを返す
+                                        const updatedSet = new Set(prevSet);
+                                        updatedSet.add(url);
+                                        return updatedSet;
+                                    });
                                 }
                                 resolve();
                             };
-                            img.onerror = resolve; // 失敗しても次へ
+                            img.onerror = () => {
+                                // ロード失敗しても次へ (コンソールには出しておく)
+                                console.warn(`[useImagePreloader] Failed to load image: ${url}`);
+                                resolve();
+                            };
                         });
                     })
                 );
-
-                if (!isCancelled && needsUpdate) {
-                    console.log('[useImagePreloader] Images loaded:', newLoadedUrls);
-                    setLoadedUrls(newLoadedUrls); // 新しい Set で更新
-                }
-
             } catch (error) {
-                console.error("Failed to preload images", error);
+                if (!isCancelled) console.error("Failed to preload images", error);
             }
         };
 
-        loadImages();
+        loadImages(); // 非同期で実行開始
 
         return () => { isCancelled = true; };
     }, [urlsKey]); // urlsKey (文字列) に依存
 
-    // 全てのURLがロードされたかどうかの boolean も返す
     const allLoaded = urls.filter(Boolean).every(url => loadedUrls.has(url));
-
     return { loadedUrls, allLoaded };
 };
 
@@ -841,15 +863,11 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             <div className="absolute top-24 bottom-32 left-0 right-0 px-4 flex items-center justify-center overflow-hidden">
                 <div className="w-full h-full overflow-y-auto flex items-center justify-center relative">
 
-                    {/* ★★★ ここが新しい「シングルタスク」な描画っす！ ★★★ */}
-                    {/* クロスフェード（2つ同時）をやめて、1つのコンポーネントを描画する。
-                      isFadingOutフラグでアニメーションクラスを切り替えるだけ！
-                    */}
+                    {/* ★★★ ここが最重要修正っす！ ★★★ */}
+                    {/* key={visibleContent.id} を「復活」させる */}
                     {visibleContent && (
                         <div
-                            // ★★★ key={visibleContent.id} を「削除」っす！ ★★★
-                            // keyを固定することで、コンポーネントが破棄されず、
-                            // 中身とクラス名だけが切り替わるようになるっす！
+                            key={visibleContent.id} // ← ★★★ これを復活させるっす！ ★★★
                             className={`
                                 w-full absolute inset-0 p-4 flex items-center justify-center will-change-[transform,opacity]
                                 ${isFadingOut ? 'animate-fade-out-down' : 'animate-fade-in-up'}
