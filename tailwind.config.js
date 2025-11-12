@@ -53,8 +53,8 @@ export default {
       },
       animation: {
         // ★★★ ここの秒数を変えるっす！ ★★★
-        'fade-in-up': 'fadeInUp 0.5s ease-out forwards', // 1.0s → 0.5s とかにするとクイックになるっす
-        'fade-out-down': 'fadeOutDown 0.5s ease-out forwards', // 0.5s → 0.3s とかにする
+        'fade-in-up': 'fadeInUp 0.1s ease-out forwards', // 1.0s → 0.5s とかにするとクイックになるっす
+        'fade-out-down': 'fadeOutDown 0.1s ease-out forwards', // 0.5s → 0.3s とかにする
 
         'fade-in': 'fadeIn 2.0s ease-in-out forwards',
         'fade-out': 'fadeOut 2.0s ease-in-out forwards',
