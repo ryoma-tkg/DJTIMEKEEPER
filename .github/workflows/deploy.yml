@@ -42,19 +42,23 @@ jobs:
       - name: Install dependencies
         run: npm ci # 'npm install' より高速で確実っす
 
-      # 4. Viteアプリのビルド
+      # 4. Viteのビルドキャッシュを強制的に削除
+      - name: Clear Vite build cache
+        run: rm -rf node_modules/.vite
+
+      # 5. Viteアプリのビルド
       # 'package.json' の "build": "vite build" が実行される
       - name: Build Vite app
-        run: npm run build -- --force
+        run: npm run build
 
-      # 5. GitHub Pages用にビルド結果をアーティファクトとしてアップロード
+      # 6. GitHub Pages用にビルド結果をアーティファクトとしてアップロード
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           # ★★★ ここがViteの重要ポイントっす！ ★★★
           path: './dist' 
 
-      # 6. GitHub Pages にデプロイ
+      # 7. GitHub Pages にデプロイ
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
