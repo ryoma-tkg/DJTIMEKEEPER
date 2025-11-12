@@ -482,7 +482,7 @@ const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTimetable,
     );
 };
 
-// BackgroundImage コンポーネント (削除したまま)
+// ★★★ 背景画像コンポーネントを削除（nullを返す）★★★
 const BackgroundImage = memo(() => {
     return null;
 });
@@ -557,18 +557,23 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
     // 毎秒更新される「最新の」状態データ
     const [currentData, setCurrentData] = useState(null);
 
-    // ★★★ ここからが新しいロジックっす！ ★★★
-    // 実際に表示するDJのデータ
-    const [visibleContent, setVisibleContent] = useState(null);
-    // 今、フェードアウト中かっすか？
-    const [isFadingOut, setIsFadingOut] = useState(false);
+    // ★★★ 背景画像関連のStateを削除 ★★★
+    // const [backgroundDj, setBackgroundDj] = useState(null);
+    // const [fadingOutBgDj, setFadingOutBgDj] = useState(null);
+    // const [isBackgroundReady, setIsBackgroundReady] = useState(false);
 
-    // アニメーションタイマー
+    // メインコンテンツ表示用のステート
+    const [visibleContent, setVisibleContent] = useState(null); // 表示するコンテンツ
+    const [fadingOutContent, setFadingOutContent] = useState(null); // 消えていくコンテンツ
+
+    // 「今表示されている内容」を Ref で管理
+    const displayedContentRef = useRef(null);
+    // アニメーションのタイマーを Ref で管理
     const animationTimerRef = useRef(null);
 
-    // 初回マウント時だけ `visibleContent` をセットするためのRef
-    const isInitialLoadRef = useRef(true);
-    // ★★★ ここまで ★★★
+    // ★★★ isIconVisible とそれ関連の Ref を削除 ★★★
+    // const [isIconVisible, setIsIconVisible] = useState(false);
+    // const iconFadeInTimerRef = useRef(null);
 
     const schedule = useMemo(() => {
         if (timetable.length === 0) return [];
@@ -642,47 +647,59 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             }
         }
 
-        // --- 初回ロード時の処理 ---
-        if (isInitialLoadRef.current && newContentData) {
-            setVisibleContent(newContentData); // アニメーションなしで即時セット
-            isInitialLoadRef.current = false;
-        }
-
-        setCurrentData(newContentData); // 毎秒の計算結果はこっちに保存
+        setCurrentData(newContentData);
 
     }, [now, schedule]);
 
 
-    // ★★★ ここが新しい「シングルタスク」なアニメーションロジックっす！ ★★★
+    // ★★★ 背景画像の切り替えロジックを削除 ★★★
+    // useEffect(() => { ... });
+
+
+    // ★★★ メインコンテンツの切り替えロジック（クロスフェード方式） ★★★
     useEffect(() => {
-        // currentData（計算結果）と visibleContent（表示中）がズレたら＝DJが切り替わった！
-        if (currentData && visibleContent && currentData.id !== visibleContent.id) {
+        const newContent = currentData;
+        if (!newContent) return; // データがなければ何もしない
 
-            // 既存のタイマーは全部クリア
-            if (animationTimerRef.current) {
-                clearTimeout(animationTimerRef.current);
-            }
+        const oldContent = displayedContentRef.current;
 
-            const FADE_OUT_DURATION = 500; // tailwind.config.js の 'fade-out-down' と合わせる
-
-            // 1. まず「フェードアウトしろ！」と命令する
-            setIsFadingOut(true);
-
-            // 2. フェードアウトが終わる頃（0.5秒後）に...
-            animationTimerRef.current = setTimeout(() => {
-                // 3. 中身を新しいDJに入れ替える
-                setVisibleContent(currentData);
-                // 4. フェードアウト状態を解除（これで 'fade-in-up' が自動でかかる）
-                setIsFadingOut(false);
-                animationTimerRef.current = null;
-            }, FADE_OUT_DURATION);
-        }
-        // (B) DJが同じで、情報（残り時間など）だけ更新される場合
-        else if (currentData && visibleContent && currentData.id === visibleContent.id) {
-            setVisibleContent(currentData); // そのまま最新情報に更新
+        // (A) DJが同じで、情報（残り時間など）だけ更新される場合
+        if (oldContent?.id === newContent.id) {
+            setVisibleContent(newContent); // ★ タイマーが動くように毎秒更新
+            displayedContentRef.current = newContent;
+            return; // これ以上のアニメーション処理は不要
         }
 
-    }, [currentData]); // 毎秒の計算結果（currentData）を監視する
+        // (B) DJが切り替わった場合 (クロスフェード処理)
+
+        // 既存のアニメーションタイマーをクリア
+        if (animationTimerRef.current) {
+            clearTimeout(animationTimerRef.current);
+        }
+
+        // ★★★ isIconVisible 関連の処理を削除 ★★★
+
+        const CONTENT_FADE_OUT_DURATION = 500; // 0.5s（tailwind.config.js の 'fade-out-down' と合わせる）
+
+        // 1. 古いコンテンツを「消える用」にセット
+        setFadingOutContent(oldContent);
+
+        // 2. 新しいコンテンツを「入る用」にセット
+        setVisibleContent(newContent);
+        displayedContentRef.current = newContent;
+
+        // 3. 0.5秒後に古いDOMを消す
+        const fadeOutTimer = setTimeout(() => {
+            setFadingOutContent(null);
+            animationTimerRef.current = null;
+        }, CONTENT_FADE_OUT_DURATION);
+
+        animationTimerRef.current = fadeOutTimer;
+
+    }, [currentData]); // ★★★ 依存配列は [currentData] だけにするっす！
+
+    // ★★★ isIconVisible の useEffect を削除 ★★★
+    // useEffect(() => { ... });
 
 
     const timelineTransform = useMemo(() => {
@@ -708,12 +725,12 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     };
 
-    const bgColorStyle = (visibleContent?.status === 'ON AIR' && !isFadingOut)
-        ? { background: `radial-gradient(ellipse 80% 60% at 50% 120%, ${visibleContent.color}33, transparent)` }
-        : {};
+    // ★★★ 背景色ロジック修正 ★★★
+    // currentData ではなく visibleContent を見る
+    const bgColorStyle = (visibleContent?.status === 'ON AIR') ? { background: `radial-gradient(ellipse 80% 60% at 50% 120%, ${visibleContent.color}33, transparent)` } : {};
 
-    // ★★★ renderContent をシンプル化 ★★★
-    const renderContent = (content) => {
+    // ★★★ renderContent を修正（mode引数を追加） ★★★
+    const renderContent = (content, mode) => {
         if (!content) return null;
 
         // --- UPCOMING ---
@@ -738,12 +755,18 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         if (content.status === 'ON AIR') {
             const dj = content;
             const isImageReady = !dj.imageUrl || dj.isBuffer || loadedUrls.has(dj.imageUrl);
+            const isFadingIn = mode === 'FADE_IN';
+
+            // ★★★ ここがキモっす！ ★★★
+            // FADE_OUT の時は isImageReady を強制的に true 扱いにする (スピナーを絶対に出さない)
+            const effectiveImageReady = isFadingIn ? isImageReady : true;
 
             return (
                 <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
                     {!dj.isBuffer && (
                         // ★★★ ここをシンプル化 ★★★
-                        // transform-gpu を追加してSafariのバグを抑止
+                        // 1. 独自の transition-opacity を削除。親の animate-fade-in-up/down に任せる
+                        // 2. 'transform-gpu' を追加してSafariのバグを抑止
                         <div className={`
                             w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0 relative
                             transform-gpu
@@ -751,7 +774,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                             {/* レイヤー1（中身）: transition はなし */}
                             <div className={`
                                 w-full h-full flex items-center justify-center 
-                                ${isImageReady ? 'opacity-100' : 'opacity-0'}
+                                ${effectiveImageReady ? 'opacity-100' : 'opacity-0'}
                             `}>
                                 {dj.imageUrl ? (
                                     <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" />
@@ -764,7 +787,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                             {dj.imageUrl && (
                                 <div className={`
                                     absolute inset-0 flex items-center justify-center 
-                                    ${!isImageReady ? 'opacity-100' : 'opacity-0'}
+                                    ${!effectiveImageReady ? 'opacity-100' : 'opacity-0'}
                                 `}>
                                     <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
                                 </div>
@@ -810,6 +833,10 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
     return (
         <div className="fixed inset-0" style={bgColorStyle}>
 
+            {/* ★★★ 背景画像は削除（コメントアウト）っす！ ★★★ */}
+            {/* {fadingOutBgDj && <BackgroundImage key={fadingOutBgDj.id} dj={fadingOutBgDj} isFadingOut={true} isReady={true} />} */}
+            {/* {backgroundDj && <BackgroundImage key={backgroundDj.id} dj={backgroundDj} isFadingOut={false} isReady={isBackgroundReady} />} */}
+
             {/* ヘッダーと編集ボタン */}
             <header className="absolute top-4 md:top-8 left-1/2 -translate-x-1/2 w-max flex flex-col items-center space-y-2 z-20">
                 <h1 className="text-xl font-bold text-on-surface-variant tracking-wider">{eventConfig.title}</h1>
@@ -822,23 +849,28 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
 
             {/* メインコンテンツエリア */}
             <div className="absolute top-24 bottom-32 left-0 right-0 px-4 flex items-center justify-center overflow-hidden">
+                {/* ★★★ クロスフェード方式（transform-gpuなし）に戻すっす！ ★★★ */}
                 <div className="w-full h-full overflow-y-auto flex items-center justify-center relative">
 
-                    {/* ★★★ ここが新しいロジックっす！ ★★★ */}
-                    {/* 「fadingOutContent」 と 「visibleContent」 の2つを描画するんじゃなくて、
-                      「visibleContent」 1つだけを描画する！
-                    */}
+                    {/* 消えていくコンテンツ (手前) */}
+                    {fadingOutContent && (
+                        <div
+                            key={`fadeout-${fadingOutContent.id}`}
+                            // ★★★ アニメーションを 'animate-fade-out-down' に戻すっす！ ★★★
+                            className="w-full animate-fade-out-down absolute inset-0 p-4 flex items-center justify-center z-10 will-change-[transform,opacity]"
+                        >
+                            {renderContent(fadingOutContent, 'FADE_OUT')} {/* mode引数を渡す */}
+                        </div>
+                    )}
+
+                    {/* 表示されるコンテンツ (奥) */}
                     {visibleContent && (
                         <div
-                            // key を content の id にする（これが変わるとReactがコンポーネントを再生成する）
                             key={visibleContent.id}
-                            // isFadingOut が true なら「消えるアニメ」、false なら「出るアニメ」
-                            className={`
-                                w-full absolute inset-0 p-4 flex items-center justify-center will-change-[transform,opacity]
-                                ${isFadingOut ? 'animate-fade-out-down' : 'animate-fade-in-up'}
-                            `}
+                            // ★★★ アニメーションを 'animate-fade-in-up' に戻すっす！ ★★★
+                            className="w-full animate-fade-in-up absolute inset-0 p-4 flex items-center justify-center z-0 will-change-[transform,opacity]"
                         >
-                            {renderContent(visibleContent)}
+                            {renderContent(visibleContent, 'FADE_IN')} {/* mode引数を渡す */}
                         </div>
                     )}
 
