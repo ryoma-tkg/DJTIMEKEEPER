@@ -835,7 +835,23 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
     const renderContent = (content, mode) => { // ★★★ mode 引数を追加っす！
         if (!content) return null;
 
-        // ... (UPCOMING の部分は変更なし) ...
+        // --- UPCOMING ---
+        if (content.status === 'UPCOMING') {
+            const dj = content;
+            return (
+                <main className="w-full max-w-6xl mx-auto flex flex-col items-center justify-center text-center">
+                    <h2 className="text-2xl md:text-3xl text-on-surface-variant font-bold tracking-widest mb-4">UPCOMING</h2>
+                    <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold break-words leading-tight">{dj.name}</h1>
+                    <p className="text-2xl md:text-3xl font-semibold tracking-wider font-mono mt-4" style={{ color: dj.color }}>
+                        {dj.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ~
+                    </p>
+                    <p className="flex items-baseline justify-center text-6xl sm:text-7xl md:text-8xl text-on-surface my-4 whitespace-nowrap">
+                        <span className="text-3xl sm:text-4xl text-on-surface-variant mr-4 font-sans font-bold">開始まで</span>
+                        <span className="font-mono inline-block text-left w-[5ch]">{formatTime(dj.timeLeft)}</span>
+                    </p>
+                </main>
+            );
+        }
 
         // ON AIR の場合
         if (content.status === 'ON AIR') {
@@ -866,7 +882,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                             }
                         `}>
 
-                            {/* ★★★ 修正後（中身） ★★★ */}
+                            {/* ★★★ ここからが今回の修正っす！ ★★★ */}
                             {/* レイヤー1（中身）: transition-opacity を削除！ */}
                             <div className={`
                                 w-full h-full flex items-center justify-center 
@@ -880,7 +896,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                                 )}
                             </div>
 
-                            {/* ★★★ 修正後（スピナー） ★★★ */}
+                            {/* ★★★ ここも今回の修正っす！ ★★★ */}
                             {/* レイヤー2（スピナー）: transition-opacity を削除！ */}
                             {dj.imageUrl && (
                                 <div className={`
@@ -891,6 +907,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                                     <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
                                 </div>
                             )}
+                            {/* ★★★ ここまでが今回の修正っす！ ★★★ */}
                         </div>
                     )}
                     <div className={`flex flex-col ${dj.isBuffer ? 'items-center text-center' : 'text-center md:text-left'}`}>
