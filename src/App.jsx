@@ -29,7 +29,7 @@ const CopyIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" wid
 const XIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>);
 const ResetIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 2v6h6" /><path d="M21 12A9 9 0 0 0 6 5.3L3 8" /><path d="M21 22v-6h-6" /><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7" /></svg>);
 const AlertTriangleIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>);
-const GodModeIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className={className}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>);
+//const GodModeIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className={className}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>);
 
 const SimpleImage = memo(({ src, className, alt = "" }) => {
     if (!src) return null;
@@ -77,31 +77,28 @@ const ImageEditModal = ({ dj, onUpdate, onClose, storage }) => {
 
         let processedFileBlob;
         try {
-            // ★ 1. まず、インポートした画像処理関数を呼ぶっす！
-            console.log(`[App.jsx] 元ファイル: ${file.name}, ${Math.round(file.size / 1024)} KB`);
+            // 1. 処理を呼ぶ
             processedFileBlob = await processImageForUpload(file);
-            console.log(`[App.jsx] 処理後ファイル: ${Math.round(processedFileBlob.size / 1024)} KB`);
 
         } catch (processError) {
+            // 2. ★★★ 失敗したら、ここで必ず return してるか確認！ ★★★
             console.error("Image processing failed:", processError);
             setUploadError(processError.message || "画像の処理に失敗しました。");
             setIsUploading(false);
-            return; // 処理失敗
+            return; // ←←← ★★★ これが超重要っす！ ★★★
         }
 
+        // 3. 成功した場合だけ、こっちに来る
         try {
-            // ★ 2. ファイル名を .jpg に変えるっす
-            // (元のファイル名から拡張子を取り除いて .jpg をつける)
             const originalName = file.name.replace(/\.[^/.]+$/, "");
             const filePath = `dj_icons/${Date.now()}_${originalName}.jpg`;
             const storageRef = ref(storage, filePath);
 
-            // ★ 3. 処理済みの Blob (processedFileBlob) をアップロードするっす！
+            // 処理済みの Blob をアップロード
             const snapshot = await uploadBytes(storageRef, processedFileBlob);
             const downloadURL = await getDownloadURL(snapshot.ref);
 
-            setImageUrl(downloadURL); // プレビューと保存用にURLをセット
-
+            setImageUrl(downloadURL);
         } catch (error) {
             console.error("Image upload failed:", error);
             setUploadError("アップロードに失敗しました。");
