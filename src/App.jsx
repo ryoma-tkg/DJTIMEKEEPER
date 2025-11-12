@@ -7,6 +7,8 @@ import {
     ref, uploadBytes, getDownloadURL
 } from './firebase';
 
+import { processImageForUpload } from './utils/imageProcessor.js';
+
 //const { useState, useEffect, useCallback, useMemo, useRef, memo } = React;
 
 const VIVID_COLORS = [
@@ -73,15 +75,33 @@ const ImageEditModal = ({ dj, onUpdate, onClose, storage }) => {
         setIsUploading(true);
         setUploadError(null);
 
+        let processedFileBlob;
         try {
-            //const { ref, uploadBytes, getDownloadURL } = window.firebase;
-            const filePath = `dj_icons/${Date.now()}_${file.name}`;
+            // ★ 1. まず、インポートした画像処理関数を呼ぶっす！
+            console.log(`[App.jsx] 元ファイル: ${file.name}, ${Math.round(file.size / 1024)} KB`);
+            processedFileBlob = await processImageForUpload(file);
+            console.log(`[App.jsx] 処理後ファイル: ${Math.round(processedFileBlob.size / 1024)} KB`);
+
+        } catch (processError) {
+            console.error("Image processing failed:", processError);
+            setUploadError(processError.message || "画像の処理に失敗しました。");
+            setIsUploading(false);
+            return; // 処理失敗
+        }
+
+        try {
+            // ★ 2. ファイル名を .jpg に変えるっす
+            // (元のファイル名から拡張子を取り除いて .jpg をつける)
+            const originalName = file.name.replace(/\.[^/.]+$/, "");
+            const filePath = `dj_icons/${Date.now()}_${originalName}.jpg`;
             const storageRef = ref(storage, filePath);
 
-            const snapshot = await uploadBytes(storageRef, file);
+            // ★ 3. 処理済みの Blob (processedFileBlob) をアップロードするっす！
+            const snapshot = await uploadBytes(storageRef, processedFileBlob);
             const downloadURL = await getDownloadURL(snapshot.ref);
 
-            setImageUrl(downloadURL);
+            setImageUrl(downloadURL); // プレビューと保存用にURLをセット
+
         } catch (error) {
             console.error("Image upload failed:", error);
             setUploadError("アップロードに失敗しました。");
@@ -118,7 +138,8 @@ const ImageEditModal = ({ dj, onUpdate, onClose, storage }) => {
                             {isUploading ? (
                                 <>
                                     <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                    <span>アップロード中...</span>
+                                    {/* ★★★ メッセージを「処理中」もわかるように変えるっす！ ★★★ */}
+                                    <span>処理・アップロード中...</span>
                                 </>
                             ) : (
                                 <>
