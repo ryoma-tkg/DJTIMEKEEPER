@@ -689,7 +689,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             }
 
             // tailwind.config.js の 'fade-out-down' と合わせるっす！
-            const FADE_OUT_DURATION = 500; // 0.5s 
+            const FADE_OUT_DURATION = 300; // 0.3s 
 
             // 1. まず「フェードアウトしろ！」と命令する
             setIsFadingOut(true);
