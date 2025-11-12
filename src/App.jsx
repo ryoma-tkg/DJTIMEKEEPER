@@ -732,7 +732,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         }
 
         // (B) DJが切り替わった場合 (クロスフェード処理)
-        console.log(`[LiveView] DJ CHANGE: YES (From ${oldContent?.id} to ${newContent.id})`);
+        // console.log(`[LiveView] DJ CHANGE: YES (From ${oldContent?.id} to ${newContent.id})`);
 
         // 既存のアニメーションタイマーをクリア
         if (animationTimerRef.current) {
@@ -742,7 +742,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         // ★★★ ここから追加っす！ ★★★
         // アイコンの表示ステートをリセット
         setIsIconVisible(false);
-        console.log('[LiveView] 1. Set isIconVisible: false');
+        // console.log('[LiveView] 1. Set isIconVisible: false');
         // 既存のアイコンフェードインチューマーがあればクリア
         if (iconFadeInTimerRef.current) {
             clearTimeout(iconFadeInTimerRef.current);
@@ -773,7 +773,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
     // 新しいコンテンツ（visibleContent）が表示されたら、
     // わずかに遅れてアイコン（isIconVisible）をフェードインさせる
     useEffect(() => {
-        console.log(`[LiveView] 2. visibleContent changed to: ${visibleContent?.id}`);
+        // console.log(`[LiveView] 2. visibleContent changed to: ${visibleContent?.id}`);
         // 既存のタイマーがあればクリア
         if (iconFadeInTimerRef.current) {
             clearTimeout(iconFadeInTimerRef.current);
@@ -783,14 +783,14 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             // メインのアニメーション(fade-in-up)が始まってからアイコンをフェードインさせる
             // 50ms (0.05秒) のディレイ
             iconFadeInTimerRef.current = setTimeout(() => {
-                console.log(`[LiveView] 4. Timer Fired! Setting isIconVisible: true (DJ: ${visibleContent.id})`);
+                // console.log(`[LiveView] 4. Timer Fired! Setting isIconVisible: true (DJ: ${visibleContent.id})`);
                 setIsIconVisible(true);
             }, 50);
-            console.log('[LiveView] 3. Setting icon timer (50ms)...');
+            // console.log('[LiveView] 3. Setting icon timer (50ms)...');
 
         } else if (visibleContent) {
             // ON AIR 以外 (バッファ、UPCOMING, FINISHED) の場合は、ディレイなしで即時表示
-            console.log(`[LiveView] 3. (No timer) Setting isIconVisible: true (for ${visibleContent.id})`);
+            // console.log(`[LiveView] 3. (No timer) Setting isIconVisible: true (for ${visibleContent.id})`);
             setIsIconVisible(true);
         }
 
@@ -867,14 +867,11 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                         `}>
 
                             {/* ★★★ 修正っす！ ★★★ */}
-                            {/* レイヤー1（中身）: 親とロジックを統一っす！ */}
+                            {/* レイヤー1（中身）: transition-opacity を削除！ isImageReady だけで即時切り替え */}
                             <div className={`
                                 w-full h-full flex items-center justify-center 
                                 will-change-opacity
-                                ${isFadingIn
-                                    ? `transition-opacity duration-500 ease-in-out ${isImageReady && isIconVisible ? 'opacity-100' : 'opacity-0'}`
-                                    : (isImageReady ? 'opacity-100' : 'opacity-0') // FADE_OUT時はisImageReadyだけで即時表示
-                                }
+                                ${isImageReady ? 'opacity-100' : 'opacity-0'}
                             `}>
                                 {dj.imageUrl ? (
                                     <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" />
@@ -884,15 +881,12 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                             </div>
 
                             {/* ★★★ 修正っす！ ★★★ */}
-                            {/* レイヤー2（スピナー）: 親とロジックを統一っす！ */}
+                            {/* レイヤー2（スピナー）: transition-opacity を削除！ isImageReady だけで即時切り替え */}
                             {dj.imageUrl && (
                                 <div className={`
                                     absolute inset-0 flex items-center justify-center 
                                     will-change-opacity 
-                                    ${isFadingIn
-                                        ? `transition-opacity duration-500 ease-in-out ${!isImageReady && isIconVisible ? 'opacity-100' : 'opacity-0'}`
-                                        : (!isImageReady ? 'opacity-100' : 'opacity-0') // FADE_OUT時はisImageReadyだけで即時表示
-                                    }
+                                    ${!isImageReady ? 'opacity-100' : 'opacity-0'}
                                 `}>
                                     <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
                                 </div>
