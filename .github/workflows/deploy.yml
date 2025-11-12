@@ -45,7 +45,7 @@ jobs:
       # 4. Viteアプリのビルド
       # 'package.json' の "build": "vite build" が実行される
       - name: Build Vite app
-        run: npm run build
+        run: npm run build -- --force
 
       # 5. GitHub Pages用にビルド結果をアーティファクトとしてアップロード
       - name: Upload artifact
