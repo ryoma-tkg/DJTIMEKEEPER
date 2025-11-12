@@ -6,8 +6,8 @@ import {
     doc, onSnapshot, setDoc,
     ref, uploadBytes, getDownloadURL
 } from './firebase';
-
-import { processImageForUpload } from './utils/imageProcessor.js';
+// ★★★ 画像処理のインポート ★★★
+import { processImageForUpload } from './utils/imageProcessor';
 
 //const { useState, useEffect, useCallback, useMemo, useRef, memo } = React;
 
@@ -29,7 +29,7 @@ const CopyIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" wid
 const XIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>);
 const ResetIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 2v6h6" /><path d="M21 12A9 9 0 0 0 6 5.3L3 8" /><path d="M21 22v-6h-6" /><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7" /></svg>);
 const AlertTriangleIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>);
-//const GodModeIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className={className}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>);
+const GodModeIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className={className}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>);
 
 const SimpleImage = memo(({ src, className, alt = "" }) => {
     if (!src) return null;
@@ -68,6 +68,7 @@ const ImageEditModal = ({ dj, onUpdate, onClose, storage }) => {
     const [uploadError, setUploadError] = useState(null);
     const fileInputRef = useRef(null);
 
+    // ★★★ 画像処理を組み込んだ handleFileChange ★★★
     const handleFileChange = async (e) => {
         const file = e.target.files[0];
         if (!file || !storage) return;
@@ -77,28 +78,30 @@ const ImageEditModal = ({ dj, onUpdate, onClose, storage }) => {
 
         let processedFileBlob;
         try {
-            // 1. 処理を呼ぶ
+            // 1. まず、インポートした画像処理関数を呼ぶっす！
+            console.log(`[App.jsx] 元ファイル: ${file.name}, ${Math.round(file.size / 1024)} KB`);
             processedFileBlob = await processImageForUpload(file);
+            console.log(`[App.jsx] 処理後ファイル: ${Math.round(processedFileBlob.size / 1024)} KB`);
 
         } catch (processError) {
-            // 2. ★★★ 失敗したら、ここで必ず return してるか確認！ ★★★
             console.error("Image processing failed:", processError);
             setUploadError(processError.message || "画像の処理に失敗しました。");
             setIsUploading(false);
-            return; // ←←← ★★★ これが超重要っす！ ★★★
+            return; // 処理失敗
         }
 
-        // 3. 成功した場合だけ、こっちに来る
         try {
+            // 2. ファイル名を .jpg に変えるっす
             const originalName = file.name.replace(/\.[^/.]+$/, "");
             const filePath = `dj_icons/${Date.now()}_${originalName}.jpg`;
             const storageRef = ref(storage, filePath);
 
-            // 処理済みの Blob をアップロード
+            // 3. 処理済みの Blob (processedFileBlob) をアップロードするっす！
             const snapshot = await uploadBytes(storageRef, processedFileBlob);
             const downloadURL = await getDownloadURL(snapshot.ref);
 
-            setImageUrl(downloadURL);
+            setImageUrl(downloadURL); // プレビューと保存用にURLをセット
+
         } catch (error) {
             console.error("Image upload failed:", error);
             setUploadError("アップロードに失敗しました。");
@@ -135,7 +138,7 @@ const ImageEditModal = ({ dj, onUpdate, onClose, storage }) => {
                             {isUploading ? (
                                 <>
                                     <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                    {/* ★★★ メッセージを「処理中」もわかるように変えるっす！ ★★★ */}
+                                    {/* ★★★ メッセージを「処理中」もわかるように変更 ★★★ */}
                                     <span>処理・アップロード中...</span>
                                 </>
                             ) : (
@@ -251,6 +254,7 @@ const DjItem = memo(({ dj, isPlaying, onPointerDown, onEditClick, onUpdate, onCo
     );
 });
 
+// ★★★ 共有ボタンのロジックを追加 ★★★
 const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTimetable, setMode, storage, timeOffset }) => {
     const [openColorPickerId, setOpenColorPickerId] = useState(null);
     const [editingDjIndex, setEditingDjIndex] = useState(null);
@@ -422,6 +426,27 @@ const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTimetable,
         });
     };
 
+    // ★★★ 共有ボタン用の関数 ★★★
+    const handleShare = () => {
+        // 今のURLから、もし既存のハッシュ (#) があったら消す
+        const baseUrl = window.location.href.replace(/#.*$/, '');
+        // 新しい閲覧専用URL ( .../#live ) を作る
+        const url = baseUrl + '#live';
+
+        try {
+            // クリップボードにコピー
+            navigator.clipboard.writeText(url).then(() => {
+                alert('Liveモード専用URLをクリップボードにコピーしました！');
+            }, () => {
+                // （古いブラウザなどで）失敗した場合
+                alert('コピーに失敗しました...。');
+            });
+        } catch (err) {
+            console.error('クリップボードのコピーに失敗:', err);
+            alert('コピーに失敗しました...');
+        }
+    };
+
     return (
         <div className="p-4 md:p-8 max-w-4xl mx-auto">
             <ConfirmModal
@@ -448,6 +473,10 @@ const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTimetable,
                     placeholder="イベントタイトル"
                 />
                 <div className="flex gap-2 w-full sm:w-auto self-center">
+                    {/* ★★★ 共有ボタンを追加 ★★★ */}
+                    <button onClick={handleShare} title="Liveモード専用URLをコピー" className="flex items-center justify-center p-3.5 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded-full transition-colors">
+                        <CopyIcon className="w-5 h-5" />
+                    </button>
                     <button onClick={() => setIsResetConfirmOpen(true)} title="すべてリセット" className="flex items-center justify-center p-3.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-full transition-colors">
                         <ResetIcon className="w-5 h-5" />
                     </button>
@@ -587,7 +616,8 @@ const useImagePreloader = (urls) => {
     return { loadedUrls, allLoaded };
 };
 
-const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset }) => {
+// ★★★ 閲覧モード (isReadOnly) の prop を受け取る ★★★
+const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isReadOnly }) => {
     const [now, setNow] = useState(new Date(new Date().getTime() + timeOffset));
     const timelineContainerRef = useRef(null);
     const [containerWidth, setContainerWidth] = useState(0);
@@ -922,7 +952,11 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset }) =
                     {now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                 </div>
             </header>
-            <button onClick={() => setMode('edit')} className="absolute top-4 md:top-8 right-4 flex items-center bg-surface-container hover:opacity-90 text-white font-bold py-2 px-4 rounded-full transition-opacity duration-200 text-sm z-20">編集</button>
+
+            {/* ★★★ 閲覧モード (isReadOnly) じゃない時だけ「編集」ボタンを出す ★★★ */}
+            {!isReadOnly && (
+                <button onClick={() => setMode('edit')} className="absolute top-4 md:top-8 right-4 flex items-center bg-surface-container hover:opacity-90 text-white font-bold py-2 px-4 rounded-full transition-opacity duration-200 text-sm z-20">編集</button>
+            )}
 
 
             {/* メインコンテンツエリア */}
@@ -999,6 +1033,10 @@ const App = () => {
 
     const [timeOffset, setTimeOffset] = useState(0); // デフォルトは0 (デバイス時刻)
 
+    // ★★★ 閲覧専用モードかどうかの state を追加 ★★★
+    const [isReadOnly, setIsReadOnly] = useState(false);
+
+
     const imageUrlsToPreload = useMemo(() => timetable.map(dj => dj.imageUrl), [timetable]);
     const { loadedUrls, allLoaded: imagesLoaded } = useImagePreloader(imageUrlsToPreload);
     //const imagesLoaded = useImagePreloader(imageUrlsToPreload);
@@ -1033,6 +1071,13 @@ const App = () => {
     }, [appStatus]); // appStatus が変わるたびに（特に 'online' になった時）実行
 
     useEffect(() => {
+        // ★★★ URLハッシュをチェックして、閲覧モードにする ★★★
+        if (window.location.hash === '#live') {
+            console.log("閲覧専用モード (#live) で起動っす！");
+            setIsReadOnly(true); // 閲覧モード ON
+            setMode('live'); // 強制的に Liveモードへ
+        }
+
         setTimeout(() => setIsInitialLoading(false), 2000);
         /*
         if (!window.firebaseConfig.apiKey || window.firebaseConfig.apiKey.includes("AIzaSy...")) {
@@ -1072,7 +1117,7 @@ const App = () => {
         }
 
         return () => clearTimeout(connectionTimeout);
-    }, []);
+    }, []); // ★★★ 起動時に1回だけ実行するので、依存配列は空のまま！ ★★★
 
     useEffect(() => {
         if (appStatus !== 'online' || !isAuthenticated || !dbRef.current) return;
@@ -1099,7 +1144,8 @@ const App = () => {
 
 
     const saveDataToFirestore = useCallback(() => {
-        if (appStatus !== 'online' || !isAuthenticated || !dbRef.current) return;
+        // ★★★ 閲覧モード (isReadOnly) なら、絶対に保存しない！ ★★★
+        if (isReadOnly || appStatus !== 'online' || !isAuthenticated || !dbRef.current) return;
 
         //const { doc, setDoc } = window.firebase;
         const docRef = doc(dbRef.current, 'artifacts', appId, 'public', 'sharedTimetable');
@@ -1107,22 +1153,34 @@ const App = () => {
         setDoc(docRef, dataToSave, { merge: true }).catch(error => {
             console.error("Error saving data to Firestore:", error);
         });
-    }, [timetable, eventConfig, isAuthenticated, appStatus]);
+    }, [timetable, eventConfig, isAuthenticated, appStatus, isReadOnly]); // ★ isReadOnly を依存配列に追加
 
     useEffect(() => {
-        if (appStatus === 'online' && !isInitialLoading) {
-            // Debounce saving data to Firestore
-            const handler = setTimeout(() => {
-                saveDataToFirestore();
-            }, 1000); // 1秒間のデバウンス
-
-            return () => {
-                clearTimeout(handler);
-            };
+        // ★★★ 閲覧モード (isReadOnly) なら、絶対に保存しない！ ★★★
+        if (isReadOnly || appStatus === 'offline' || isInitialLoading) {
+            return; // 何もしない
         }
-    }, [timetable, eventConfig, saveDataToFirestore, appStatus, isInitialLoading]); // 依存配列に isInitialLoading を追加
 
+        // Debounce saving data to Firestore
+        const handler = setTimeout(() => {
+            saveDataToFirestore();
+        }, 1000); // 1秒間のデバウンス
+
+        return () => {
+            clearTimeout(handler);
+        };
+
+    }, [timetable, eventConfig, saveDataToFirestore, appStatus, isInitialLoading, isReadOnly]); // ★ isReadOnly を依存配列に追加
+
+
+    // ★★★ setMode をラップした handleSetMode を作る ★★★
     const handleSetMode = (newMode) => {
+        // 閲覧モードで 'edit' にしようとしたらブロック（念のため）
+        if (isReadOnly && newMode === 'edit') {
+            console.warn("閲覧専用モードのため、編集モードには戻れません。");
+            return;
+        }
+
         if (newMode === 'live' && !imagesLoaded) {
             console.warn("Images not fully preloaded. Waiting...");
             alert("まだ画像の準備中っす！ちょっと待ってからもう一回押してくださいっす！");
@@ -1184,10 +1242,16 @@ const firebaseConfig = {
                             <span>オフラインモード (データは保存・共有されません)</span>
                         </div>
                     )}
-                    {mode === 'edit' ?
-                        <TimetableEditor {...{ eventConfig, setEventConfig, timetable, setTimetable, setMode: handleSetMode, storage: storageRef.current, timeOffset }} /> : // ← ★ timeOffset を渡す
-                        // LiveView に loadedUrls と timeOffset を渡す
-                        <LiveView {...{ timetable, eventConfig, setMode: handleSetMode, loadedUrls, timeOffset }} /> // ← ★ timeOffset を渡す
+
+                    {/* ★★★ 描画ロジックを変更 ★★★ */}
+                    {/* isReadOnly が true なら、強制的に LiveView を表示 */}
+                    {/* isReadOnly が false なら、今まで通り mode で切り替え */}
+
+                    {mode === 'edit' && !isReadOnly ? // !isReadOnly を追加
+                        // ★★★ isReadOnly と handleSetMode を渡す ★★★
+                        <TimetableEditor {...{ eventConfig, setEventConfig, timetable, setTimetable, setMode: handleSetMode, storage: storageRef.current, timeOffset }} /> :
+                        // ★★★ isReadOnly と handleSetMode を渡す ★★★
+                        <LiveView {...{ timetable, eventConfig, setMode: handleSetMode, loadedUrls, timeOffset, isReadOnly }} />
                     }
                 </>
             );
