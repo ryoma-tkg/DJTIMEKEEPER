@@ -846,10 +846,10 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             const isFadingIn = mode === 'FADE_IN'; // FADE_IN モードか判定
 
             // ★★★ ログっす！ ★★★
-            console.log(
-                `%c[renderContent] ${mode}`, 'font-weight: bold;',
-                `DJ: ${dj.id}, isIconVisible: ${isIconVisible}, isImageReady: ${isImageReady}`
-            );
+            // console.log(
+            //     `%c[renderContent] ${mode}`, 'font-weight: bold;',
+            //     `DJ: ${dj.id}, isIconVisible: ${isIconVisible}, isImageReady: ${isImageReady}`
+            // );
 
             return (
                 <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
@@ -862,16 +862,19 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                             will-change-opacity
                             ${isFadingIn
                                 ? `transition-opacity duration-500 ease-in-out ${isIconVisible ? 'opacity-100' : 'opacity-0'}`
-                                : 'opacity-100'
+                                : 'opacity-100' // FADE_OUT時は常に表示
                             }
                         `}>
 
                             {/* ★★★ 修正っす！ ★★★ */}
-                            {/* 中身のロジックは前回（5回目）のままでOK */}
+                            {/* レイヤー1（中身）: 親とロジックを統一っす！ */}
                             <div className={`
                                 w-full h-full flex items-center justify-center 
-                                ${isImageReady ? 'opacity-100' : 'opacity-0 transition-opacity duration-300 ease-in-out'}
                                 will-change-opacity
+                                ${isFadingIn
+                                    ? `transition-opacity duration-500 ease-in-out ${isImageReady && isIconVisible ? 'opacity-100' : 'opacity-0'}`
+                                    : (isImageReady ? 'opacity-100' : 'opacity-0') // FADE_OUT時はisImageReadyだけで即時表示
+                                }
                             `}>
                                 {dj.imageUrl ? (
                                     <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" />
@@ -881,12 +884,15 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                             </div>
 
                             {/* ★★★ 修正っす！ ★★★ */}
-                            {/* 中身のロジックは前回（5回目）のままでOK */}
+                            {/* レイヤー2（スピナー）: 親とロジックを統一っす！ */}
                             {dj.imageUrl && (
                                 <div className={`
                                     absolute inset-0 flex items-center justify-center 
-                                    ${!isImageReady ? 'opacity-100 transition-opacity duration-300 ease-in-out' : 'opacity-0'}
                                     will-change-opacity 
+                                    ${isFadingIn
+                                        ? `transition-opacity duration-500 ease-in-out ${!isImageReady && isIconVisible ? 'opacity-100' : 'opacity-0'}`
+                                        : (!isImageReady ? 'opacity-100' : 'opacity-0') // FADE_OUT時はisImageReadyだけで即時表示
+                                    }
                                 `}>
                                     <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
                                 </div>
