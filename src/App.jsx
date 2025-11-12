@@ -862,6 +862,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             const isFadingIn = mode === 'FADE_IN';
 
             // FADE_OUT の時は isImageReady を強制的に true 扱いにする (スピナーを絶対に出さない)
+            // これで Safari で FADE_OUT 時に画像が消えるバグを防ぐっす
             const effectiveImageReady = isFadingIn ? isImageReady : true;
 
             return (
@@ -903,7 +904,6 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                         </div>
                     )}
                     <div className={`flex flex-col ${dj.isBuffer ? 'items-center text-center' : 'text-center md:text-left'}`}>
-                        {/* ... (残りのテキスト部分は変更なしっす) ... */}
                         <div className="flex flex-col space-y-3">
                             <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold break-words leading-tight">{dj.name}</h1>
 
@@ -958,7 +958,8 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
 
             {/* メインコンテンツエリア */}
             <div className="absolute top-24 bottom-32 left-0 right-0 px-4 flex items-center justify-center overflow-hidden">
-                <div className="w-full h-full overflow-y-auto flex items-center justify-center relative">
+                {/* ★★★ ここにGPUハックを追加っす！ ★★★ */}
+                <div className="w-full h-full overflow-y-auto flex items-center justify-center relative transform-gpu">
 
                     {/* 消えていくコンテンツ (手前) */}
                     {fadingOutContent && (
@@ -966,7 +967,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                             key={`fadeout-${fadingOutContent.id}`}
                             className="w-full animate-fade-out-down absolute inset-0 p-4 flex items-center justify-center z-10 will-change-[transform,opacity]"
                         >
-                            {renderContent(fadingOutContent, 'FADE_OUT')} {/* ★★★ mode引数を渡すっす！ ★★★ */}
+                            {renderContent(fadingOutContent, 'FADE_OUT')}
                         </div>
                     )}
 
@@ -976,7 +977,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                             key={visibleContent.id}
                             className="w-full animate-fade-in-up absolute inset-0 p-4 flex items-center justify-center z-0 will-change-[transform,opacity]"
                         >
-                            {renderContent(visibleContent, 'FADE_IN')} {/* ★★★ mode引数を渡すっす！ ★★★ */}
+                            {renderContent(visibleContent, 'FADE_IN')}
                         </div>
                     )}
 
