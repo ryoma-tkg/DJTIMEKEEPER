@@ -866,8 +866,8 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                             }
                         `}>
 
-                            {/* ★★★ 修正っす！ ★★★ */}
-                            {/* レイヤー1（中身）: transition-opacity を削除！ isImageReady だけで即時切り替え */}
+                            {/* ★★★ 修正後（中身） ★★★ */}
+                            {/* レイヤー1（中身）: transition-opacity を削除！ */}
                             <div className={`
                                 w-full h-full flex items-center justify-center 
                                 will-change-opacity
@@ -880,8 +880,8 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                                 )}
                             </div>
 
-                            {/* ★★★ 修正っす！ ★★★ */}
-                            {/* レイヤー2（スピナー）: transition-opacity を削除！ isImageReady だけで即時切り替え */}
+                            {/* ★★★ 修正後（スピナー） ★★★ */}
+                            {/* レイヤー2（スピナー）: transition-opacity を削除！ */}
                             {dj.imageUrl && (
                                 <div className={`
                                     absolute inset-0 flex items-center justify-center 
