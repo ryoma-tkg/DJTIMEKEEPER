@@ -859,20 +859,18 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             // リアルタイムのロード状態
             const isImageReady = !dj.imageUrl || dj.isBuffer || loadedUrls.has(dj.imageUrl);
 
-            // ★★★ ここからが今回の修正っす！ ★★★
             const isFadingIn = mode === 'FADE_IN';
 
             // FADE_OUT の時は isImageReady を強制的に true 扱いにする (スピナーを絶対に出さない)
-            // これで Safari で FADE_OUT 時に画像が消えるバグを防ぐっす
             const effectiveImageReady = isFadingIn ? isImageReady : true;
-            // ★★★ ここまでが今回の修正っす！ ★★★
 
             return (
                 <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
                     {!dj.isBuffer && (
+                        // ★★★ ここにGPUハックを追加っす！ ★★★
                         <div className={`
                             w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0 relative
-                            will-change-opacity
+                            transform-gpu will-change-[transform,opacity]
                             ${isFadingIn
                                 ? `transition-opacity duration-500 ease-in-out ${isIconVisible ? 'opacity-100' : 'opacity-0'}`
                                 : 'opacity-100' // FADE_OUT時は常に表示
@@ -905,6 +903,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                         </div>
                     )}
                     <div className={`flex flex-col ${dj.isBuffer ? 'items-center text-center' : 'text-center md:text-left'}`}>
+                        {/* ... (残りのテキスト部分は変更なしっす) ... */}
                         <div className="flex flex-col space-y-3">
                             <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold break-words leading-tight">{dj.name}</h1>
 
