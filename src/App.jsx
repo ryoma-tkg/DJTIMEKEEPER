@@ -776,30 +776,38 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             return (
                 <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
                     {!dj.isBuffer && (
-                        // ★★★ シンプル化 ★★★
-                        // 1. 独自の transition-opacity を削除。親のアニメーションに任せる
-                        // 2. 'transform-gpu' を追加してSafariのバグを抑止
+                        // transform-gpuは残し、WebKitにGPU加速を促すっす
                         <div className={`
                             w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0 relative
                             transform-gpu
                         `}>
-                            {/* レイヤー1（中身）: transition はなし */}
+                            {/* ★★★ Layer 1 (画像/アイコン表示) ★★★
+                                isImageReadyのopacity切り替えを削除。常にopacity:100相当。
+                                isImageReadyがfalseのときはUserIconを表示し、黒い丸の中身を埋めるっす。
+                            */}
                             <div className={`
                                 w-full h-full flex items-center justify-center 
-                                ${isImageReady ? 'opacity-100' : 'opacity-0'}
+                                transition-opacity duration-300 ease-in-out // 念のためフェードアウト中も適用
+                                ${dj.imageUrl && isImageReady ? 'opacity-100' : 'opacity-100'} // <- 常にopacity-100相当に！
                             `}>
-                                {dj.imageUrl ? (
+                                {dj.imageUrl && isImageReady ? (
+                                    // 画像URLがあり、かつプリロード済みなら、画像を表示
                                     <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" />
                                 ) : (
+                                    // それ以外 (画像未ロード or URLなし) の場合は、UserIconを表示
                                     <UserIcon className="w-1/2 h-1/2 text-on-surface-variant" />
                                 )}
                             </div>
 
-                            {/* レイヤー2（スピナー）: transition はなし */}
-                            {dj.imageUrl && (
+                            {/* ★★★ Layer 2 (スピナー) ★★★
+                                スピナーは画像URLがあり、isImageReadyがfalseのときだけ表示するロジックに変更。
+                                ただし、上のレイヤーにUserIconが常時表示されるため、スピナーの背景を不透明にしてUserIconを隠すっす。
+                            */}
+                            {dj.imageUrl && !isImageReady && (
                                 <div className={`
                                     absolute inset-0 flex items-center justify-center 
-                                    ${!isImageReady ? 'opacity-100' : 'opacity-0'}
+                                    bg-surface-container // <- これで下のUserIconを隠すっす
+                                    opacity-100
                                 `}>
                                     <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
                                 </div>
