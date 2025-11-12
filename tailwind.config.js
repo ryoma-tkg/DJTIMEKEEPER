@@ -38,30 +38,32 @@ export default {
           '100%': {
             opacity: '0',
             transform: 'translateY(20px) translateZ(0)',
-            /* visibility: 'hidden'  <--- ★★★ この行を削除かコメントアウト！ ★★★ */
+            visibility: 'hidden'  /* ★★★ このコメントアウトを外して、元に戻すっす！ ★★★ */
           },
         },
         fadeOut: {
           'from': { opacity: '1', visibility: 'visible' },
-          'to': { opacity: '0', /* visibility: 'hidden' <--- ★★★ こっちも消しとくっす！ ★★★ */ },
+          'to': {
+            opacity: '0', visibility: 'hidden', //<--- ★★★ こっちも消しとくっす！ ★★★ */ },
+          },
+          // ★★★ ここまで ★★★
+          spinner: {
+            '0%': { transform: 'rotate(0deg)' },
+            '100%': { transform: 'rotate(360deg)' },
+          }
         },
-        // ★★★ ここまで ★★★
-        spinner: {
-          '0%': { transform: 'rotate(0deg)' },
-          '100%': { transform: 'rotate(360deg)' },
-        }
-      },
-      animation: {
-        // ★★★ ここの秒数を変えるっす！ ★★★
-        'fade-in-up': 'fadeInUp 0.4s ease-out forwards', // 1.0s → 0.5s とかにするとクイックになるっす
-        'fade-out-down': 'fadeOutDown 0.4s ease-out forwards', // 0.5s → 0.3s とかにする
+        animation: {
+          // ★★★ ここの秒数を変えるっす！ ★★★
+          'fade-in-up': 'fadeInUp 0.4s ease-out forwards', // 1.0s → 0.5s とかにするとクイックになるっす
+          'fade-out-down': 'fadeOutDown 0.4s ease-out forwards', // 0.5s → 0.3s とかにする
 
-        'fade-in': 'fadeIn 2.0s ease-in-out forwards',
-        'fade-out': 'fadeOut 2.0s ease-in-out forwards',
-        'spinner': 'spinner 1s linear infinite',
-      }
-      // ▲▲▲ ここまで ▲▲▲
+          'fade-in': 'fadeIn 2.0s ease-in-out forwards',
+          'fade-out': 'fadeOut 2.0s ease-in-out forwards',
+          'spinner': 'spinner 1s linear infinite',
+        }
+        // ▲▲▲ ここまで ▲▲▲
+      },
     },
-  },
-  plugins: [],
+    plugins: [],
+  }
 }

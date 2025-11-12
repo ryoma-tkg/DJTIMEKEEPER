@@ -233,14 +233,15 @@ const DjItem = memo(({ dj, isPlaying, onPointerDown, onEditClick, onUpdate, onCo
     );
 });
 
-const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTimetable, setMode, storage }) => {
+const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTimetable, setMode, storage, timeOffset }) => {
     const [openColorPickerId, setOpenColorPickerId] = useState(null);
     const [editingDjIndex, setEditingDjIndex] = useState(null);
     const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
-    const [now, setNow] = useState(new Date());
+    const [now, setNow] = useState(new Date(new Date().getTime() + timeOffset));
     const [draggedIndex, setDraggedIndex] = useState(null);
     const [isGodMode, setIsGodMode] = useState(false);
     const originalTimetableRef = useRef(null);
+
 
     const dragStateRef = useRef({
         draggedIndex: null,
@@ -254,7 +255,7 @@ const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTimetable,
     }, [draggedIndex, timetable]);
 
     useEffect(() => {
-        const timer = setInterval(() => setNow(new Date()), 1000);
+        const timer = setInterval(() => setNow(new Date(new Date().getTime() + timeOffset)), 1000);
         return () => clearInterval(timer);
     }, []);
 
@@ -429,9 +430,6 @@ const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTimetable,
                     placeholder="イベントタイトル"
                 />
                 <div className="flex gap-2 w-full sm:w-auto self-center">
-                    <button onClick={toggleGodMode} title="GOD Mode" className={`flex items-center justify-center p-3.5 rounded-full transition-colors ${isGodMode ? 'bg-yellow-500/30 text-yellow-400' : 'bg-surface-container text-on-surface-variant hover:bg-zinc-600'}`}>
-                        <GodModeIcon className="w-5 h-5" />
-                    </button>
                     <button onClick={() => setIsResetConfirmOpen(true)} title="すべてリセット" className="flex items-center justify-center p-3.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-full transition-colors">
                         <ResetIcon className="w-5 h-5" />
                     </button>
@@ -571,8 +569,8 @@ const useImagePreloader = (urls) => {
     return { loadedUrls, allLoaded };
 };
 
-const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
-    const [now, setNow] = useState(new Date());
+const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset }) => {
+    const [now, setNow] = useState(new Date(new Date().getTime() + timeOffset));
     const timelineContainerRef = useRef(null);
     const [containerWidth, setContainerWidth] = useState(0);
 
@@ -588,9 +586,10 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
     // アニメーションタイマー
     const animationTimerRef = useRef(null);
 
+    /*
     // 初回マウント時だけ `visibleContent` をセットするためのフラグ
     const [isInitialLoad, setIsInitialLoad] = useState(true);
-    // ★★★ ここまで ★★★
+    // ★★★ ここまで ★★★*/
 
     const schedule = useMemo(() => {
         if (timetable.length === 0) return [];
@@ -607,7 +606,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
     }, [timetable, eventConfig.startTime]);
 
     useEffect(() => {
-        const timer = setInterval(() => setNow(new Date()), 1000);
+        const timer = setInterval(() => setNow(new Date(new Date().getTime() + timeOffset)), 1000);
         const updateWidth = () => {
             if (timelineContainerRef.current) setContainerWidth(timelineContainerRef.current.offsetWidth);
         };
@@ -617,7 +616,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             clearInterval(timer);
             window.removeEventListener('resize', updateWidth);
         };
-    }, []);
+    }, [timeOffset]);
 
     // 毎秒実行: 「今」の状態を計算
     useEffect(() => {
@@ -631,14 +630,30 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             const nextDj = (currentIndex < schedule.length - 1) ? schedule[currentIndex + 1] : null;
             const total = (dj.endTime - dj.startTime) / 1000;
             const remainingMs = (dj.endTime - now);
-            const remainingSeconds = Math.ceil(remainingMs / 1000);
+
+            // ▼▼▼ 修正点 1 (タイマー対応) ▼▼▼
+            // 「切り上げ」(ceil) だと 00:00 が見えないまま切り替わっちゃうんで、
+            // 「切り捨て」 (floor) に変更っす！
+            // これで、残り 0.9 秒でも 00:00 って表示されるようになるっす。
+            const remainingSeconds = Math.floor(remainingMs / 1000); // を ceil から floor へ変更
+
+            // ▼▼▼ 修正点 2 (プログレスバー対応) ▼▼▼
+            // (remainingSeconds <= 0) ＝ タイマーの表示が「00:00」になったら、
+            // (remainingMs > -1000) ＝ まだDJが切り替わる直前だったら（-1秒以内）
+            // ...という条件で、プログレスバーの値を「100%」に強制的にしちゃうっす！
+            const visualProgress = (remainingSeconds <= 0 && remainingMs > -1000)
+                ? 100 // 見た目上、100%にする
+                : (total > 0 ? ((total - (remainingMs / 1000)) / total) * 100 : 0); // それ以外は元の計算
+
 
             newContentData = {
                 ...dj,
                 status: 'ON AIR',
                 timeLeft: remainingSeconds,
+                progress: visualProgress,  // ★ 修正2の値
                 progress: total > 0 ? ((total - (remainingMs / 1000)) / total) * 100 : 0,
-                nextDj: nextDj
+                nextDj: nextDj,
+                animationKey: dj.id
             };
 
         } else {
@@ -665,53 +680,62 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                 };
             }
         }
-
+        /*
         // --- 初回ロード時の処理 ---
         if (isInitialLoad && newContentData) {
             setVisibleContent(newContentData); // アニメーションなしで即時セット
             setIsInitialLoad(false);
-        }
+        }*/
 
         setCurrentData(newContentData); // 毎秒の計算結果はこっちに保存
 
-    }, [now, schedule, isInitialLoad]); // isInitialLoad を依存配列に追加
+    }, [now, schedule]); // isInitialLoad を依存配列に追加
 
 
     // ★★★ ここが新しい「シングルタスク」なアニメーションロジックっす！ ★★★
     useEffect(() => {
         // 初回ロード中、またはデータがまだない場合は何もしない
-        if (isInitialLoad || !currentData || !visibleContent) return;
+        //if (isInitialLoad || !currentData || !visibleContent) return;
 
-        // (A) DJが切り替わった場合
-        if (currentData.animationKey !== visibleContent.animationKey) { // ★★★ .id から .animationKey に変更 ★★★
+        // ★★★ 初回マウント時（またはキー変更による再マウント時）の処理 ★★★
+        // visibleContentがまだセットされてなくて、currentDataが計算された直後
+        if (!visibleContent && currentData) {
+            setVisibleContent(currentData); // アニメーションなしで即時セット
+            return; // このuseEffectはここで終わり
+        }
+        // ★★★ 2回目以降（DJ切り替え時）の処理 ★★★
+        if (currentData && visibleContent) {
+            // (A) DJが切り替わった場合
+            if (currentData.animationKey !== visibleContent.animationKey) {
 
-            // 既存のタイマーは全部クリア
-            if (animationTimerRef.current) {
-                clearTimeout(animationTimerRef.current);
+                // 既存のタイマーは全部クリア
+                if (animationTimerRef.current) {
+                    clearTimeout(animationTimerRef.current);
+                }
+
+                // tailwind.config.js の 'fade-out-down' と合わせるっす！
+                const FADE_OUT_DURATION = 400; // 0.4s 
+
+                // 1. まず「フェードアウトしろ！」と命令する
+                setIsFadingOut(true);
+
+                // 2. フェードアウトが終わる頃（0.5秒後）に...
+                animationTimerRef.current = setTimeout(() => {
+                    // 3. 中身を新しいDJに入れ替える
+                    setVisibleContent(currentData);
+                    // 4. フェードアウト状態を解除（これで 'fade-in-up' が自動でかかる）
+                    setIsFadingOut(false);
+                    animationTimerRef.current = null;
+                }, FADE_OUT_DURATION);
             }
-
-            // tailwind.config.js の 'fade-out-down' と合わせるっす！
-            const FADE_OUT_DURATION = 400; // 0.4s 
-
-            // 1. まず「フェードアウトしろ！」と命令する
-            setIsFadingOut(true);
-
-            // 2. フェードアウトが終わる頃（0.5秒後）に...
-            animationTimerRef.current = setTimeout(() => {
-                // 3. 中身を新しいDJに入れ替える
-                setVisibleContent(currentData);
-                // 4. フェードアウト状態を解除（これで 'fade-in-up' が自動でかかる）
-                setIsFadingOut(false);
-                animationTimerRef.current = null;
-            }, FADE_OUT_DURATION);
-        }
-        // (B) DJが同じで、情報（残り時間など）だけ更新される場合
-        // ★重要★ アニメーション中（isFadingOut === true）は残り時間フリーズさせる
-        else if (currentData.animationKey === visibleContent.animationKey && !isFadingOut) { // ★★★ .id から .animationKey に変更 ★★★
-            setVisibleContent(currentData); // そのまま最新情報に更新
+            // (B) DJが同じで、情報（残り時間など）だけ更新される場合
+            // ★重要★ アニメーション中（isFadingOut === true）は残り時間フリーズさせる
+            else if (currentData.animationKey === visibleContent.animationKey && !isFadingOut) { // ★★★ .id から .animationKey に変更 ★★★
+                setVisibleContent(currentData); // そのまま最新情報に更新
+            }
         }
 
-    }, [currentData, visibleContent, isInitialLoad]); // 3つのstateを監視
+    }, [currentData, visibleContent]); // isInitialLoad を依存配列から削除
 
 
     const timelineTransform = useMemo(() => {
@@ -842,9 +866,9 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                                     <span className="font-mono inline-block text-left w-[5ch]">{formatTime(dj.timeLeft)}</span>
                                 </p>
                             )}
-
-                            <div className={`bg-surface-container rounded-full h-3.5 overflow-hidden w-full`}>
-                                <div className="h-full rounded-full transition-all duration-500 ease-linear" style={{ width: `${dj.progress}%`, backgroundColor: dj.color }}></div>
+                            <div className={`bg-surface-container rounded-full h-3.5 overflow-hidden w-full`/*プログレスバーの管理*/}>
+                                <div className="h-full rounded-full transition-all duration-500 ease-in-out"
+                                    style={{ width: `${dj.progress}%`, backgroundColor: dj.color }}></div>
                             </div>
                         </div>
                         {dj.nextDj && (
@@ -955,9 +979,40 @@ const App = () => {
     const dbRef = useRef(null);
     const storageRef = useRef(null);
 
+    const [timeOffset, setTimeOffset] = useState(0); // デフォルトは0 (デバイス時刻)
+
     const imageUrlsToPreload = useMemo(() => timetable.map(dj => dj.imageUrl), [timetable]);
     const { loadedUrls, allLoaded: imagesLoaded } = useImagePreloader(imageUrlsToPreload);
     //const imagesLoaded = useImagePreloader(imageUrlsToPreload);
+
+    useEffect(() => {
+        // 時刻の差分を計算する非同期関数
+        const fetchTimeOffset = async () => {
+            if (appStatus !== 'online') {
+                setTimeOffset(0); // オフラインなら差分0（デバイス時刻）
+                return;
+            }
+            try {
+                // 信頼できる世界時計API (例: worldtimeapi.org) を叩く
+                const response = await fetch('https://worldtimeapi.org/api/ip');
+                if (!response.ok) throw new Error('Failed to fetch time');
+
+                const data = await response.json();
+                const externalTime = data.unixtime * 1000; // APIからの正確な時刻 (ミリ秒)
+                const localTime = new Date().getTime(); // 今のデバイスの時刻
+
+                const offset = externalTime - localTime; // 差分を計算
+                console.log(`Time offset calculated: ${offset}ms`);
+                setTimeOffset(offset); // 差分を state に保存
+
+            } catch (error) {
+                console.warn('Failed to fetch external time, using device time.', error);
+                setTimeOffset(0); // 失敗したら差分0（デバイス時刻）
+            }
+        };
+
+        fetchTimeOffset(); // 実行
+    }, [appStatus]); // appStatus が変わるたびに（特に 'online' になった時）実行
 
     useEffect(() => {
         setTimeout(() => setIsInitialLoading(false), 2000);
@@ -1112,9 +1167,9 @@ const firebaseConfig = {
                         </div>
                     )}
                     {mode === 'edit' ?
-                        <TimetableEditor {...{ eventConfig, setEventConfig, timetable, setTimetable, setMode: handleSetMode, storage: storageRef.current }} /> :
-                        // LiveView に loadedUrls を渡す
-                        <LiveView {...{ timetable, eventConfig, setMode: handleSetMode, loadedUrls }} />
+                        <TimetableEditor {...{ eventConfig, setEventConfig, timetable, setTimetable, setMode: handleSetMode, storage: storageRef.current, timeOffset }} /> : // ← ★ timeOffset を渡す
+                        // LiveView に loadedUrls と timeOffset を渡す
+                        <LiveView {...{ timetable, eventConfig, setMode: handleSetMode, loadedUrls, timeOffset }} /> // ← ★ timeOffset を渡す
                     }
                 </>
             );
