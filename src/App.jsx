@@ -653,13 +653,15 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                     status: 'UPCOMING',
                     timeLeft: remainingSeconds,
                     progress: 0,
-                    nextDj: schedule[0]
+                    nextDj: schedule[0],
+                    animationKey: `upcoming-${upcomingDj.id}` // ★★★ これを追加 ★★★
                 };
             } else {
                 // --- FINISHED ---
                 newContentData = {
                     id: 'finished',
-                    status: 'FINISHED'
+                    status: 'FINISHED',
+                    animationKey: 'finished' // ★★★ これを追加 ★★★
                 };
             }
         }
@@ -681,7 +683,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         if (isInitialLoad || !currentData || !visibleContent) return;
 
         // (A) DJが切り替わった場合
-        if (currentData.id !== visibleContent.id) {
+        if (currentData.animationKey !== visibleContent.animationKey) { // ★★★ .id から .animationKey に変更 ★★★
 
             // 既存のタイマーは全部クリア
             if (animationTimerRef.current) {
@@ -689,7 +691,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             }
 
             // tailwind.config.js の 'fade-out-down' と合わせるっす！
-            const FADE_OUT_DURATION = 300; // 0.3s 
+            const FADE_OUT_DURATION = 400; // 0.4s 
 
             // 1. まず「フェードアウトしろ！」と命令する
             setIsFadingOut(true);
@@ -705,7 +707,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
         }
         // (B) DJが同じで、情報（残り時間など）だけ更新される場合
         // ★重要★ アニメーション中（isFadingOut === true）は残り時間フリーズさせる
-        else if (currentData.id === visibleContent.id && !isFadingOut) {
+        else if (currentData.animationKey === visibleContent.animationKey && !isFadingOut) { // ★★★ .id から .animationKey に変更 ★★★
             setVisibleContent(currentData); // そのまま最新情報に更新
         }
 
@@ -760,6 +762,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                     </p>
                     <p className="flex items-baseline justify-center text-6xl sm:text-7xl md:text-8xl text-on-surface my-4 whitespace-nowrap">
                         <span className="text-3xl sm:text-4xl text-on-surface-variant mr-4 font-sans font-bold">開始まで</span>
+
                         <span className="font-mono inline-block text-left w-[5ch]">{formatTime(dj.timeLeft)}</span>
                     </p>
                 </main>
@@ -875,7 +878,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                     {/* key={visibleContent.id} を「復活」させる */}
                     {visibleContent && (
                         <div
-                            key={visibleContent.id} // ← ★★★ これを復活させるっす！ ★★★
+                            key={visibleContent.animationKey} // ← ★★★ これを復活させるっす！ ★★★
                             className={`
                                 w-full absolute inset-0 p-4 flex items-center justify-center will-change-[transform,opacity]
                                 ${isFadingOut ? 'animate-fade-out-down' : 'animate-fade-in-up'}
@@ -895,7 +898,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
                         className="flex h-full items-center space-x-6 px-4 py-2 will-change-transform"
                         style={{
                             transform: timelineTransform,
-                            transition: 'transform 1.0s ease-in-out'
+                            transition: 'transform 0.4s ease-in-out'
                         }}
                     >
                         {schedule.map((dj, index) => (
