@@ -760,6 +760,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls }) => {
             // ★★★ ここがキモっす！ ★★★
             // FADE_OUT の時は isImageReady を強制的に true 扱いにする (スピナーを絶対に出さない)
             const effectiveImageReady = isFadingIn ? isImageReady : true;
+            console.log(`[renderContent] ${mode}`, { dj: dj.name, isImageReady, effectiveImageReady });
 
             return (
                 <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
