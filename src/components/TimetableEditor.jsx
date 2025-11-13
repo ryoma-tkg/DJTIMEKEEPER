@@ -166,7 +166,19 @@ const DjItem = memo(({ dj, isPlaying, onPointerDown, onEditClick, onUpdate, onCo
                 onPointerDown={(e) => e.stopPropagation()}
                 className="w-16 h-16 rounded-full bg-surface-background flex items-center justify-center overflow-hidden shrink-0 ring-2 ring-surface-background hover:ring-brand-primary transition-all"
             >
-                {dj.imageUrl ? <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" /> : <UserIcon className="w-8 h-8 text-on-surface-variant" />}
+                {dj.imageUrl ? (
+                    <div className="w-12 h-12 rounded-full bg-surface-background flex items-center justify-center overflow-hidden shrink-0 z-10">
+                        <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" />
+                    </div>
+                ) : !dj.isBuffer ? (
+                    // 
+                    <div className="w-12 h-12 rounded-full bg-surface-background flex items-center justify-center overflow-hidden shrink-0 z-10">
+                        <UserIcon className="w-6 h-6 text-on-surface-variant" />
+                    </div>
+                ) : (
+                    // 
+                    <div className="w-4 shrink-0 z-10"></div> // 
+                )}
             </button>
             <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                 <div className="flex flex-col">

@@ -8,7 +8,8 @@ import {
 
 // ★★★ 新しいコンポーネントをインポート ★★★
 import { TimetableEditor } from './components/TimetableEditor';
-import { SimpleImage, UserIcon, AlertTriangleIcon, parseTime } from './components/common';
+import { FullTimelineView } from './components/FullTimelineView';
+import { SimpleImage, UserIcon, AlertTriangleIcon, parseTime, GodModeIcon } from './components/common';
 
 
 // ★★★ App.jsx に残すコンポーネント (LiveView とその仲間たち) ★★★
@@ -106,30 +107,31 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
     const timelineContainerRef = useRef(null);
     const [containerWidth, setContainerWidth] = useState(0);
 
-    // 毎秒更新される「最新の」状態データ
+    const [isFullTimelineOpen, setIsFullTimelineOpen] = useState(false);
+
+    // 
     const [currentData, setCurrentData] = useState(null);
-
-    // 実際に表示するDJのデータ
     const [visibleContent, setVisibleContent] = useState(null);
-    // 今、フェードアウト中かっすか？
     const [isFadingOut, setIsFadingOut] = useState(false);
-
-    // アニメーションタイマー
     const animationTimerRef = useRef(null);
 
     const schedule = useMemo(() => {
         if (timetable.length === 0) return [];
         const scheduleData = [];
-        let lastEndTime = parseTime(eventConfig.startTime); // ★ common.jsx からインポート
+        let lastEndTime = parseTime(eventConfig.startTime);
         for (const dj of timetable) {
             const startTime = new Date(lastEndTime);
             const durationMinutes = parseFloat(dj.duration) || 0;
             const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
-            scheduleData.push({ ...dj, startTime, endTime });
+            scheduleData.push({ ...dj, startTime, endTime }); // 
             lastEndTime = endTime;
         }
         return scheduleData;
     }, [timetable, eventConfig.startTime]);
+
+    const currentlyPlayingIndex = useMemo(() => {
+        return schedule.findIndex(dj => now >= dj.startTime && now < dj.endTime)
+    }, [now, schedule]);
 
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date(new Date().getTime() + timeOffset)), 1000);
@@ -144,9 +146,9 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
         };
     }, [timeOffset]);
 
-    // 毎秒実行: 「今」の状態を計算
+    // 
     useEffect(() => {
-        const currentIndex = schedule.findIndex(dj => now >= dj.startTime && now < dj.endTime);
+        const currentIndex = currentlyPlayingIndex;
 
         let newContentData = null;
 
@@ -158,15 +160,14 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
             const remainingMs = (dj.endTime - now);
             const remainingSeconds = Math.floor(remainingMs / 1000);
             const visualProgress = (remainingSeconds <= 0 && remainingMs > -1000)
-                ? 100 // 見た目上、100%にする
-                : (total > 0 ? ((total - (remainingMs / 1000)) / total) * 100 : 0); // それ以外は元の計算
+                ? 100
+                : (total > 0 ? ((total - (remainingMs / 1000)) / total) * 100 : 0);
 
             newContentData = {
                 ...dj,
                 status: 'ON AIR',
                 timeLeft: remainingSeconds,
                 progress: visualProgress,
-                // progress: total > 0 ? ((total - (remainingMs / 1000)) / total) * 100 : 0, // ★ こっちは古いロジックなので削除
                 nextDj: nextDj,
                 animationKey: dj.id
             };
@@ -195,18 +196,16 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
                 };
             }
         }
-        setCurrentData(newContentData); // 毎秒の計算結果はこっちに保存
+        setCurrentData(newContentData);
 
-    }, [now, schedule]);
+    }, [now, schedule, currentlyPlayingIndex]);
 
-    // アニメーションロジック
+    // 
     useEffect(() => {
-        // 初回マウント時
         if (!visibleContent && currentData) {
-            setVisibleContent(currentData); // アニメーションなしで即時セット
+            setVisibleContent(currentData);
             return;
         }
-        // DJ切り替え時
         if (currentData && visibleContent) {
             if (currentData.animationKey !== visibleContent.animationKey) {
 
@@ -221,9 +220,8 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
                     animationTimerRef.current = null;
                 }, FADE_OUT_DURATION);
             }
-            // DJが同じで、情報（残り時間など）だけ更新される場合
             else if (currentData.animationKey === visibleContent.animationKey && !isFadingOut) {
-                setVisibleContent(currentData); // そのまま最新情報に更新
+                setVisibleContent(currentData);
             }
         }
     }, [currentData, visibleContent]);
@@ -254,9 +252,8 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
         return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     };
 
-    /* 背景グラデーション */
     const bgColorStyle = (visibleContent?.status === 'ON AIR' && !isFadingOut)
-        ? { background: `radial-gradient(ellipse 80% 60% at 50% 110%, ${visibleContent.color}33, transparent)` }
+        ? { background: `radial-gradient(ellipse 80% 60% at 50% 120%, ${visibleContent.color}33, transparent)` }
         : {};
 
     const renderContent = (content) => {
@@ -288,10 +285,12 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
         // --- ON AIR ---
         if (content.status === 'ON AIR') {
             const dj = content;
-            const isImageReady = !dj.imageUrl || dj.isBuffer || loadedUrls.has(dj.imageUrl);
+            const isImageReady = !dj.imageUrl || loadedUrls.has(dj.imageUrl);
 
             return (
                 <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
+
+                    {/* ★★★ バッファじゃない時だけアイコンエリアを表示 ★★★ */}
                     {!dj.isBuffer && (
                         <div className={`
                             w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0 relative
@@ -300,14 +299,17 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
                             <div className={`
                                 w-full h-full flex items-center justify-center 
                                 transition-opacity duration-300 ease-in-out 
-                                ${dj.imageUrl && isImageReady ? 'opacity-100' : 'opacity-100'} 
+                                ${isImageReady ? 'opacity-100' : 'opacity-100'} 
                             `}>
+
+                                {/* ★★★ アイコンロジック（UserIconのみ） ★★★ */}
                                 {dj.imageUrl && isImageReady ? (
-                                    <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" /> // ★ common.jsx からインポート
+                                    <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" />
                                 ) : (
-                                    <UserIcon className="w-1/2 h-1/2 text-on-surface-variant" /> // ★ common.jsx からインポート
+                                    <UserIcon className="w-1/2 h-1/2 text-on-surface-variant" />
                                 )}
                             </div>
+
                             {dj.imageUrl && !isImageReady && (
                                 <div className={`
                                     absolute inset-0 flex items-center justify-center 
@@ -319,6 +321,9 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
                             )}
                         </div>
                     )}
+                    {/* ★★★ 囲いここまで ★★★ */}
+
+                    {/* */}
                     <div className={`flex flex-col ${dj.isBuffer ? 'items-center text-center' : 'text-center md:text-left'}`}>
                         <div className="flex flex-col">
                             <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold break-words leading-tight mb-3">{dj.name}</h1>
@@ -344,7 +349,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
                         {dj.nextDj && (
                             <div className="mt-8 pt-6 border-t border-on-surface-variant/20">
                                 <p className="text-sm text-on-surface-variant font-bold tracking-widest mb-1">NEXT UP</p>
-                                <p className="text-2xl font-semibold">{dj.nextDj.name} <span className="text-lg font-sans text-on-surface-variant ml-2 font-mono">{dj.nextDj.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} -</span></p>
+                                <p className="text-2xl font-semibold">{dj.nextDj.name} <span className="text-lg font-sans text-on-surface-variant ml-2 font-mono">{dj.nextDj.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ~</span></p>
                             </div>
                         )}
                     </div>
@@ -360,6 +365,19 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
         return null;
     };
 
+
+    // 
+    const scheduleForModal = useMemo(() => {
+        return schedule.map(dj => ({
+            ...dj,
+            startTime: dj.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            endTime: dj.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            // 
+            startTimeDate: dj.startTime.toISOString(),
+            endTimeDate: dj.endTime.toISOString(),
+        }));
+    }, [schedule]);
+
     return (
         <div className="fixed inset-0" style={bgColorStyle}>
             {/* Header */}
@@ -370,10 +388,21 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
                 </div>
             </header>
 
-            {/* Edit Button (hidden if read-only) */}
-            {!isReadOnly && (
-                <button onClick={() => setMode('edit')} className="absolute top-4 md:top-8 right-4 flex items-center bg-surface-container hover:opacity-90 text-white font-bold py-2 px-4 rounded-full transition-opacity duration-200 text-sm z-20">編集</button>
-            )}
+            {/* */}
+            <div className="absolute top-4 md:top-8 right-4 flex gap-2 z-20">
+                <button
+                    onClick={() => setIsFullTimelineOpen(true)} // 
+                    className="flex items-center bg-surface-container/50 backdrop-blur-sm hover:bg-surface-container text-white font-semibold py-2 px-4 rounded-full transition-colors duration-200 text-sm"
+                >
+                    全体を見る
+                </button>
+                {!isReadOnly && (
+                    <button onClick={() => setMode('edit')} className="flex items-center bg-surface-container hover:opacity-90 text-white font-bold py-2 px-4 rounded-full transition-opacity duration-200 text-sm">
+                        編集
+                    </button>
+                )}
+            </div>
+            {/* */}
 
             {/* Main Content Area */}
             <div className="absolute top-24 bottom-32 left-0 right-0 px-4 flex items-center justify-center overflow-hidden">
@@ -402,33 +431,54 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
                             transition: 'transform 0.4s ease-in-out'
                         }}
                     >
-                        {schedule.map((dj, index) => (
-                            <div
-                                key={dj.id}
-                                className={`
-                                        shrink-0 w-64 h-24 bg-surface-container/40 backdrop-blur-sm rounded-2xl p-4 flex items-center 
-                                        border border-white/50 
-                                        ${dj.isBuffer ? 'justify-center' : 'space-x-6'} 
-                                       
-                                        ${(currentData?.status === 'ON AIR' && dj.id === currentData.id) ? 'opacity-100 scale-100' : 'opacity-60 scale-90'}
-                                        transition-[opacity,transform] duration-1000 ease-in-out
-                                        will-change-[opacity,transform]
-                                      `}
-                            >
-                                {!dj.isBuffer && (
-                                    <div className="ml-2 w-14 h-14 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center overflow-hidden">
-                                        {dj.imageUrl ? <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" /> : <UserIcon className="w-8 h-8 text-on-surface-variant" />}
+                        {schedule.map((dj, index) => {
+                            const isPlaying = currentlyPlayingIndex === index;
+
+                            return (
+                                <div
+                                    key={dj.id}
+                                    className={`
+                                            shrink-0 w-64 h-24 bg-surface-container/40 backdrop-blur-sm rounded-2xl p-4 flex items-center 
+                                            border border-white/30 
+                                            ${dj.isBuffer ? 'justify-center' : 'space-x-6'} 
+                                        
+                                            ${isPlaying ? 'opacity-100 scale-100' : 'opacity-60 scale-90'}
+                                            transition-[opacity,transform] duration-1000 ease-in-out
+                                            will-change-[opacity,transform]
+                                        `}
+                                >
+
+                                    {/* ★★★ バッファのアイコン非表示ロジック ★★★ */}
+                                    {dj.imageUrl ? (
+                                        <div className="w-14 h-14 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                            <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" />
+                                        </div>
+                                    ) : !dj.isBuffer ? (
+                                        <div className="w-14 h-14 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                            <UserIcon className="w-8 h-8 text-on-surface-variant" />
+                                        </div>
+                                    ) : null /* */}
+                                    {/* ★★★ 修正ここまで ★★★ */}
+
+                                    <div className="overflow-hidden flex flex-col justify-center">
+                                        <p className={`text-lg font-bold truncate w-full ${dj.isBuffer ? 'text-center' : 'text-left'}`}>{dj.name}</p>
+                                        <p className={`text-sm font-mono text-on-surface-variant ${dj.isBuffer ? 'text-center' : 'text-left'}`}>{dj.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                                     </div>
-                                )}
-                                <div className="overflow-hidden flex flex-col justify-center">
-                                    <p className={`text-lg font-bold truncate w-full ${dj.isBuffer ? 'text-center' : 'text-left'}`}>{dj.name}</p>
-                                    <p className={`text-sm font-mono text-on-surface-variant ${dj.isBuffer ? 'text-center' : 'text-left'}`}>{dj.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} -</p>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             )}
+
+            {/* */}
+            <FullTimelineView
+                isOpen={isFullTimelineOpen}
+                onClose={() => setIsFullTimelineOpen(false)} // 
+                schedule={scheduleForModal}
+                now={now}
+                currentlyPlayingIndex={currentlyPlayingIndex}
+            />
         </div>
     );
 };
