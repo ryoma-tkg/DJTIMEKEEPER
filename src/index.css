@@ -4,36 +4,111 @@
 @tailwind utilities;
 
 /* index.htmlの<style>タグにあったカスタムCSSをコピペするっす */
-html, body {
-    font-family: 'IBM Plex Sans JP', sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-}
+html,
 body {
-    font-family: 'Montserrat', 'IBM Plex Sans JP', sans-serif;
+  font-family: 'IBM Plex Sans JP', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+body {
+  font-family: 'Montserrat', 'IBM Plex Sans JP', sans-serif;
+}
+
 .mask-gradient {
-    -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
-    mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+  mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
 }
+
+/* ★★★ ここから修正・追加っす！ ★★★ */
+
+/* ドラッグ中のアイテム本体のスタイル (リッチ化) */
 .dragging-item {
-    opacity: 0.5;
-    transform: scale(1.05);
-    background-color: #3f3f46; /* Zinc 700 */
-    outline: none; /* 掴んだ際の枠線を削除 */
+  opacity: 0.9;
+  /* ほぼ不透明にする */
+  transform: scale(1.03);
+  /* 少しだけ大きく */
+  box-shadow: 0 20px 30px rgba(0, 0, 0, 0.4);
+  /* 影を濃くして浮かせる */
+  border-radius: 1rem;
+  /* 角を丸める */
+  cursor: grabbing;
+  /* 掴んでるカーソル */
+  z-index: 20;
+  /* 他の要素より手前に */
 }
+
+/* 全てのDJアイテムラッパー（リスト項目） */
+.dj-list-item {
+  position: relative;
+  /* ★ スムーズな「押し出し」アニメーションのキモっす！ */
+  transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
+  z-index: 1;
+  /* dragging-item より奥 */
+}
+
+/* 挿入ガイド（横線）のスタイル */
+.drop-indicator-before::before,
+.drop-indicator-after::after {
+  content: '';
+  position: absolute;
+  /* ★ 横幅を調整（左右のアイコンを避ける感じ） */
+  left: 4.5rem;
+  right: 4.5rem;
+  height: 4px;
+  background-color: #818cf8;
+  /* brand-primary */
+  border-radius: 2px;
+  z-index: 0;
+  /* アイテムの更に奥 */
+
+  /* ★ 横線自体のフェードイン */
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+/* 上側に線を表示 */
+.drop-indicator-before::before {
+  /* space-y-4 (1rem = 16px) の真ん中 (8px) から線の太さ(4px)の半分を引く */
+  top: -6px;
+}
+
+/* 下側に線を表示 */
+.drop-indicator-after::after {
+  /* space-y-4 (1rem = 16px) の真ん中 (8px) から線の太さ(4px)の半分を引く */
+  bottom: -6px;
+}
+
+/* ★ fade-in キーフレームが tailwind.config.js にあるか確認 */
+/* （もしなければ tailwind.config.js に追加が必要っす） */
+
+/* ▲▲▲ 修正ここまで ▲▲▲ */
+
+.timetable-list-container {
+  /* これでテキスト選択を無効にできるっす！ */
+  -webkit-user-select: none;
+  /* Safari用 */
+  -moz-user-select: none;
+  /* Firefox用 */
+  -ms-user-select: none;
+  /* IE/Edge用 */
+  user-select: none;
+  /* 標準 */
+}
+
 
 /* ▼▼▼ Safari 14 互換性対応 ▼▼▼ */
 @layer utilities {
-  /* aspect-square (aspect-ratio: 1/1) のフォールバック */
-  /* Safari 14.0 以前は aspect-ratio をサポートしていません */
+
+  /* ... (変更なし) ... */
   @supports not (aspect-ratio: 1 / 1) {
     .aspect-square {
       position: relative;
       height: 0;
-      padding-bottom: 100%; /* これで高さを幅と同じにします */
+      padding-bottom: 100%;
+      /* これで高さを幅と同じにします */
     }
-    .aspect-square > * {
+
+    .aspect-square>* {
       /* 中身を絶対配置してコンテナいっぱいに広げる */
       position: absolute;
       top: 0;
@@ -43,4 +118,5 @@ body {
     }
   }
 }
+
 /* ▲▲▲ Safari 14 互換性対応 ▲▲▲ */
