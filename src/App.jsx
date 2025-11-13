@@ -255,7 +255,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
     };
 
     const bgColorStyle = (visibleContent?.status === 'ON AIR' && !isFadingOut)
-        ? { background: `radial-gradient(ellipse 80% 60% at 50% 120%, ${visibleContent.color}33, transparent)` }
+        ? { background: `radial-gradient(ellipse 80% 60% at 50% 110%, ${visibleContent.color}33, transparent)` }
         : {};
 
     const renderContent = (content) => {
@@ -343,7 +343,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
                         {dj.nextDj && (
                             <div className="mt-8 pt-6 border-t border-on-surface-variant/20">
                                 <p className="text-sm text-on-surface-variant font-bold tracking-widest mb-1">NEXT UP</p>
-                                <p className="text-2xl font-semibold">{dj.nextDj.name} <span className="text-lg font-sans text-on-surface-variant ml-2 font-mono">{dj.nextDj.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ~</span></p>
+                                <p className="text-2xl font-semibold">{dj.nextDj.name} <span className="text-lg font-sans text-on-surface-variant ml-2 font-mono">{dj.nextDj.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} -</span></p>
                             </div>
                         )}
                     </div>
@@ -395,7 +395,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
             {currentData?.status !== 'FINISHED' && (
                 <div ref={timelineContainerRef} className="absolute bottom-0 left-0 right-0 w-full shrink-0 overflow-hidden mask-gradient z-10 pb-4 h-32">
                     <div
-                        className="flex h-full items-center space-x-6 px-4 py-2 will-change-transform"
+                        className="flex h-full items-center space-x-6 px-0 py-2 will-change-transform"
                         style={{
                             transform: timelineTransform,
                             transition: 'transform 0.4s ease-in-out'
@@ -406,7 +406,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
                                 key={dj.id}
                                 className={`
                                         shrink-0 w-64 h-24 bg-surface-container/40 backdrop-blur-sm rounded-2xl p-4 flex items-center 
-                                        border border-white/30 
+                                        border border-white/50 
                                         ${dj.isBuffer ? 'justify-center' : 'space-x-6'} 
                                        
                                         ${(currentData?.status === 'ON AIR' && dj.id === currentData.id) ? 'opacity-100 scale-100' : 'opacity-60 scale-90'}
@@ -415,13 +415,13 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
                                       `}
                             >
                                 {!dj.isBuffer && (
-                                    <div className="w-14 h-14 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                    <div className="ml-2 w-14 h-14 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center overflow-hidden">
                                         {dj.imageUrl ? <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" /> : <UserIcon className="w-8 h-8 text-on-surface-variant" />}
                                     </div>
                                 )}
                                 <div className="overflow-hidden flex flex-col justify-center">
                                     <p className={`text-lg font-bold truncate w-full ${dj.isBuffer ? 'text-center' : 'text-left'}`}>{dj.name}</p>
-                                    <p className={`text-sm font-mono text-on-surface-variant ${dj.isBuffer ? 'text-center' : 'text-left'}`}>{dj.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                    <p className={`text-sm font-mono text-on-surface-variant ${dj.isBuffer ? 'text-center' : 'text-left'}`}>{dj.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} -</p>
                                 </div>
                             </div>
                         ))}
