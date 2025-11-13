@@ -12,8 +12,8 @@ export default {
         mono: ['Orbitron', 'Montserrat', 'sans-serif'],
       },
       colors: {
-        'brand-primary': '#818cf8',
-        'brand-secondary': '#c084fc',
+        'brand-primary': '#0091ff',
+        'brand-secondary': '#0091ff',
         'surface-background': '#18181b', // Near-black gray (Zinc 900)
         'surface-container': '#27272a', // (Zinc 800)
         'on-surface': '#f4f4f5', // (Zinc 100)

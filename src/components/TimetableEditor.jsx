@@ -1,10 +1,12 @@
+// src/components/TimetableEditor.jsx
+
 import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { processImageForUpload } from '../utils/imageProcessor';
 import {
     VIVID_COLORS,
     SimpleImage,
-    parseTime,
+    parseTime, // ★ common.jsx から parseTime をインポート
     CustomTimeInput,
     ConfirmModal,
     PlayIcon,
@@ -17,7 +19,7 @@ import {
     XIcon,
     ResetIcon,
     AlertTriangleIcon
-} from './common';
+} from './common'; // ★ common.jsx から全部インポート
 
 // --- ImageEditModal (変更なし) ---
 const ImageEditModal = ({ dj, onUpdate, onClose, storage }) => {
@@ -25,6 +27,9 @@ const ImageEditModal = ({ dj, onUpdate, onClose, storage }) => {
     const [isUploading, setIsUploading] = useState(false);
     const [uploadError, setUploadError] = useState(null);
     const fileInputRef = useRef(null);
+
+    // ★ 1. URL入力欄の表示/非表示を管理する state を追加
+    const [isUrlInputVisible, setIsUrlInputVisible] = useState(false);
 
     const handleFileChange = async (e) => {
         const file = e.target.files[0];
@@ -72,11 +77,19 @@ const ImageEditModal = ({ dj, onUpdate, onClose, storage }) => {
                         {imageUrl ? <SimpleImage src={imageUrl} className="w-full h-full object-cover" /> : <UserIcon className="w-20 h-20 text-on-surface-variant" />}
                     </div>
                 </div>
+
+                {/* ★★★ ここからレイアウト変更っす！ ★★★ */}
                 <div className="space-y-4">
-                    <div>
-                        <label className="text-sm text-on-surface-variant mb-1 block">Image URL</label>
-                        <input type="text" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} className="bg-surface-background text-on-surface p-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary" placeholder="https://example.com/image.png" />
-                    </div>
+
+                    {/* ★ 2. URL入力欄を isUrlInputVisible で囲む */}
+                    {isUrlInputVisible && (
+                        <div className="animate-fade-in-up"> {/* ふわっと表示 */}
+                            <label className="text-sm text-on-surface-variant mb-1 block">Image URL</label>
+                            <input type="text" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} className="bg-surface-background text-on-surface p-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary" placeholder="https://example.com/image.png" />
+                        </div>
+                    )}
+
+                    {/* ★ アップロードボタンは常時表示 */}
                     <div>
                         <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
                         <button onClick={() => fileInputRef.current.click()} disabled={isUploading} className="w-full flex items-center justify-center gap-2 bg-surface-background hover:opacity-80 text-on-surface font-semibold py-3 px-4 rounded-lg transition-opacity duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -94,7 +107,21 @@ const ImageEditModal = ({ dj, onUpdate, onClose, storage }) => {
                         </button>
                         {uploadError && <p className="text-red-400 text-sm mt-2 text-center">{uploadError}</p>}
                     </div>
+
+                    {/* ★ 3. 「URLで設定」ボタンを追加 (URL入力欄が表示されてない時だけ) */}
+                    {!isUrlInputVisible && (
+                        <div>
+                            <button
+                                onClick={() => setIsUrlInputVisible(true)}
+                                className="w-full flex items-center justify-center gap-2 bg-surface-background/50 hover:bg-surface-background/80 text-on-surface-variant font-semibold py-3 px-4 rounded-lg transition-colors duration-200"
+                            >
+                                <span>URLで設定する</span>
+                            </button>
+                        </div>
+                    )}
                 </div>
+                {/* ★★★ レイアウト変更ここまで ★★★ */}
+
                 <div className="mt-6 flex justify-end gap-3">
                     <button onClick={onClose} className="py-2 px-5 rounded-full bg-surface-background text-on-surface font-semibold">キャンセル</button>
                     <button onClick={handleSave} disabled={isUploading} className="py-2 px-5 rounded-full bg-brand-primary text-white font-semibold disabled:opacity-50">保存</button>
@@ -104,7 +131,7 @@ const ImageEditModal = ({ dj, onUpdate, onClose, storage }) => {
     );
 };
 
-// --- DjItem (変更なし) ---
+// --- DjItem (★ p-3 -m-3 の修正を適用済み) ---
 const DjItem = memo(({ dj, isPlaying, onPointerDown, onEditClick, onUpdate, onColorPickerToggle, onCopy, onRemove, isColorPickerOpen, openColorPickerId, isDragging }) => {
     const colorPickerRef = useRef(null);
     useEffect(() => {
@@ -124,9 +151,15 @@ const DjItem = memo(({ dj, isPlaying, onPointerDown, onEditClick, onUpdate, onCo
             className={`bg-surface-container rounded-2xl flex items-center gap-4 p-4 ${ringClass} ${draggingClass}`}
             style={{ '--tw-ring-color': isPlaying ? dj.color : 'transparent' }}
         >
-            <div className="cursor-grab touch-none" onPointerDown={onPointerDown}>
+            {/* ★★★ ここが掴み判定を広げた修正っす！ ★★★ */}
+            <div
+                className="cursor-grab touch-none p-3 -m-3"
+                onPointerDown={onPointerDown}
+            >
                 <GripIcon className="w-6 h-6 text-on-surface-variant shrink-0" />
             </div>
+            {/* ★★★ 修正ここまで ★★★ */}
+
             <button
                 onClick={() => onEditClick()}
                 onPointerDown={(e) => e.stopPropagation()}
@@ -168,254 +201,281 @@ const DjItem = memo(({ dj, isPlaying, onPointerDown, onEditClick, onUpdate, onCo
     );
 });
 
-// ★★★ TimetableEditor (D&Dロジック 根本修正) ★★★
+// ★★★ TimetableEditor (D&Dロジック 根本修正版) ★★★
 export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTimetable, setMode, storage, timeOffset }) => {
+
+    // --- ( 既存の State ) ---
     const [openColorPickerId, setOpenColorPickerId] = useState(null);
     const [editingDjIndex, setEditingDjIndex] = useState(null);
     const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
     const [now, setNow] = useState(new Date(new Date().getTime() + timeOffset));
+    const [isDropping, setIsDropping] = useState(false); // 
 
-    // ★★★ D&Dロジック修正 (State と Ref) ★★★
-    const [draggedIndex, setDraggedIndex] = useState(null);
-    const [overIndex, _setOverIndex] = useState(null); // 挿入スロット(ラインの位置)
-    const [dragStartInfo, setDragStartInfo] = useState(null); // 掴んだ瞬間の情報
-    const [currentY, setCurrentY] = useState(0); // 現在のカーソルのY座標
+    // --- ( D&D State ) ---
+    const [draggedIndex, setDraggedIndex] = useState(null); // 
+    const [overIndex, _setOverIndex] = useState(null); // 
+    const [currentY, setCurrentY] = useState(0); // 
 
-    const listContainerRef = useRef(null); // リストDOM
-    const itemHeightRef = useRef(0); // アイテムの高さ（マージン込）
+    // --- ( D&D Ref ) ---
+    const listContainerRef = useRef(null); // 
+    const itemHeightRef = useRef(0); // 
+    const dragStartInfoRef = useRef(null); // ★ state だったのを ref に変更
+    const overIndexRef = useRef(null); // 
 
-    // ★ overIndex を Ref にも保存（stale closure 対策）
-    const overIndexRef = useRef(null);
+    // --- ( D&D 派生 State ) ---
+    const isDragging = draggedIndex !== null; // 
+
+    // --- ( 既存の Ref Setter ) ---
     const setOverIndex = (index) => {
         _setOverIndex(index);
         overIndexRef.current = index;
     };
 
-    const isDragging = draggedIndex !== null;
+    // --- ( 既存の useEffects ... isDropping, now ) ---
+    useEffect(() => {
+        if (isDropping) {
+            const timer = setTimeout(() => setIsDropping(false), 0);
+            return () => clearTimeout(timer);
+        }
+    }, [isDropping]);
 
-    // --- (時間計算系は変更なし) ---
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date(new Date().getTime() + timeOffset)), 1000);
         return () => clearInterval(timer);
     }, [timeOffset]);
 
-    const schedule = useMemo(() => {
-        if (timetable.length === 0) return [];
-        const scheduleData = [];
-        let lastEndTime = parseTime(eventConfig.startTime);
-        for (const dj of timetable) {
-            const startTime = new Date(lastEndTime);
-            const durationMinutes = parseFloat(dj.duration) || 0;
-            const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
-            scheduleData.push({ ...dj, startTime, endTime });
-            lastEndTime = endTime;
-        }
-        return scheduleData;
-    }, [timetable, eventConfig.startTime]);
+    // --- ( ★ 既存の useMemos, CRUD関数 を useMemo でラップ ) ---
+    // (stale closure を防ぐため、useEffect の依存配列を安定させる)
+    const { schedule, eventEndTime, currentlyPlayingIndex, recalculateTimes, handleEventConfigChange, handleUpdate, addNewDj, executeReset, handleRemoveDj, handleCopyDj } = useMemo(() => {
 
-    const eventEndTime = useMemo(() => {
-        if (schedule.length === 0) return null;
-        return schedule[schedule.length - 1].endTime.toTimeString().slice(0, 5);
-    }, [schedule]);
+        // ★ common.jsx からインポートしたので、ここのローカル定義は削除！
+        // const parseTime = (timeStr) => { ... };
 
-    const currentlyPlayingIndex = useMemo(() => schedule.findIndex(dj => now >= dj.startTime && now < dj.endTime), [now, schedule]);
+        const recalculateTimes = (timetableData, eventStartTime) => {
+            if (!timetableData || timetableData.length === 0) return [];
+            const recalculated = [];
+            let lastEndTime = parseTime(eventStartTime); // ★ common の parseTime を使う
+            for (let i = 0; i < timetableData.length; i++) {
+                const currentDjData = { ...timetableData[i] };
+                const currentStartTime = new Date(lastEndTime);
+                const durationMinutes = parseFloat(currentDjData.duration) || 0;
+                const currentEndTime = new Date(currentStartTime.getTime() + durationMinutes * 60 * 1000);
+                recalculated.push({
+                    ...currentDjData,
+                    startTime: currentStartTime.toTimeString().slice(0, 5),
+                    endTime: currentEndTime.toTimeString().slice(0, 5),
+                });
+                lastEndTime = currentEndTime;
+            }
+            return recalculated;
+        };
 
-    const recalculateTimes = useCallback((timetableData, eventStartTime) => {
-        if (!timetableData || timetableData.length === 0) return [];
-        const recalculated = [];
-        let lastEndTime = parseTime(eventStartTime);
-        for (let i = 0; i < timetableData.length; i++) {
-            const currentDjData = { ...timetableData[i] };
-            const currentStartTime = new Date(lastEndTime);
-            const durationMinutes = parseFloat(currentDjData.duration) || 0;
-            const currentEndTime = new Date(currentStartTime.getTime() + durationMinutes * 60 * 1000);
-            recalculated.push({
-                ...currentDjData,
-                startTime: currentStartTime.toTimeString().slice(0, 5),
-                endTime: currentEndTime.toTimeString().slice(0, 5),
+        const schedule = recalculateTimes(timetable, eventConfig.startTime);
+        const eventEndTime = schedule.length > 0 ? schedule[schedule.length - 1].endTime : null;
+
+        // ★ now を Date オブジェクトとして渡す
+        const nowTime = new Date(now);
+        const currentlyPlayingIndex = schedule.findIndex(dj => {
+            const startTime = parseTime(dj.startTime);
+            const endTime = parseTime(dj.endTime);
+            // 終了時刻が日をまたぐ場合の考慮 (例: 23:00 - 01:00)
+            if (endTime < startTime) {
+                // now が startTime 以降、または 00:00 以降 endTime 未満
+                return (nowTime >= startTime) || (nowTime < endTime);
+            }
+            // 日をまたがない場合
+            return nowTime >= startTime && nowTime < endTime;
+        });
+
+        const handleEventConfigChange = (field, value) => {
+            setEventConfig(prevConfig => {
+                const newConfig = { ...prevConfig, [field]: value };
+                if (field === 'startTime') {
+                    setTimetable(prevTimetable => recalculateTimes(prevTimetable, value));
+                }
+                return newConfig;
             });
-            lastEndTime = currentEndTime;
-        }
-        return recalculated;
-    }, []);
+        };
 
-    // --- (CRUD操作系も変更なし) ---
-    const handleEventConfigChange = useCallback((field, value) => {
-        setEventConfig(prevConfig => {
-            const newConfig = { ...prevConfig, [field]: value };
-            if (field === 'startTime') {
-                setTimetable(prevTimetable => recalculateTimes(prevTimetable, value));
-            }
-            return newConfig;
-        });
-    }, [recalculateTimes, setTimetable, setEventConfig]);
-
-    const handleUpdate = useCallback((index, field, value) => {
-        setTimetable(prevTimetable => {
-            const newTimetable = [...prevTimetable];
-            newTimetable[index] = { ...newTimetable[index], [field]: value };
-            if (field === 'duration') {
-                return recalculateTimes(newTimetable, eventConfig.startTime);
-            }
-            return newTimetable;
-        });
-    }, [eventConfig.startTime, recalculateTimes, setTimetable]);
-
-    const addNewDj = useCallback((isBuffer = false) => {
-        setTimetable(prevTimetable => {
-            const lastDj = prevTimetable[prevTimetable.length - 1];
-            const duration = isBuffer ? 5 : (lastDj ? lastDj.duration : 60);
-            const newDjData = { id: Date.now(), name: isBuffer ? 'バッファー' : `DJ ${prevTimetable.filter(d => !d.isBuffer).length + 1}`, duration: duration, imageUrl: '', color: VIVID_COLORS[Math.floor(Math.random() * VIVID_COLORS.length)], isBuffer, };
-            return recalculateTimes([...prevTimetable, newDjData], eventConfig.startTime);
-        });
-    }, [eventConfig.startTime, recalculateTimes, setTimetable]);
-
-    const executeReset = useCallback(() => {
-        setTimetable([]);
-        setEventConfig({ title: 'My Awesome Event', startTime: '22:00' });
-        setIsResetConfirmOpen(false);
-    }, [setTimetable, setEventConfig]);
-
-    const handleRemoveDj = useCallback((index) => setTimetable(prevTimetable => recalculateTimes(prevTimetable.filter((_, i) => i !== index), eventConfig.startTime)), [eventConfig.startTime, recalculateTimes, setTimetable]);
-
-    const handleCopyDj = useCallback((index) => {
-        setTimetable(prevTimetable => {
-            const djToCopy = { ...prevTimetable[index], id: Date.now() };
-            const newTimetable = [...prevTimetable.slice(0, index + 1), djToCopy, ...prevTimetable.slice(index + 1)];
-            return recalculateTimes(newTimetable, eventConfig.startTime);
-        });
-    }, [eventConfig.startTime, recalculateTimes, setTimetable]);
-
-    // ★★★ D&Dロジック (全体見直し) ★★★
-
-    // --- ( 2. 動かしてる時の処理 ) ---
-    const handlePointerMove = useCallback((e) => {
-        if (!dragStartInfo) return;
-
-        // ★ スクロールと文字選択を止める
-        e.preventDefault();
-
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        setCurrentY(clientY); // 現在のY座標を更新 (これで掴んだ要素が追従する)
-
-        const { listTop } = dragStartInfo;
-        const itemHeight = itemHeightRef.current;
-        if (itemHeight === 0) return;
-
-        // リストの上端から、今カーソルがある位置までの相対Y座標 (ビューポート基準)
-        const relativeY = clientY - listTop;
-        // どのインデックススロットの上にいるか (アイテムの真ん中を基準)
-        let newOverIndex = Math.floor((relativeY + (itemHeight / 2)) / itemHeight);
-
-        // 範囲外にいかないように丸める (0 〜 timetable.length の間)
-        newOverIndex = Math.max(0, Math.min(timetable.length, newOverIndex));
-
-        // 変更があった時だけ state (と ref) を更新
-        if (newOverIndex !== overIndexRef.current) {
-            setOverIndex(newOverIndex);
-        }
-
-    }, [dragStartInfo, timetable.length]); // ★ 依存配列は dragStartInfo だけでOK
-
-    // --- ( 3. 離した時の処理 ) ---
-    const handlePointerUp = useCallback(() => {
-        if (!dragStartInfo) return; // 掴んでなかったら即終了
-
-        // ★ 文字選択禁止を解除
-        document.body.classList.remove('dragging-no-select');
-
-        // ★★★ Stale Closure 対策！ Ref から最新の挿入位置を取得 ★★★
-        const finalOverIndex = overIndexRef.current;
-
-        // ★ draggedIndex は state から取ってきてもOK (downの瞬間にセットされてるから)
-        if (draggedIndex !== null && finalOverIndex !== null && draggedIndex !== finalOverIndex) {
-            // ★ state を更新して、並び替えを確定させる
+        const handleUpdate = (index, field, value) => {
             setTimetable(prevTimetable => {
                 const newTimetable = [...prevTimetable];
-                const [movedItem] = newTimetable.splice(draggedIndex, 1);
+                newTimetable[index] = { ...newTimetable[index], [field]: value };
+                if (field === 'duration') {
+                    return recalculateTimes(newTimetable, eventConfig.startTime);
+                }
+                return newTimetable;
+            });
+        };
 
-                // 挿入先のインデックスを計算
-                // (下に動かした場合、抜き取った分インデックスが1つズレるため)
-                const targetIndex = finalOverIndex > draggedIndex ? finalOverIndex - 1 : finalOverIndex;
+        const addNewDj = (isBuffer = false) => {
+            setTimetable(prevTimetable => {
+                const lastDj = prevTimetable[prevTimetable.length - 1];
+                const duration = isBuffer ? 5 : (lastDj ? lastDj.duration : 60);
+                const newDjData = { id: Date.now(), name: isBuffer ? 'バッファー' : `DJ ${prevTimetable.filter(d => !d.isBuffer).length + 1}`, duration: duration, imageUrl: '', color: VIVID_COLORS[Math.floor(Math.random() * VIVID_COLORS.length)], isBuffer, };
+                return recalculateTimes([...prevTimetable, newDjData], eventConfig.startTime);
+            });
+        };
 
-                newTimetable.splice(targetIndex, 0, movedItem);
+        const executeReset = () => {
+            setTimetable([]);
+            setEventConfig({ title: 'My Awesome Event', startTime: '22:00' });
+            setIsResetConfirmOpen(false);
+        };
 
+        const handleRemoveDj = (index) => setTimetable(prevTimetable => recalculateTimes(prevTimetable.filter((_, i) => i !== index), eventConfig.startTime));
+
+        const handleCopyDj = (index) => {
+            setTimetable(prevTimetable => {
+                const djToCopy = { ...prevTimetable[index], id: Date.now() };
+                const newTimetable = [...prevTimetable.slice(0, index + 1), djToCopy, ...prevTimetable.slice(index + 1)];
                 return recalculateTimes(newTimetable, eventConfig.startTime);
             });
-        }
+        };
 
-        // 全てのD&Dステートをリセット
-        setDraggedIndex(null);
-        setOverIndex(null); // ( _setOverIndex と overIndexRef.current の両方をリセット)
-        setDragStartInfo(null);
-        setCurrentY(0);
-        itemHeightRef.current = 0; // アイテム高さもリセット
+        return { schedule, eventEndTime, currentlyPlayingIndex, recalculateTimes, handleEventConfigChange, handleUpdate, addNewDj, executeReset, handleRemoveDj, handleCopyDj };
 
-        // イベントリスナーを解除
-        window.removeEventListener('pointermove', handlePointerMove);
-        window.removeEventListener('touchmove', handlePointerMove);
-        window.removeEventListener('pointerup', handlePointerUp);
-        window.removeEventListener('touchend', handlePointerUp);
+    }, [timetable, eventConfig.startTime, now, setEventConfig, setTimetable, setIsResetConfirmOpen]);
 
-    }, [dragStartInfo, draggedIndex, eventConfig.startTime, recalculateTimes, setTimetable, handlePointerMove]); // ★ 依存配列を修正
+
+    // ★★★ D&Dロジック (useEffectベースに修正) ★★★
 
     // --- ( 1. 掴んだ瞬間の処理 ) ---
     const handlePointerDown = useCallback((e, index) => {
         if (!e.target.closest('.cursor-grab')) {
-            return; // グリップ以外は無視
+            return;
         }
-        // e.preventDefault(); // passive:false のため move 側で実行
-
-        // ★ 文字選択モードになるのを防ぐ
+        e.preventDefault(); // ★ preventDefault はここ！
         document.body.classList.add('dragging-no-select');
 
         const itemElement = e.target.closest('.dj-list-item');
         if (!itemElement || !listContainerRef.current) return;
 
-        // ★ アイテムの高さをRefに保存 (space-y-4 の 16px も足す)
         const itemRect = itemElement.getBoundingClientRect();
-        itemHeightRef.current = itemRect.height + 16;
+        itemHeightRef.current = itemRect.height + 16; // space-y-4 (1rem)
 
         const listRect = listContainerRef.current.getBoundingClientRect();
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-        // D&Dの基準情報をセット
+        // ★ Ref に座標情報を保存
+        dragStartInfoRef.current = {
+            initialY: clientY,
+            itemTop: itemRect.top,
+            listTop: listRect.top,
+        };
+
+        // ★ State を更新してドラッグ開始
         setDraggedIndex(index);
-        setOverIndex(index); // ( _setOverIndex と overIndexRef.current の両方をセット)
+        setOverIndex(index);
         setCurrentY(clientY);
 
-        setDragStartInfo({
-            initialY: clientY, // 掴んだ瞬間のビューポートY
-            itemTop: itemRect.top, // 掴んだアイテムの初期ビューポートY
-            listTop: listRect.top, // リスト全体の初期ビューポートY
-        });
+    }, []); // 
 
-        // ★ passive: false を指定して、スクロールとD&Dを両立
-        window.addEventListener('pointermove', handlePointerMove, { passive: false });
-        window.addEventListener('touchmove', handlePointerMove, { passive: false });
-        window.addEventListener('pointerup', handlePointerUp);
-        window.addEventListener('touchend', handlePointerUp);
 
-    }, [handlePointerMove, handlePointerUp]); // ★ 依存配列を修正
+    // ★★★ メインの Effect (リスナーの登録・解除) ★★★
+    useEffect(() => {
+
+        // --- ( 2. 動かしてる時の処理 ) ---
+        const handlePointerMove = (e) => {
+            if (!dragStartInfoRef.current) return;
+
+            // ★ passive: false のため、ここで preventDefault
+            e.preventDefault();
+
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            setCurrentY(clientY); // Y座標を state にセット（追従スタイル用）
+
+            const { listTop } = dragStartInfoRef.current;
+            const itemHeight = itemHeightRef.current;
+            if (itemHeight === 0) return;
+
+            const relativeY = clientY - listTop;
+            let newOverIndex = Math.floor((relativeY + (itemHeight / 2)) / itemHeight);
+
+            // ★ timetable.length が古い可能性があるので、ref経由ではなく直接 timetable を参照
+            newOverIndex = Math.max(0, Math.min(timetable.length, newOverIndex));
+
+            if (newOverIndex !== overIndexRef.current) {
+                setOverIndex(newOverIndex); // 挿入ラインの state をセット
+            }
+        };
+
+        // --- ( 3. 離した時の処理 ) ---
+        const handlePointerUp = () => {
+            if (!dragStartInfoRef.current) return;
+
+            setIsDropping(true); // スナップバック防止用
+            document.body.classList.remove('dragging-no-select');
+
+            const finalOverIndex = overIndexRef.current;
+
+            // ★ draggedIndex (state) をここで読む
+            if (draggedIndex !== null && finalOverIndex !== null && (draggedIndex !== finalOverIndex && draggedIndex !== finalOverIndex - 1)) {
+                setTimetable(prevTimetable => {
+                    const newTimetable = [...prevTimetable];
+                    const [movedItem] = newTimetable.splice(draggedIndex, 1);
+
+                    // ★ 挿入位置の計算を修正
+                    const targetIndex = finalOverIndex > draggedIndex ? finalOverIndex - 1 : finalOverIndex;
+
+                    newTimetable.splice(targetIndex, 0, movedItem);
+                    // ★ recalculateTimes (memoized) を呼ぶ
+                    return recalculateTimes(newTimetable, eventConfig.startTime);
+                });
+            }
+
+            // ★ 全ての D&D state と ref をリセット
+            setDraggedIndex(null);
+            setOverIndex(null);
+            setCurrentY(0);
+            dragStartInfoRef.current = null;
+            itemHeightRef.current = 0;
+            // overIndexRef.current は setOverIndex(null) でリセットされる
+        };
+
+        // --- ( リスナー登録・解除 ) ---
+        if (isDragging) {
+            // ★ isDragging (state) が true になったらリスナーを登録
+            window.addEventListener('pointermove', handlePointerMove, { passive: false });
+            window.addEventListener('touchmove', handlePointerMove, { passive: false });
+            window.addEventListener('pointerup', handlePointerUp);
+            window.addEventListener('touchend', handlePointerUp);
+
+            return () => {
+                // ★ isDragging が false になったらリスナーを解除
+                window.removeEventListener('pointermove', handlePointerMove, { passive: false });
+                window.removeEventListener('touchmove', handlePointerMove, { passive: false });
+                window.removeEventListener('pointerup', handlePointerUp);
+                window.removeEventListener('touchend', handlePointerUp);
+            };
+        }
+        // ★ 依存配列 ★
+    }, [isDragging, timetable.length, setOverIndex, setIsDropping, setTimetable, recalculateTimes, eventConfig.startTime, draggedIndex]);
+
 
     // --- ( 4. スタイルを計算する処理 ) ---
     const getDragStyles = (index) => {
-        if (!isDragging || !dragStartInfo) return { transform: 'translateY(0px)' };
+        if (isDropping) {
+            return { transform: 'translateY(0px)', transition: 'none' };
+        }
+        if (!isDragging || !dragStartInfoRef.current) {
+            return { transform: 'translateY(0px)' };
+        }
 
         const itemHeight = itemHeightRef.current;
         if (itemHeight === 0) return { transform: 'translateY(0px)' };
 
-        const { initialY, itemTop } = dragStartInfo;
+        const { initialY, itemTop, listTop } = dragStartInfoRef.current;
 
         // 1. 掴んでいるアイテム (指に追従)
         if (index === draggedIndex) {
-            const deltaY = currentY - initialY; // 掴んだ場所からの移動量
-            // 本来のY座標と、掴んだアイテムの初期Y座標の差分
-            const initialTranslateY = itemTop - (dragStartInfo.listTop + (index * itemHeight));
+            const deltaY = currentY - initialY;
+            // ★ initialTranslateY の計算を修正
+            const initialTranslateY = itemTop - (listTop + (index * itemHeight));
 
             return {
                 transform: `translateY(${initialTranslateY + deltaY}px)`,
-                transition: 'none', // 追従中はアニメーションしない
+                transition: 'none',
                 zIndex: 20,
             };
         }
@@ -423,18 +483,16 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
         // 2. 掴んでない他のアイテム（押し出される）
         let translateY = 0;
 
-        // ★ overIndex は state から読む (CSSの押し出しアニメ用)
+        // ★ overIndex (state) を参照
         if (draggedIndex < overIndex) {
             // 掴んだのが「下」に移動中
-            // 範囲：(掴んだ位置 + 1) 〜 (挿入位置 - 1)
             if (index > draggedIndex && index < overIndex) {
-                translateY = -itemHeight; // 上に詰める
+                translateY = -itemHeight;
             }
         } else if (draggedIndex > overIndex) {
             // 掴んだのが「上」に移動中
-            // 範囲：(挿入位置) 〜 (掴んだ位置 - 1)
             if (index >= overIndex && index < draggedIndex) {
-                translateY = itemHeight; // 下に開ける
+                translateY = itemHeight;
             }
         }
 
@@ -444,7 +502,7 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
         };
     };
 
-    // --- ( 共有ボタン ) ---
+    // --- ( 5. JSX (描画) ) ---
     const handleShare = () => {
         const baseUrl = window.location.href.replace(/#.*$/, '');
         const url = baseUrl + '#live';
@@ -460,7 +518,6 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
         }
     };
 
-    // --- ( 5. JSX (描画) ) ---
     return (
         <div className="p-4 md:p-8 max-w-4xl mx-auto">
             <ConfirmModal
@@ -514,7 +571,7 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
 
             {/* ★ リストのラッパーに ref を設定 */}
             <div className="space-y-4" ref={listContainerRef}>
-                {timetable.map((dj, index) => {
+                {schedule.map((dj, index) => { // ★ schedule を map して計算済みの時刻を表示
                     // ★★★ 挿入ガイドのロジック (クリーンアップ) ★★★
                     let dropIndicatorClass = '';
                     if (isDragging) {
@@ -536,7 +593,7 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
                             style={getDragStyles(index)} // ★ CSS transform を適用
                         >
                             <DjItem
-                                dj={dj}
+                                dj={dj} // ★ schedule から渡す
                                 isPlaying={currentlyPlayingIndex === index}
                                 onPointerDown={(e) => handlePointerDown(e, index)}
                                 onEditClick={() => setEditingDjIndex(index)}
@@ -552,11 +609,6 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
                     );
                 })}
             </div>
-
-            {/* ★ 一番下に追加するガイドラインは、 `map` の外だと `space-y-4` が効かないので、
-                最後の要素の `drop-indicator-after` で処理するのが正解っす！
-                なのでここのダミー要素は削除！
-            */}
 
             {/* --- (フッターボタンも変更なし) --- */}
             <div className="mt-6 flex flex-col sm:flex-row gap-4">

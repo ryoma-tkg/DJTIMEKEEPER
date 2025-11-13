@@ -47,24 +47,7 @@ body {
   /* dragging-item より奥 */
 }
 
-/* 挿入ガイド（横線）のスタイル */
-.drop-indicator-before::before,
-.drop-indicator-after::after {
-  content: '';
-  position: absolute;
-  /* ★ 横幅を調整（左右のアイコンを避ける感じ） */
-  left: 4.5rem;
-  right: 4.5rem;
-  height: 4px;
-  background-color: #818cf8;
-  /* brand-primary */
-  border-radius: 2px;
-  z-index: 0;
-  /* アイテムの更に奥 */
 
-  /* ★ 横線自体のフェードイン */
-  animation: fadeIn 0.2s ease-out forwards;
-}
 
 /* 上側に線を表示 */
 .drop-indicator-before::before {
@@ -82,19 +65,6 @@ body {
 /* （もしなければ tailwind.config.js に追加が必要っす） */
 
 /* ▲▲▲ 修正ここまで ▲▲▲ */
-
-.timetable-list-container {
-  /* これでテキスト選択を無効にできるっす！ */
-  -webkit-user-select: none;
-  /* Safari用 */
-  -moz-user-select: none;
-  /* Firefox用 */
-  -ms-user-select: none;
-  /* IE/Edge用 */
-  user-select: none;
-  /* 標準 */
-}
-
 
 /* ▼▼▼ Safari 14 互換性対応 ▼▼▼ */
 @layer utilities {
@@ -120,3 +90,27 @@ body {
 }
 
 /* ▲▲▲ Safari 14 互換性対応 ▲▲▲ */
+
+.dragging-no-select {
+  -webkit-user-select: none;
+  /* Safari用 */
+  -moz-user-select: none;
+  /* Firefox用 */
+  -ms-user-select: none;
+  /* IE/Edge用 */
+  user-select: none;
+  /* 標準 */
+}
+
+/* ついでに、掴んでる最中のカーソルも変えちゃうっす */
+.dragging-no-select .cursor-grab {
+  cursor: grabbing !important;
+}
+
+.dj-list-item {
+  position: relative;
+  /* ★★★ これが「スッと退く」アニメーションの本体っす！ ★★★ */
+  transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
+  z-index: 1;
+  /* dragging-item より奥 */
+}
