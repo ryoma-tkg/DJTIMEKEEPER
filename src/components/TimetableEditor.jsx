@@ -146,6 +146,7 @@ const DjItem = memo(({ dj, isPlaying, onPointerDown, onEditClick, onUpdate, onCo
     }, [isColorPickerOpen, dj.id, onColorPickerToggle]);
     const ringClass = isPlaying ? 'ring-2 shadow-[0_0_12px_var(--tw-ring-color)]' : 'ring-1 ring-zinc-700';
     const draggingClass = isDragging ? 'dragging-item' : '';
+
     return (
         <div
             className={`bg-surface-container rounded-2xl flex items-center gap-4 p-4 ${ringClass} ${draggingClass}`}

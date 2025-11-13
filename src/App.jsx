@@ -254,6 +254,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
         return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     };
 
+    /* 背景グラデーション */
     const bgColorStyle = (visibleContent?.status === 'ON AIR' && !isFadingOut)
         ? { background: `radial-gradient(ellipse 80% 60% at 50% 110%, ${visibleContent.color}33, transparent)` }
         : {};
@@ -395,7 +396,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
             {currentData?.status !== 'FINISHED' && (
                 <div ref={timelineContainerRef} className="absolute bottom-0 left-0 right-0 w-full shrink-0 overflow-hidden mask-gradient z-10 pb-4 h-32">
                     <div
-                        className="flex h-full items-center space-x-6 px-0 py-2 will-change-transform"
+                        className="flex h-full items-center space-x-6 px-4 py-2 will-change-transform"
                         style={{
                             transform: timelineTransform,
                             transition: 'transform 0.4s ease-in-out'
