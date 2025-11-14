@@ -1,5 +1,42 @@
 /* Tailwindの基本を読み込むっす */
 @tailwind base;
+
+/* ★★★ 修正ポイント：HEXではなくRGBの数値のみを定義するっす！ ★★★ */
+:root {
+  /* ライトモードのカラーセット */
+  --color-brand-primary: 0 123 255;
+  /* #007bff */
+  --color-brand-secondary: 0 123 255;
+  /* #007bff */
+  --color-surface-background: 250 250 250;
+  /* #ffffff */
+  --color-surface-container: 241 245 249;
+  /* #f1f5f9 (slate-100) */
+  --color-on-surface: 15 23 42;
+  /* #0f172a (slate-900) */
+  --color-on-surface-variant: 100 116 139;
+  /* #64748b (slate-500) */
+}
+
+html.dark {
+  /* ダークモードのカラーセット */
+  --color-brand-primary: 0 145 255;
+  /* #0091ff */
+  --color-brand-secondary: 0 145 255;
+  /* #0091ff */
+  --color-surface-background: 24 24 27;
+  /* #18181b (Zinc 900) */
+  --color-surface-container: 39 39 42;
+  /* #27272a (Zinc 800) */
+  --color-on-surface: 244 244 245;
+  /* #f4f4f5 (Zinc 100) */
+  --color-on-surface-variant: 161 161 170;
+  /* #a1a1aa (Zinc 400) */
+}
+
+/* ★★★ 修正ここまで ★★★ */
+
+
 @tailwind components;
 @tailwind utilities;
 
@@ -13,6 +50,8 @@ body {
 
 body {
   font-family: 'Montserrat', 'IBM Plex Sans JP', sans-serif;
+  /* ここで定義した変数を使って色を適用するっす */
+  @apply bg-surface-background text-on-surface;
 }
 
 .mask-gradient {
@@ -20,66 +59,61 @@ body {
   mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
 }
 
-/* ★★★ ここから修正・追加っす！ ★★★ */
-
 /* ドラッグ中のアイテム本体のスタイル (リッチ化) */
 .dragging-item {
   opacity: 0.9;
-  /* ほぼ不透明にする */
   transform: scale(1.03);
-  /* 少しだけ大きく */
   box-shadow: 0 20px 30px rgba(0, 0, 0, 0.4);
-  /* 影を濃くして浮かせる */
   border-radius: 1rem;
-  /* 角を丸める */
   cursor: grabbing;
-  /* 掴んでるカーソル */
   z-index: 20;
-  /* 他の要素より手前に */
 }
 
 /* 全てのDJアイテムラッパー（リスト項目） */
 .dj-list-item {
   position: relative;
-  /* ★ スムーズな「押し出し」アニメーションのキモっす！ */
   transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
   z-index: 1;
-  /* dragging-item より奥 */
 }
-
-
 
 /* 上側に線を表示 */
 .drop-indicator-before::before {
-  /* space-y-4 (1rem = 16px) の真ん中 (8px) から線の太さ(4px)の半分を引く */
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background-color: rgb(var(--color-brand-primary));
+  /* ここも変数を使うように修正っす */
+  border-radius: 2px;
   top: -6px;
+  pointer-events: none;
 }
 
 /* 下側に線を表示 */
 .drop-indicator-after::after {
-  /* space-y-4 (1rem = 16px) の真ん中 (8px) から線の太さ(4px)の半分を引く */
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background-color: rgb(var(--color-brand-primary));
+  /* ここも変数を使うように修正っす */
+  border-radius: 2px;
   bottom: -6px;
+  pointer-events: none;
 }
-
-/* ★ fade-in キーフレームが tailwind.config.js にあるか確認 */
-/* （もしなければ tailwind.config.js に追加が必要っす） */
-
-/* ▲▲▲ 修正ここまで ▲▲▲ */
 
 /* ▼▼▼ Safari 14 互換性対応 ▼▼▼ */
 @layer utilities {
-
-  /* ... (変更なし) ... */
   @supports not (aspect-ratio: 1 / 1) {
     .aspect-square {
       position: relative;
       height: 0;
       padding-bottom: 100%;
-      /* これで高さを幅と同じにします */
     }
 
     .aspect-square>* {
-      /* 中身を絶対配置してコンテナいっぱいに広げる */
       position: absolute;
       top: 0;
       left: 0;
@@ -93,24 +127,11 @@ body {
 
 .dragging-no-select {
   -webkit-user-select: none;
-  /* Safari用 */
   -moz-user-select: none;
-  /* Firefox用 */
   -ms-user-select: none;
-  /* IE/Edge用 */
   user-select: none;
-  /* 標準 */
 }
 
-/* ついでに、掴んでる最中のカーソルも変えちゃうっす */
 .dragging-no-select .cursor-grab {
   cursor: grabbing !important;
-}
-
-.dj-list-item {
-  position: relative;
-  /* ★★★ これが「スッと退く」アニメーションの本体っす！ ★★★ */
-  transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
-  z-index: 1;
-  /* dragging-item より奥 */
 }

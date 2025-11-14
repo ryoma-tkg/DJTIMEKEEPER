@@ -20,6 +20,9 @@ export const XIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg"
 export const ResetIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 2v6h6" /><path d="M21 12A9 9 0 0 0 6 5.3L3 8" /><path d="M21 22v-6h-6" /><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7" /></svg>);
 export const AlertTriangleIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>);
 export const GodModeIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className={className}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>);
+// ★★★ ハンバーガーメニューアイコンを追加っす！ ★★★
+export const MenuIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className={className}><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>);
+
 
 // ★★★ App.jsx から移動してきた SimpleImage ★★★
 export const SimpleImage = memo(({ src, className, alt = "" }) => {
@@ -43,17 +46,14 @@ export const CustomTimeInput = ({ value, onChange }) => {
         date.setMinutes(date.getMinutes() + minutes);
         onChange(date.toTimeString().slice(0, 5));
     };
+    // ★★★ SP対応！ ±15分ボタンをSPで非表示にするっす！ ★★★
     const buttonClasses = "px-3 py-3 rounded-lg bg-surface-background hover:bg-zinc-700 text-sm font-semibold w-12";
     return (
         <div className="flex items-center gap-1.5">
-            {/* ★★★ 
-            */}
             <button type="button" onClick={() => adjustTime(-15)} className={`${buttonClasses} hidden sm:block`}>-15</button>
             <button type="button" onClick={() => adjustTime(-5)} className={buttonClasses}>-5</button>
             <input type="time" value={value} onChange={(e) => onChange(e.target.value)} className="bg-surface-background text-on-surface p-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary text-center font-mono font-bold text-base" />
             <button type="button" onClick={() => adjustTime(5)} className={buttonClasses}>+5</button>
-            {/* ★★★ 
-            */}
             <button type="button" onClick={() => adjustTime(15)} className={`${buttonClasses} hidden sm:block`}>+15</button>
         </div>
     );

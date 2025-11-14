@@ -1,26 +1,26 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class', // ライトモード切り替えに必須っす！
   content: [
     "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}", // ← src以下のファイルも監視対象にするっす
+    "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {
-      // ▼▼▼ index.htmlからコピペするゾーン ▼▼▼
       fontFamily: {
         sans: ['Montserrat', '"IBM Plex Sans JP"', 'sans-serif'],
         mono: ['Orbitron', 'Montserrat', 'sans-serif'],
       },
       colors: {
-        'brand-primary': '#0091ff',
-        'brand-secondary': '#0091ff',
-        'surface-background': '#18181b', // Near-black gray (Zinc 900)
-        'surface-container': '#27272a', // (Zinc 800)
-        'on-surface': '#f4f4f5', // (Zinc 100)
-        'on-surface-variant': '#a1a1aa', // (Zinc 400)
+        // index.css の変数 (RGB数値) を rgb() で囲んで使うっす
+        'brand-primary': 'rgb(var(--color-brand-primary) / <alpha-value>)',
+        'brand-secondary': 'rgb(var(--color-brand-secondary) / <alpha-value>)',
+        'surface-background': 'rgb(var(--color-surface-background) / <alpha-value>)',
+        'surface-container': 'rgb(var(--color-surface-container) / <alpha-value>)',
+        'on-surface': 'rgb(var(--color-on-surface) / <alpha-value>)',
+        'on-surface-variant': 'rgb(var(--color-on-surface-variant) / <alpha-value>)',
       },
       keyframes: {
-        // ★★★ 元の定義に戻すっす！ ★★★
         fadeInUp: {
           '0%': { opacity: '0', transform: 'translateY(20px) translateZ(0)' },
           '100%': { opacity: '1', transform: 'translateY(0) translateZ(0)' },
@@ -33,12 +33,12 @@ export default {
           '0%': {
             opacity: '1',
             transform: 'translateY(0) translateZ(0)',
-            visibility: 'visible' /* アニメ開始時は見えるように */
+            visibility: 'visible'
           },
           '100%': {
             opacity: '0',
             transform: 'translateY(20px) translateZ(0)',
-            visibility: 'hidden'  /* ★★★ このコメントアウトを外して、元に戻すっす！ ★★★ */
+            visibility: 'hidden'
           },
         },
         fadeOut: {
@@ -47,22 +47,18 @@ export default {
             opacity: '0', visibility: 'hidden',
           },
         },
-        // ★★★ spinner を fadeOut の外に出す！ ★★★
         spinner: {
           '0%': { transform: 'rotate(0deg)' },
           '100%': { transform: 'rotate(360deg)' },
         }
       },
       animation: {
-        // ★★★ ここの秒数を変えるっす！ ★★★
-        'fade-in-up': 'fadeInUp 0.4s ease-out forwards', // 1.0s → 0.5s とかにするとクイックになるっす
-        'fade-out-down': 'fadeOutDown 0.4s ease-out forwards', // 0.5s → 0.3s とかにする
-
+        'fade-in-up': 'fadeInUp 0.4s ease-out forwards',
+        'fade-out-down': 'fadeOutDown 0.4s ease-out forwards',
         'fade-in': 'fadeIn 2.0s ease-in-out forwards',
         'fade-out': 'fadeOut 2.0s ease-in-out forwards',
         'spinner': 'spinner 1s linear infinite',
       }
-      // ▲▲▲ ここまで ▲▲▲
     },
   },
   plugins: [],
