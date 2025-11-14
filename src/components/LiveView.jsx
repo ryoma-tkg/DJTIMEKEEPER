@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
-// 
-import { SimpleImage, UserIcon, parseTime, GodModeIcon, MenuIcon, XIcon, InfoIcon, ToastNotification } from './common';
+// ★★★ SettingsIcon, MoonIcon, SunIcon をインポートっす！
+import { SimpleImage, UserIcon, parseTime, GodModeIcon, MenuIcon, XIcon, InfoIcon, ToastNotification, SettingsIcon, MoonIcon, SunIcon } from './common';
 import { FullTimelineView } from './FullTimelineView';
 
 // 
@@ -8,14 +8,85 @@ const BackgroundImage = memo(() => {
     return null;
 });
 
+// ★★★ 閲覧者向けの設定モーダルを新しく作るっす！ ★★★
+const LiveSettingsModal = ({
+    isOpen,
+    onClose,
+    theme,
+    toggleTheme,
+    isWakeLockEnabled,
+    onWakeLockToggle
+}) => {
+    if (!isOpen) return null;
+
+    // テーマ切り替えUI
+    const ThemeToggle = () => (
+        <div className="flex items-center justify-between">
+            <label className="text-base text-on-surface">テーマ</label>
+            <button
+                onClick={toggleTheme}
+                className="flex items-center gap-2 bg-surface-background hover:opacity-80 text-on-surface-variant font-semibold py-2 px-4 rounded-full"
+            >
+                {theme === 'dark' ? (
+                    <>
+                        <MoonIcon className="w-5 h-5" /> <span>ダーク</span>
+                    </>
+                ) : (
+                    <>
+                        <SunIcon className="w-5 h-5" /> <span>ライト</span>
+                    </>
+                )}
+            </button>
+        </div>
+    );
+
+    // スリープ防止トグルUI
+    const WakeLockToggle = () => (
+        <div className="flex items-center justify-between">
+            <label className="text-base text-on-surface">画面のスリープ防止</label>
+            {/* ★★★ 元の「justify」で切り替えるロジックに戻すっす！ ★★★ */}
+            <button
+                onClick={onWakeLockToggle}
+                className={`w-14 h-8 rounded-full flex items-center p-1 transition-colors ${isWakeLockEnabled ? 'bg-brand-primary justify-end' : 'bg-surface-background justify-start'
+                    }`}
+            >
+                <span className="w-6 h-6 rounded-full bg-white shadow-md block" />
+            </button>
+        </div>
+    );
+
+
+    return (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in-up" onClick={onClose}>
+            <div className="bg-surface-container rounded-2xl p-6 w-full max-w-md shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
+                <button
+                    onClick={onClose}
+                    className="absolute top-4 right-4 p-2 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface"
+                >
+                    <XIcon className="w-6 h-6" />
+                </button>
+
+                <h2 className="text-2xl font-bold mb-6">表示設定</h2>
+
+                <div className="space-y-4">
+                    <ThemeToggle />
+                    <WakeLockToggle />
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
 // 
-export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isReadOnly, theme }) => {
+export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isReadOnly, theme, toggleTheme }) => { // ★★★ toggleTheme を props で受け取る
     const [now, setNow] = useState(new Date(new Date().getTime() + timeOffset));
     const timelineContainerRef = useRef(null);
     const [containerWidth, setContainerWidth] = useState(0);
 
     const [isFullTimelineOpen, setIsFullTimelineOpen] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false); // 
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false); // ★★★ 設定モーダル用の state
 
     // 
     const [currentData, setCurrentData] = useState(null);
@@ -32,6 +103,12 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
     const [timerDisplayMode, setTimerDisplayMode] = useState('currentTime'); // 'currentTime', 'eventRemaining', 'eventElapsed'
     const [toast, setToast] = useState({ message: '', visible: false });
     const toastTimerRef = useRef(null);
+
+    // ★★★ スリープ防止の設定を localStorage から読み込むっす！
+    const [isWakeLockEnabled, setIsWakeLockEnabled] = useState(
+        localStorage.getItem('wakeLockEnabled') === 'true'
+    );
+    const wakeLockRef = useRef(null); // 
 
     const schedule = useMemo(() => {
         if (timetable.length === 0) return [];
@@ -170,52 +247,62 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
         }
     }, [currentData, visibleContent]);
 
-    // 
+    // ★★★ スリープ防止ロジックを修正っす！ ★★★
     useEffect(() => {
-        let wakeLock = null;
-
         const requestWakeLock = async () => {
-            try {
-                if ('wakeLock' in navigator) {
-                    wakeLock = await navigator.wakeLock.request('screen');
+            if ('wakeLock' in navigator && isWakeLockEnabled) {
+                try {
+                    wakeLockRef.current = await navigator.wakeLock.request('screen');
                     console.log('Wake Lock is active!');
-                } else {
-                    console.warn('Wake Lock API is not supported on this browser.');
+                } catch (err) {
+                    console.error(`${err.name}, ${err.message}`);
                 }
-            } catch (err) {
-                // 
-                console.error(`${err.name}, ${err.message}`);
+            } else {
+                console.warn('Wake Lock API is not supported or disabled by user.');
             }
         };
 
-        // 
-        requestWakeLock();
+        const releaseWakeLock = () => {
+            if (wakeLockRef.current) {
+                wakeLockRef.current.release().then(() => {
+                    console.log('Wake Lock released');
+                    wakeLockRef.current = null;
+                });
+            }
+        };
+
+        requestWakeLock(); // 
 
         // 
         const handleVisibilityChange = () => {
-            if (wakeLock !== null && document.visibilityState === 'visible') {
+            if (wakeLockRef.current !== null && document.visibilityState === 'visible') {
                 requestWakeLock();
             }
         };
         document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
-            // 
-            if (wakeLock !== null) {
-                wakeLock.release().then(() => {
-                    console.log('Wake Lock released');
-                    wakeLock = null;
-                });
-            }
+            releaseWakeLock(); // 
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             // 
             if (toastTimerRef.current) {
                 clearTimeout(toastTimerRef.current);
             }
         };
-    }, []);
+    }, [isWakeLockEnabled]); // ★★★ isWakeLockEnabled が変わったら実行し直すっす！
     // 
 
+    // ★★★ スリープ防止トグル用の関数っす！ ★★★
+    const handleWakeLockToggle = () => {
+        const newValue = !isWakeLockEnabled;
+        setIsWakeLockEnabled(newValue);
+        localStorage.setItem('wakeLockEnabled', newValue);
+        if (newValue) {
+            showToast('スリープ防止 ON');
+        } else {
+            showToast('スリープ防止 OFF');
+        }
+    };
 
     const timelineTransform = useMemo(() => {
         if (schedule.length === 0 || containerWidth === 0) return 'translateX(0px)';
@@ -264,7 +351,7 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
         };
     }, [visibleContent, isFadingOut, theme]);
 
-    // ★★★ トーストを連続で押した時の挙動を修正っす！ ★★★
+    // 
     const showToast = (message) => {
         if (toastTimerRef.current) {
             clearTimeout(toastTimerRef.current);
@@ -424,7 +511,7 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
 
     return (
         <div className="fixed inset-0" style={bgColorStyle}>
-            {/* ★★★ トーストの位置を className で指定っす！ ★★★ */}
+            {/* */}
             <ToastNotification
                 message={toast.message}
                 isVisible={toast.visible}
@@ -475,7 +562,7 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
             {/* */}
 
 
-            {/* */}
+            {/* ★★★ ハンバーガーメニューの中身を修正っす！ ★★★ */}
             {/* */}
             <div
                 className={`
@@ -494,6 +581,7 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
                         <XIcon className="w-5 h-5" />
                     </button>
                 </div>
+                {/* ★★★ ボタンを修正っす！ ★★★ */}
                 <div className="flex flex-col gap-2">
                     <button
                         onClick={() => {
@@ -504,7 +592,6 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
                     >
                         全体を見る
                     </button>
-                    {/* */}
                     {!isReadOnly && (
                         <button
                             onClick={() => setMode('edit')}
@@ -513,9 +600,31 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
                             編集モードに戻る
                         </button>
                     )}
+                    {/* ★★★ 「設定」ボタンを追加っす！ ★★★ */}
+                    <button
+                        onClick={() => {
+                            setIsSettingsOpen(true);
+                            setIsMenuOpen(false);
+                        }}
+                        className="w-full text-left bg-surface-background hover:bg-surface-background/70 text-on-surface font-semibold py-3 px-4 rounded-lg transition-colors duration-200 flex items-center gap-2"
+                    >
+                        <SettingsIcon className="w-5 h-5 text-on-surface-variant" />
+                        <span>表示設定</span>
+                    </button>
+                    {/* */}
                 </div>
             </div>
-            {/* */}
+
+            {/* ★★★ 設定モーダルを呼び出すっす！ ★★★ */}
+            <LiveSettingsModal
+                isOpen={isSettingsOpen}
+                onClose={() => setIsSettingsOpen(false)}
+                theme={theme}
+                toggleTheme={toggleTheme}
+                isWakeLockEnabled={isWakeLockEnabled}
+                onWakeLockToggle={handleWakeLockToggle}
+            />
+            {/* ★★★ 修正ここまで ★★★ */}
 
 
             {/* */}

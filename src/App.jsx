@@ -277,6 +277,7 @@ const firebaseConfig = {
                             timeOffset={timeOffset}
                             isReadOnly={isReadOnly}
                             theme={theme} // 
+                            toggleTheme={toggleTheme}
                         />
                     }
                 </>
