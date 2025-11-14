@@ -1,25 +1,25 @@
 /* Tailwindの基本を読み込むっす */
 @tailwind base;
 
-/* ★★★ 修正ポイント：HEXではなくRGBの数値のみを定義するっす！ ★★★ */
+/* ★★★ ライトモードを「青みがかった薄いグレー」ベースに修正っす！ ★★★ */
 :root {
-  /* ライトモードのカラーセット */
+  /* ライトモードのカラーセット (ハイコントラスト版) */
   --color-brand-primary: 0 123 255;
-  /* #007bff */
+  /* #007bff (変更なし) */
   --color-brand-secondary: 0 123 255;
-  /* #007bff */
-  --color-surface-background: 250 250 250;
-  /* #ffffff */
-  --color-surface-container: 241 245 249;
-  /* #f1f5f9 (slate-100) */
+  /* #007bff (変更なし) */
+  --color-surface-background: 240 242 244;
+  /* #f8fafc (slate-50) - ★青みがかったごく薄いグレー */
+  --color-surface-container: 255 255 255;
+  /* #ffffff (white) - ★カードやモーダルは白 */
   --color-on-surface: 15 23 42;
-  /* #0f172a (slate-900) */
+  /* #0f172a (slate-900) - ★コントラストUP */
   --color-on-surface-variant: 100 116 139;
-  /* #64748b (slate-500) */
+  /* #64748b (slate-500) - ★コントラストUP */
 }
 
 html.dark {
-  /* ダークモードのカラーセット */
+  /* ダークモードのカラーセット (変更なし) */
   --color-brand-primary: 0 145 255;
   /* #0091ff */
   --color-brand-secondary: 0 145 255;
@@ -75,6 +75,34 @@ body {
   transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
   z-index: 1;
 }
+
+
+/* / * 上側に線を表示 * /
+.drop-indicator-before::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background-color: rgb(var(--color-brand-primary)); / 
+  border-radius: 2px;
+  top: -6px;
+  pointer-events: none;
+}
+
+/ * 下側に線を表示 * /
+.drop-indicator-after::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background-color: rgb(var(--color-brand-primary)); / 
+  border-radius: 2px;
+  bottom: -6px;
+  pointer-events: none;
+}
+*/
 
 
 /* ▼▼▼ Safari 14 互換性対応 ▼▼▼ */

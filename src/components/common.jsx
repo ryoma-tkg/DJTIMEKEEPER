@@ -1,6 +1,6 @@
-import React, { memo } from 'react';
+import React, { memo, useState, useEffect } from 'react'; // 
 
-// ★★★ App.jsx から移動してきた定数 ★★★
+// 
 export const VIVID_COLORS = [
     '#EF4444', '#F97316', '#F59E0B', '#EAB308',
     '#84CC16', '#22C55E', '#10B981', '#14B8A6',
@@ -8,7 +8,7 @@ export const VIVID_COLORS = [
     '#8B5CF6', '#A855F7', '#D946EF', '#EC4899'
 ];
 
-// ★★★ App.jsx から移動してきたアイコン群 ★★★
+// 
 export const PlayIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>);
 export const PlusIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>);
 export const TrashIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>);
@@ -20,17 +20,23 @@ export const XIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg"
 export const ResetIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 2v6h6" /><path d="M21 12A9 9 0 0 0 6 5.3L3 8" /><path d="M21 22v-6h-6" /><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7" /></svg>);
 export const AlertTriangleIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>);
 export const GodModeIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className={className}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>);
-// ★★★ ハンバーガーメニューアイコンを追加っす！ ★★★
 export const MenuIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className={className}><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>);
+// 
+export const InfoIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>);
+
+// ★★★ 設定モーダル用のアイコンを追加っす！ ★★★
+export const SettingsIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className={className}><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>);
+export const MoonIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>);
+export const SunIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>);
 
 
-// ★★★ App.jsx から移動してきた SimpleImage ★★★
+// 
 export const SimpleImage = memo(({ src, className, alt = "" }) => {
     if (!src) return null;
     return <img src={src} alt={alt} className={className} />;
 });
 
-// ★★★ App.jsx から移動してきた parseTime ★★★
+// 
 export const parseTime = (timeStr) => {
     const date = new Date();
     if (!timeStr) return date;
@@ -39,14 +45,14 @@ export const parseTime = (timeStr) => {
     return date;
 };
 
-// ★★★ App.jsx から移動してきた CustomTimeInput ★★★
+// 
 export const CustomTimeInput = ({ value, onChange }) => {
     const adjustTime = (minutes) => {
         const date = parseTime(value);
         date.setMinutes(date.getMinutes() + minutes);
         onChange(date.toTimeString().slice(0, 5));
     };
-    // ★★★ SP対応！ ±15分ボタンをSPで非表示にするっす！ ★★★
+    // 
     const buttonClasses = "px-3 py-3 rounded-lg bg-surface-background hover:bg-zinc-700 text-sm font-semibold w-12";
     return (
         <div className="flex items-center gap-1.5">
@@ -59,7 +65,7 @@ export const CustomTimeInput = ({ value, onChange }) => {
     );
 };
 
-// ★★★ App.jsx から移動してきた ConfirmModal ★★★
+// 
 export const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
     if (!isOpen) return null;
     return (
@@ -85,6 +91,47 @@ export const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) =>
                     </button>
                 </div>
             </div>
+        </div>
+    );
+};
+
+// 
+export const ToastNotification = ({ message, isVisible, className = '' }) => {
+    const [internalMessage, setInternalMessage] = useState(message);
+    const [animationClass, setAnimationClass] = useState('');
+
+    useEffect(() => {
+        if (isVisible) {
+            setInternalMessage(message); // 
+            setAnimationClass('animate-toast-in');
+        } else if (internalMessage) { // 
+            setAnimationClass('animate-toast-out');
+        }
+    }, [isVisible, message, internalMessage]);
+
+    // 
+    if (!internalMessage) return null;
+
+    return (
+        <div
+            className={`
+                fixed left-1/2 z-50
+                bg-surface-container/90 
+                text-on-surface font-semibold 
+                py-3 px-5 rounded-full shadow-lg
+                flex items-center gap-2
+                ${animationClass}
+                ${className} 
+            `}
+            onAnimationEnd={() => {
+                if (!isVisible) {
+                    setInternalMessage('');
+                    setAnimationClass('');
+                }
+            }}
+        >
+            <InfoIcon className="w-5 h-5 text-on-surface-variant" />
+            <span>{internalMessage}</span>
         </div>
     );
 };

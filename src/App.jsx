@@ -230,23 +230,25 @@ const firebaseConfig = {
         case 'online':
             return (
                 <>
-                    {/* */}
-                    <button
+                    {/* ★★★ 設定モーダルに移動するため、テーマボタンは削除っす！ ★★★ */}
+                    {/* <button
                         onClick={toggleTheme}
                         className="fixed bottom-4 right-4 z-50 bg-surface-container text-on-surface p-3 rounded-full shadow-lg hover:bg-brand-primary"
                         title="
 "
                     >
                         {theme === 'dark' ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                            <MoonIcon className="w-5 h-5" />
                         ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                            <SunIcon className="w-5 h-5" />
                         )}
-                    </button>
-                    {/* */}
+                    </button> */}
+                    {/* ★★★ 削除ここまで ★★★ */}
 
+
+                    {/* */}
                     {appStatus === 'offline' && (
-                        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-amber-500/90 text-white font-bold py-2 px-4 rounded-full shadow-lg flex items-center gap-2 animate-fade-in-up">
+                        <div className="fixed bottom-4 left-4 z-50 bg-amber-500/90 text-white font-bold py-2 px-4 rounded-full shadow-lg flex items-center gap-2 animate-fade-in-up">
                             <AlertTriangleIcon className="w-5 h-5" />
                             <span>オフラインモード (データは保存・共有されません)</span>
                         </div>
@@ -263,6 +265,8 @@ const firebaseConfig = {
                             setMode={handleSetMode}
                             storage={storageRef.current} // 
                             timeOffset={timeOffset}
+                            theme={theme} // ★★★ 追加っす！
+                            toggleTheme={toggleTheme} // ★★★ 追加っす！
                         /> :
                         // 
                         <LiveView
@@ -272,7 +276,7 @@ const firebaseConfig = {
                             loadedUrls={loadedUrls}
                             timeOffset={timeOffset}
                             isReadOnly={isReadOnly}
-                            theme={theme} // ★★★ theme を渡すっす！
+                            theme={theme} // 
                         />
                     }
                 </>

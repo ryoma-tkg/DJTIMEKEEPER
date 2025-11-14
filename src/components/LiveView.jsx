@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
-import { SimpleImage, UserIcon, parseTime, GodModeIcon, MenuIcon, XIcon } from './common';
+// 
+import { SimpleImage, UserIcon, parseTime, GodModeIcon, MenuIcon, XIcon, InfoIcon, ToastNotification } from './common';
 import { FullTimelineView } from './FullTimelineView';
 
 // 
@@ -27,6 +28,11 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
     // 
     const animationTimerRef = useRef(null);
 
+    // 
+    const [timerDisplayMode, setTimerDisplayMode] = useState('currentTime'); // 'currentTime', 'eventRemaining', 'eventElapsed'
+    const [toast, setToast] = useState({ message: '', visible: false });
+    const toastTimerRef = useRef(null);
+
     const schedule = useMemo(() => {
         if (timetable.length === 0) return [];
         const scheduleData = [];
@@ -44,6 +50,29 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
     const currentlyPlayingIndex = useMemo(() => {
         return schedule.findIndex(dj => now >= dj.startTime && now < dj.endTime)
     }, [now, schedule]);
+
+    // 
+    const { eventStartTime, eventEndTime, eventRemainingSeconds, eventElapsedSeconds } = useMemo(() => {
+        if (schedule.length === 0) {
+            return { eventStartTime: null, eventEndTime: null, eventRemainingSeconds: 0, eventElapsedSeconds: 0 };
+        }
+        // 
+        const startTime = schedule[0].startTime;
+        // 
+        const endTime = schedule[schedule.length - 1].endTime;
+
+        // 
+        const remaining = (endTime.getTime() - now.getTime()) / 1000;
+        // 
+        const elapsed = (now.getTime() - startTime.getTime()) / 1000;
+
+        return {
+            eventStartTime: startTime,
+            eventEndTime: endTime,
+            eventRemainingSeconds: Math.max(0, remaining),
+            eventElapsedSeconds: Math.max(0, elapsed),
+        };
+    }, [schedule, now]);
 
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date(new Date().getTime() + timeOffset)), 1000);
@@ -179,6 +208,10 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
                 });
             }
             document.removeEventListener('visibilitychange', handleVisibilityChange);
+            // 
+            if (toastTimerRef.current) {
+                clearTimeout(toastTimerRef.current);
+            }
         };
     }, []);
     // 
@@ -201,12 +234,22 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
         return `translateX(${finalX}px)`;
     }, [visibleContent, containerWidth, schedule]);
 
+    // 
     const formatTime = (seconds) => {
         if (seconds < 0) seconds = 0;
         const h = Math.floor(seconds / 3600);
         const m = Math.floor((seconds % 3600) / 60);
         const s = Math.floor(seconds % 60);
         return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    };
+
+    // 
+    const formatDurationHHMMSS = (totalSeconds) => {
+        if (totalSeconds < 0) totalSeconds = 0;
+        const h = Math.floor(totalSeconds / 3600);
+        const m = Math.floor((totalSeconds % 3600) / 60);
+        const s = Math.floor(totalSeconds % 60);
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     };
 
     // 
@@ -220,6 +263,40 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
             background: `radial-gradient(ellipse 80% 60% at 50% 120%, ${visibleContent.color}${opacity}, transparent)`
         };
     }, [visibleContent, isFadingOut, theme]);
+
+    // ★★★ トーストを連続で押した時の挙動を修正っす！ ★★★
+    const showToast = (message) => {
+        if (toastTimerRef.current) {
+            clearTimeout(toastTimerRef.current);
+            setToast({ message: '', visible: false }); // 
+        }
+
+        // 
+        setTimeout(() => {
+            setToast({ message, visible: true });
+            toastTimerRef.current = setTimeout(() => {
+                setToast(prev => ({ ...prev, visible: false }));
+                toastTimerRef.current = null;
+            }, 2000); // 2
+        }, 100); // 
+    };
+
+    // 
+    const handleTimerClick = () => {
+        if (schedule.length === 0) return; // 
+
+        if (timerDisplayMode === 'currentTime') {
+            setTimerDisplayMode('eventRemaining');
+            showToast('終了まで');
+        } else if (timerDisplayMode === 'eventRemaining') {
+            setTimerDisplayMode('eventElapsed');
+            showToast('経過時間');
+        } else {
+            setTimerDisplayMode('currentTime');
+            showToast('現在時刻');
+        }
+    };
+
 
     const renderContent = (content) => {
         if (!content) return null;
@@ -347,7 +424,14 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
 
     return (
         <div className="fixed inset-0" style={bgColorStyle}>
-            {/* ★★★ HeaderをPC/SP両対応レイアウトに再修正っす！ ★★★ */}
+            {/* ★★★ トーストの位置を className で指定っす！ ★★★ */}
+            <ToastNotification
+                message={toast.message}
+                isVisible={toast.visible}
+                className="top-32 md:top-24" // 
+            />
+
+            {/* */}
             <header className="absolute top-0 left-0 right-0 p-4 md:p-8 z-20 flex flex-wrap justify-between items-center gap-y-2">
 
                 {/* 1. タイトル (PC: order-1, SP: order-1) */}
@@ -359,8 +443,22 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
 
                 {/* 2. 時計 (PC: order-2, SP: order-3 / full-width) */}
                 <div className="w-full md:w-auto flex-shrink-0 mx-auto order-3 md:order-2">
-                    <div className="bg-surface-container/50 dark:bg-black/30 backdrop-blur-sm text-on-surface font-bold py-2 px-4 rounded-full text-xl tracking-wider font-mono text-center min-w-[10ch]">
-                        {now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    {/* */}
+                    <div
+                        className="bg-surface-container/50 dark:bg-black/30 backdrop-blur-sm text-on-surface font-bold py-2 px-4 rounded-full text-xl tracking-wider font-mono text-center min-w-[10ch] cursor-pointer"
+                        onClick={handleTimerClick}
+                        title="クリックで表示切替"
+                    >
+                        {/* */}
+                        {timerDisplayMode === 'currentTime' && (
+                            now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                        )}
+                        {timerDisplayMode === 'eventRemaining' && (
+                            `-${formatDurationHHMMSS(eventRemainingSeconds)}`
+                        )}
+                        {timerDisplayMode === 'eventElapsed' && (
+                            `+${formatDurationHHMMSS(eventElapsedSeconds)}`
+                        )}
                     </div>
                 </div>
 
@@ -374,18 +472,18 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
                     </button>
                 </div>
             </header>
-            {/* ★★★ ヘッダー修正ここまで ★★★ */}
+            {/* */}
 
 
-            {/* ★★★ ハンバーガーメニューの挙動を修正っす！ ★★★ */}
-            {/* ★★★ PC/SPで位置を (右上) に戻し、開き方を origin-top-right に戻すっす！ ★★★ */}
+            {/* */}
+            {/* */}
             <div
                 className={`
                     fixed top-16 right-4 md:top-24 md:right-8 z-40 bg-surface-container rounded-2xl shadow-2xl w-64 p-4
                     transition-all duration-200 ease-out
                     ${isMenuOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}
                 `}
-                style={{ transformOrigin: 'top right' }} // ★★★ 開く位置を右上に変更っす！
+                style={{ transformOrigin: 'top right' }} // 
             >
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="font-bold text-on-surface">Menu</h2>
@@ -406,7 +504,7 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
                     >
                         全体を見る
                     </button>
-                    {/* ★★★ 閲覧モードの時は「編集」ボタンを非表示にするっす！ ★★★ */}
+                    {/* */}
                     {!isReadOnly && (
                         <button
                             onClick={() => setMode('edit')}
@@ -417,10 +515,10 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
                     )}
                 </div>
             </div>
-            {/* ★★★ 修正ここまで ★★★ */}
+            {/* */}
 
 
-            {/* ★★★ Main Content Area の開始位置（top）をSP/PCで可変にしたっす！ ★★★ */}
+            {/* */}
             <div className="absolute top-36 md:top-24 bottom-32 left-0 right-0 px-4 flex items-center justify-center overflow-hidden">
                 <div className="w-full h-full overflow-y-auto flex items-center justify-center relative">
                     {visibleContent && (
@@ -450,7 +548,7 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
                         {schedule.map((dj, index) => {
                             const isPlaying = currentlyPlayingIndex === index;
 
-                            // ★★★ border-2 を border に変更っす！ ★★★
+                            // 
                             const borderClass = isPlaying ? 'border border-on-surface dark:border-white' : 'border border-on-surface/30 dark:border-white/30';
 
                             return (

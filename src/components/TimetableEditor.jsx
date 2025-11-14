@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import { useDragAndDrop } from '../hooks/useDragAndDrop';
 import { useTimetable } from '../hooks/useTimetable';
-import { ImageEditModal } from './ImageEditModal'; // ★★★ インポート
-import { DjItem } from './DjItem'; // ★★★ インポート
+import { ImageEditModal } from './ImageEditModal'; // 
+import { DjItem } from './DjItem'; // 
 import {
     CustomTimeInput,
     ConfirmModal,
@@ -10,29 +10,125 @@ import {
     PlusIcon,
     CopyIcon,
     ResetIcon,
+    SettingsIcon, // 
+    XIcon, // 
+    SunIcon, // 
+    MoonIcon // 
 } from './common';
 
-// --- ImageEditModal (
-// ★★★ 
-// ★★★ 
-// ★★★ 
-// ★★★ 
-// ★★★ 
+// --- SettingsModal (
+// 
+const SettingsModal = ({
+    isOpen,
+    onClose,
+    eventConfig,
+    handleEventConfigChange,
+    handleShare,
+    onResetClick,
+    theme,
+    toggleTheme
+}) => {
+    if (!isOpen) return null;
 
-// --- DjItem (
-// ★★★ 
-// ★★★ 
-// ★★★ 
-// ★★★ 
-// ★★★ 
+    const ThemeToggle = () => (
+        <div className="flex items-center justify-between">
+            <label className="text-base text-on-surface">テーマ</label>
+            <button
+                onClick={toggleTheme}
+                className="flex items-center gap-2 bg-surface-background hover:opacity-80 text-on-surface-variant font-semibold py-2 px-4 rounded-full"
+            >
+                {theme === 'dark' ? (
+                    <>
+                        <MoonIcon className="w-5 h-5" /> <span>ダーク</span>
+                    </>
+                ) : (
+                    <>
+                        <SunIcon className="w-5 h-5" /> <span>ライト</span>
+                    </>
+                )}
+            </button>
+        </div>
+    );
+
+    return (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in-up" onClick={onClose}>
+            <div className="bg-surface-container rounded-2xl p-6 w-full max-w-md shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
+                <button
+                    onClick={onClose}
+                    className="absolute top-4 right-4 p-2 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface"
+                >
+                    <XIcon className="w-6 h-6" />
+                </button>
+
+                <h2 className="text-2xl font-bold mb-6">設定</h2>
+
+                {/* --- 1. --- */}
+                <div className="mb-6">
+                    <h3 className="text-sm font-bold text-on-surface-variant tracking-wider uppercase mb-3">イベント設定</h3>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="text-xs text-on-surface-variant mb-1 block">イベントタイトル</label>
+                            <input
+                                type="text"
+                                value={eventConfig.title || ''}
+                                onChange={(e) => handleEventConfigChange('title', e.target.value)}
+                                className="bg-surface-background text-on-surface p-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                                placeholder="イベントタイトル"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs text-on-surface-variant mb-1 block">イベント開始時間</label>
+                            <CustomTimeInput
+                                value={eventConfig.startTime}
+                                onChange={(v) => handleEventConfigChange('startTime', v)}
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* --- 2. --- */}
+                <div className="mb-6">
+                    <h3 className="text-sm font-bold text-on-surface-variant tracking-wider uppercase mb-3">アプリ設定</h3>
+                    <div className="space-y-4">
+                        <ThemeToggle />
+                        <div className="flex items-center justify-between">
+                            <label className="text-base text-on-surface">Liveモード共有</label>
+                            <button
+                                onClick={handleShare}
+                                className="flex items-center gap-2 bg-surface-background hover:opacity-80 text-on-surface-variant font-semibold py-2 px-4 rounded-full"
+                            >
+                                <CopyIcon className="w-5 h-5" /> <span>URLをコピー</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* --- 3. --- */}
+                <div>
+                    <h3 className="text-sm font-bold text-red-400 tracking-wider uppercase mb-3">危険ゾーン</h3>
+                    <button
+                        onClick={onResetClick}
+                        className="w-full flex items-center justify-center gap-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 font-semibold py-3 px-4 rounded-lg transition-colors duration-200"
+                    >
+                        <ResetIcon className="w-5 h-5" />
+                        <span>タイムテーブルをリセット</span>
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    );
+};
+// 
 
 // --- TimetableEditor (
-export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTimetable, setMode, storage, timeOffset }) => {
+export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTimetable, setMode, storage, timeOffset, theme, toggleTheme }) => { // 
 
     const [openColorPickerId, setOpenColorPickerId] = useState(null);
     const [editingDjIndex, setEditingDjIndex] = useState(null);
     const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
     const [now, setNow] = useState(new Date(new Date().getTime() + timeOffset));
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false); // 
 
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date(new Date().getTime() + timeOffset)), 1000);
@@ -88,6 +184,21 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
                 onConfirm={executeReset}
                 onCancel={() => setIsResetConfirmOpen(false)}
             />
+            {/* */}
+            <SettingsModal
+                isOpen={isSettingsOpen}
+                onClose={() => setIsSettingsOpen(false)}
+                eventConfig={eventConfig}
+                handleEventConfigChange={handleEventConfigChange}
+                handleShare={handleShare}
+                onResetClick={() => {
+                    setIsSettingsOpen(false); // 
+                    setIsResetConfirmOpen(true); // 
+                }}
+                theme={theme}
+                toggleTheme={toggleTheme}
+            />
+
             {editingDjIndex !== null && (
                 <ImageEditModal
                     dj={timetable[editingDjIndex]}
@@ -97,28 +208,38 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
                 />
             )}
 
-            <header className="flex flex-col sm:flex-row justify-between items-start mb-6 gap-4">
+            {/* ★★★ ヘッダーレイアウト修正っす！ ★★★ */}
+            <header className="flex flex-row justify-between items-center mb-4 gap-4">
+                {/* タイトル入力欄 (SPでも幅を取るように) */}
                 <input
                     type="text"
                     value={eventConfig.title || 'DJ Timekeeper Pro'}
                     onChange={(e) => handleEventConfigChange('title', e.target.value)}
-                    className="text-3xl font-bold text-brand-secondary tracking-wide bg-transparent focus:outline-none focus:bg-surface-container/50 rounded-lg p-2 w-full sm:w-auto"
+                    className="text-2xl sm:text-3xl font-bold text-brand-secondary tracking-wide bg-transparent focus:outline-none focus:bg-surface-container/50 rounded-lg p-2 flex-1 min-w-0" // 
                     placeholder="イベントタイトル"
                 />
-                <div className="flex gap-2 w-full sm:w-auto self-center">
-                    <button onClick={handleShare} title="Liveモード専用URLをコピー" className="flex items-center justify-center p-3.5 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded-full transition-colors">
-                        <CopyIcon className="w-5 h-5" />
-                    </button>
-                    <button onClick={() => setIsResetConfirmOpen(true)} title="すべてリセット" className="flex items-center justify-center p-3.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-full transition-colors">
-                        <ResetIcon className="w-5 h-5" />
-                    </button>
-                    <button onClick={() => timetable.length > 0 && setMode('live')} disabled={timetable.length === 0} className="w-full flex items-center justify-center bg-brand-primary hover:opacity-90 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-full transition-opacity duration-200 shadow-lg">
-                        <PlayIcon className="w-5 h-5 mr-2" /><span>Liveモード</span>
+                {/* 設定ボタン (flex-shrink-0で縮まないように) */}
+                <div className="flex-shrink-0">
+                    <button
+                        onClick={() => setIsSettingsOpen(true)}
+                        title="設定"
+                        className="flex items-center justify-center p-3.5 bg-surface-container/50 text-on-surface-variant hover:bg-surface-container hover:text-on-surface rounded-full transition-colors"
+                    >
+                        <SettingsIcon className="w-5 h-5" />
                     </button>
                 </div>
             </header>
 
-            <div className="bg-surface-container/50 rounded-xl p-4 mb-8">
+            {/* ★★★ Liveモードボタンをヘッダーの下に移動っす！ ★★★ */}
+            <div className="mb-6">
+                <button onClick={() => timetable.length > 0 && setMode('live')} disabled={timetable.length === 0} className="w-full flex items-center justify-center bg-brand-primary hover:opacity-90 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-full transition-opacity duration-200 shadow-lg">
+                    <PlayIcon className="w-5 h-5 mr-2" /><span>Liveモード</span>
+                </button>
+            </div>
+
+
+            {/* */}
+            <div className="bg-surface-container rounded-xl p-4 mb-8">
                 {eventEndTime && (
                     <div className="bg-surface-container/50 text-on-surface-variant font-semibold py-2 px-4 rounded-full text-lg tracking-wider font-mono text-center mb-4 max-w-xs mx-auto">
                         {eventConfig.startTime} - {eventEndTime}
@@ -132,10 +253,7 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
                     </div>
                 )}
 
-                <label className="text-xs text-on-surface-variant tracking-wider mb-2 text-center block">イベント開始時間を設定</label>
-                <div className="w-full max-w-xs mx-auto">
-                    <CustomTimeInput value={eventConfig.startTime} onChange={(v) => handleEventConfigChange('startTime', v)} />
-                </div>
+                {/* */}
             </div>
 
             <div className="space-y-4" ref={listContainerRef}>

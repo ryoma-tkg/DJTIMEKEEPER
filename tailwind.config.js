@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  darkMode: 'class', // ライトモード切り替えに必須っす！
+  darkMode: 'class', // 
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -12,7 +12,7 @@ export default {
         mono: ['Orbitron', 'Montserrat', 'sans-serif'],
       },
       colors: {
-        // index.css の変数 (RGB数値) を rgb() で囲んで使うっす
+        // 
         'brand-primary': 'rgb(var(--color-brand-primary) / <alpha-value>)',
         'brand-secondary': 'rgb(var(--color-brand-secondary) / <alpha-value>)',
         'surface-background': 'rgb(var(--color-surface-background) / <alpha-value>)',
@@ -50,7 +50,16 @@ export default {
         spinner: {
           '0%': { transform: 'rotate(0deg)' },
           '100%': { transform: 'rotate(360deg)' },
-        }
+        },
+        // ★★★ トースト用のアニメーションを追加っす！ ★★★
+        'toast-in': {
+          '0%': { transform: 'translateX(-50%) translateY(-100%)', opacity: '0' },
+          '100%': { transform: 'translateX(-50%) translateY(0)', opacity: '1' },
+        },
+        'toast-out': {
+          '0%': { transform: 'translateX(-50%) translateY(0)', opacity: '1' },
+          '100%': { transform: 'translateX(-50%) translateY(-100%)', opacity: '0' },
+        },
       },
       animation: {
         'fade-in-up': 'fadeInUp 0.4s ease-out forwards',
@@ -58,6 +67,9 @@ export default {
         'fade-in': 'fadeIn 2.0s ease-in-out forwards',
         'fade-out': 'fadeOut 2.0s ease-in-out forwards',
         'spinner': 'spinner 1s linear infinite',
+        // ★★★ トースト用のアニメーションを追加っす！ ★★★
+        'toast-in': 'toast-in 0.3s ease-out forwards',
+        'toast-out': 'toast-out 0.3s ease-in forwards',
       }
     },
   },
