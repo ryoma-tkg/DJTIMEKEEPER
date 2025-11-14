@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import { useDragAndDrop } from '../hooks/useDragAndDrop';
 import { useTimetable } from '../hooks/useTimetable';
-import { ImageEditModal } from './ImageEditModal'; // 
-import { DjItem } from './DjItem'; // 
+import { ImageEditModal } from './ImageEditModal';
+import { DjItem } from './DjItem';
 import {
     CustomTimeInput,
     ConfirmModal,
@@ -10,56 +10,56 @@ import {
     PlusIcon,
     CopyIcon,
     ResetIcon,
-    SettingsIcon, // 
-    XIcon, // 
-    SunIcon, // 
-    MoonIcon, // 
-    TrashIcon, // 
-    parseTime, // ★ parseDateTime は useTimetable が内部で使うのでここでは不要
-    GripIcon, // 
-    VIVID_COLORS, // 
-    CalendarIcon, // ★ インポート
-    parseDateTime, // ★ インポート
-    getTodayDateString // ★ インポート
+    SettingsIcon,
+    XIcon,
+    SunIcon,
+    MoonIcon,
+    TrashIcon,
+    parseTime,
+    GripIcon,
+    VIVID_COLORS,
+    CalendarIcon,
+    parseDateTime,
+    getTodayDateString
 } from './common';
 
 
-// ★★★ VJリストのアイテム (変更なし) ★★★
+// ★★★ VJリストのアイテム (★ 高さ合わせFIX) ★★★
 const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging }) => {
     const draggingClass = isDragging ? 'dragging-item' : '';
 
     return (
         <div
-            // ★ 枠線 (ring-1 ring-zinc-700) を削除
-            className={`bg-surface-container rounded-2xl flex items-center gap-4 p-4 ${draggingClass}`}
+            // ★ 修正: items-stretch (変更なし)
+            className={`bg-surface-container rounded-2xl flex items-stretch gap-4 p-4 ${draggingClass}`}
         >
-            {/* D&Dハンドル */}
+            {/* ★ 修正: self-center -> self-stretch flex items-center */}
             <div
-                className="cursor-grab touch-none p-3 -m-3"
+                className="cursor-grab touch-none p-3 -m-3 self-stretch flex items-center"
                 onPointerDown={onPointerDown}
             >
                 <GripIcon className="w-6 h-6 text-on-surface-variant shrink-0" />
             </div>
 
-            {/* VJ情報 (名前・時間) */}
+            {/* ★ 修正: self-center 削除 (スペーサー) */}
+            <div className="w-16 h-16 shrink-0" />
+
+            {/* VJ情報 (グリッドレイアウトは DjItem と統一済み) */}
             <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                {/* VJ名 */}
+                {/* 1. VJ Name */}
                 <div className="flex flex-col">
                     <label className="text-xs text-on-surface-variant mb-1">VJ Name</label>
                     <input type="text" value={vj.name} onChange={(e) => onUpdate('name', e.target.value)} className="bg-surface-background text-on-surface p-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary" />
                 </div>
-
-                {/* 持ち時間 */}
+                {/* 2. Duration */}
                 <div className="flex flex-col">
                     <label className="text-xs text-on-surface-variant mb-1">Duration (min)</label>
                     <input type="number" value={vj.duration} step="0.1" onChange={(e) => onUpdate('duration', parseFloat(e.target.value) || 0)} className="bg-surface-background text-on-surface p-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary font-bold text-base" />
                 </div>
-
-                {/* 自動計算された時間 (表示のみ) */}
+                {/* 3. Time Slot (col-span-2) */}
                 <div className="flex flex-col md:col-span-2">
                     <label className="text-xs text-on-surface-variant mb-1">Time Slot (Auto)</label>
                     <div className="bg-surface-background/50 p-2 rounded-lg w-full text-center font-semibold text-on-surface-variant font-mono">
-                        {/* ★ 日付なしの HH:MM - HH:MM に戻す */}
                         <div className="flex flex-row justify-center items-center text-sm">
                             <span>{vj.startTime}</span>
                             <span className="mx-2">-</span>
@@ -69,8 +69,13 @@ const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging }) => {
                 </div>
             </div>
 
-            {/* 削除ボタン */}
-            <div className="flex flex-col gap-2 shrink-0 self-center">
+            {/* ★★★ 修正: 高さを DjItem と揃える (スペーサー2つ + ボタン1つ) ★★★ */}
+            <div className="flex flex-col gap-2 shrink-0 self-stretch justify-center">
+                {/* DjItemのカラーピッカー(w-9 h-9)用のスペーサー */}
+                <div className="w-9 h-9" />
+                {/* DjItemのコピーボタン(p-2 + w-5 h-5 -> h-9)用のスペーサー */}
+                <div className="w-9 h-9" />
+                {/* 削除ボタン本体 (w-9 h-9相当) */}
                 <button onClick={onRemove} className="text-on-surface-variant hover:text-red-500 p-2 rounded-full transition-colors"><TrashIcon className="w-5 h-5" /></button>
             </div>
         </div>
@@ -79,17 +84,15 @@ const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging }) => {
 // ★★★ VJアイテム ここまで ★★★
 
 
-// ★★★ VJタイムテーブル管理 (useTimetable の呼び出しを修正) ★★★
+// ★★★ VJタイムテーブル管理 (変更なし) ★★★
 const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, eventStartTimeStr, now }) => {
 
-    // 1. VJ用のロジックフック (★ eventStartDateStr を渡す)
     const {
-        schedule: vjSchedule, // VJのスケジュール (Dateオブジェクトなど計算済み)
-        eventStartTimeDate: vjEventStartTimeDate, // ★ VJの基点となる Date
-        recalculateTimes: recalculateVjTimes // VJの時間再計算関数
-    } = useTimetable(vjTimetable, eventStartDateStr, eventStartTimeStr, now); // ★ 変更
+        schedule: vjSchedule,
+        eventStartTimeDate: vjEventStartTimeDate,
+        recalculateTimes: recalculateVjTimes
+    } = useTimetable(vjTimetable, eventStartDateStr, eventStartTimeStr, now);
 
-    // 2. VJ用のD&Dフック (★ 第4引数の依存配列を修正)
     const {
         draggedIndex: vjDraggedIndex,
         overIndex: vjOverIndex,
@@ -97,37 +100,24 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, ev
         listContainerRef: vjListContainerRef,
         handlePointerDown: handleVjPointerDown,
         getDragStyles: getVjDragStyles,
-    } = useDragAndDrop(vjTimetable, setVjTimetable, (newTable) => recalculateVjTimes(newTable, vjEventStartTimeDate), [eventStartDateStr, eventStartTimeStr]); // ★ 第4引数を修正
+    } = useDragAndDrop(vjTimetable, setVjTimetable, (newTable) => recalculateVjTimes(newTable, vjEventStartTimeDate), [eventStartDateStr, eventStartTimeStr]);
 
-
-    // VJ追加 (duration で追加)
     const handleAddVj = () => {
-        const newVj = {
-            id: Date.now(),
-            name: `VJ ${vjTimetable.length + 1}`,
-            duration: 60,
-        };
-        // ★ 基点時刻 (vjEventStartTimeDate) を使って再計算
+        const newVj = { id: Date.now(), name: `VJ ${vjTimetable.length + 1}`, duration: 60 };
         setVjTimetable(prev => recalculateVjTimes([...prev, newVj], vjEventStartTimeDate));
     };
-
-    // VJの情報更新
     const handleUpdateVj = (index, field, value) => {
         setVjTimetable(prev => {
             const newVjList = [...prev];
             newVjList[index] = { ...newVjList[index], [field]: value };
             if (field === 'duration') {
-                // ★ 基点時刻 (vjEventStartTimeDate) を使って再計算
                 return recalculateVjTimes(newVjList, vjEventStartTimeDate);
             }
             return newVjList;
         });
     };
-
-    // VJ削除
     const handleRemoveVj = (index) => {
         setVjTimetable(prev =>
-            // ★ 基点時刻 (vjEventStartTimeDate) を使って再計算
             recalculateVjTimes(prev.filter((_, i) => i !== index), vjEventStartTimeDate)
         );
     };
@@ -135,8 +125,6 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, ev
     return (
         <div className="w-full space-y-4">
             <h2 className="text-xl font-bold text-on-surface mb-2">VJ タイムテーブル</h2>
-
-            {/* VJリスト (D&D対応) */}
             <div className="space-y-4" ref={vjListContainerRef}>
                 {vjSchedule.map((vj, index) => {
                     let dropIndicatorClass = '';
@@ -148,16 +136,15 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, ev
                             dropIndicatorClass = 'drop-indicator-after';
                         }
                     }
-
                     return (
                         <div
                             key={vj.id}
                             data-vj-index={index}
-                            className={`dj-list-item ${dropIndicatorClass}`} // dj-list-item を流用
+                            className={`dj-list-item ${dropIndicatorClass}`}
                             style={getVjDragStyles(index)}
                         >
                             <VjItem
-                                vj={vj} // 計算済みのスケジュールを渡す
+                                vj={vj}
                                 onPointerDown={(e) => handleVjPointerDown(e, index)}
                                 onUpdate={(field, value) => handleUpdateVj(index, field, value)}
                                 onRemove={() => handleRemoveVj(index)}
@@ -167,7 +154,6 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, ev
                     );
                 })}
             </div>
-
             <button
                 onClick={handleAddVj}
                 className="w-full flex items-center justify-center bg-surface-container hover:opacity-90 text-on-surface-variant font-bold py-3 px-4 rounded-full transition-opacity duration-200"
@@ -180,7 +166,7 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, ev
 // ★★★ VJマネージャー ここまで ★★★
 
 
-// --- ★★★ SettingsModal (日付入力UIを追加) ★★★ ---
+// --- ★★★ SettingsModal (UI/UX 修正) (変更なし) ★★★ ---
 const SettingsModal = ({
     isOpen,
     onClose,
@@ -193,7 +179,6 @@ const SettingsModal = ({
 }) => {
     if (!isOpen) return null;
 
-    // 
     const ThemeToggle = () => (
         <div className="flex items-center justify-between">
             <label className="text-base text-on-surface">テーマ</label>
@@ -202,26 +187,19 @@ const SettingsModal = ({
                 className="flex items-center gap-2 bg-surface-background hover:opacity-80 text-on-surface-variant font-semibold py-2 px-4 rounded-full"
             >
                 {theme === 'dark' ? (
-                    <>
-                        <MoonIcon className="w-5 h-5" /> <span>ダーク</span>
-                    </>
+                    <><MoonIcon className="w-5 h-5" /> <span>ダーク</span></>
                 ) : (
-                    <>
-                        <SunIcon className="w-5 h-5" /> <span>ライト</span>
-                    </>
+                    <><SunIcon className="w-5 h-5" /> <span>ライト</span></>
                 )}
             </button>
         </div>
     );
-
-    // 
     const VjFeatureToggle = () => (
         <div className="flex items-center justify-between">
             <label className="text-base text-on-surface">VJタイムテーブル機能</label>
             <button
                 onClick={() => handleEventConfigChange('vjFeatureEnabled', !eventConfig.vjFeatureEnabled)}
-                className={`w-14 h-8 rounded-full flex items-center p-1 transition-colors ${eventConfig.vjFeatureEnabled ? 'bg-brand-primary justify-end' : 'bg-surface-background justify-start'
-                    }`}
+                className={`w-14 h-8 rounded-full flex items-center p-1 transition-colors ${eventConfig.vjFeatureEnabled ? 'bg-brand-primary justify-end' : 'bg-surface-background justify-start'}`}
             >
                 <span className="w-6 h-6 rounded-full bg-white shadow-md block" />
             </button>
@@ -237,12 +215,11 @@ const SettingsModal = ({
                 >
                     <XIcon className="w-6 h-6" />
                 </button>
-
                 <h2 className="text-2xl font-bold mb-6">設定</h2>
 
-                {/* --- 1. イベント設定 (★ 日付入力フィールド追加) --- */}
-                <div className="mb-6">
-                    <h3 className="text-sm font-bold text-on-surface-variant tracking-wider uppercase mb-3">イベント設定</h3>
+                {/* --- 1. イベント設定 (★ UI修正) (変更なし) --- */}
+                <div className="pb-6 mb-6 border-b border-surface-background dark:border-zinc-700/50">
+                    <h3 className="text-lg font-bold text-on-surface mb-4">イベント設定</h3>
                     <div className="space-y-4">
                         <div>
                             <label className="text-xs text-on-surface-variant mb-1 block">イベントタイトル</label>
@@ -254,16 +231,13 @@ const SettingsModal = ({
                                 placeholder="イベントタイトル"
                             />
                         </div>
-
-                        {/* ★★★ 開始日と開始時刻を上下2段に変更 ★★★ */}
                         <div>
                             <label className="text-xs text-on-surface-variant mb-1 block">イベント開始日</label>
                             <div className="relative">
                                 <input
                                     type="date"
-                                    value={eventConfig.startDate || ''} // YYYY-MM-DD
+                                    value={eventConfig.startDate || ''}
                                     onChange={(e) => handleEventConfigChange('startDate', e.target.value)}
-                                    // ★★★ p-3 に修正して高さを合わせる ★★★
                                     className="bg-surface-background text-on-surface p-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary font-mono font-bold text-base appearance-none pr-10"
                                 />
                                 <CalendarIcon className="w-5 h-5 text-on-surface-variant absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -276,16 +250,13 @@ const SettingsModal = ({
                                 onChange={(v) => handleEventConfigChange('startTime', v)}
                             />
                         </div>
-                        {/* ★★★ ここまで ★★★ */}
-
-                        {/* */}
                         <VjFeatureToggle />
                     </div>
                 </div>
 
-                {/* --- 2. アプリ設定 (変更なし) --- */}
+                {/* --- 2. アプリ設定 (★ UI修正) (変更なし) --- */}
                 <div className="mb-6">
-                    <h3 className="text-sm font-bold text-on-surface-variant tracking-wider uppercase mb-3">アプリ設定</h3>
+                    <h3 className="text-lg font-bold text-on-surface mb-4">アプリ設定</h3>
                     <div className="space-y-4">
                         <ThemeToggle />
                         <div className="flex items-center justify-between">
@@ -300,9 +271,9 @@ const SettingsModal = ({
                     </div>
                 </div>
 
-                {/* --- 3. 危険ゾーン (変更なし) --- */}
+                {/* --- 3. 危険ゾーン (★ UI修正) (変更なし) --- */}
                 <div>
-                    <h3 className="text-sm font-bold text-red-400 tracking-wider uppercase mb-3">危険ゾーン</h3>
+                    <h3 className="text-lg font-bold text-red-400 mb-4">危険ゾーン</h3>
                     <button
                         onClick={onResetClick}
                         className="w-full flex items-center justify-center gap-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 font-semibold py-3 px-4 rounded-lg transition-colors duration-200"
@@ -311,7 +282,6 @@ const SettingsModal = ({
                         <span>タイムテーブルをリセット</span>
                     </button>
                 </div>
-
             </div>
         </div>
     );
@@ -321,25 +291,23 @@ const SettingsModal = ({
 // (日付フォーマット関数 - 変更なし)
 const formatDateTime = (date) => {
     if (!date || !(date instanceof Date)) return '??:??';
-
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const d = String(date.getDate()).padStart(2, '0');
     const h = String(date.getHours()).padStart(2, '0');
     const min = String(date.getMinutes()).padStart(2, '0');
-
     return `${y}/${m}/${d} ${h}:${min}`;
 };
 
 
-// --- ★★★ TimetableEditor (useTimetable 呼び出しを大幅修正) ★★★
+// --- ★★★ TimetableEditor (useTimetable 呼び出し) (変更なし) ★★★
 export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTimetable, vjTimetable, setVjTimetable, setMode, storage, timeOffset, theme, toggleTheme }) => {
 
     const [openColorPickerId, setOpenColorPickerId] = useState(null);
     const [editingDjIndex, setEditingDjIndex] = useState(null);
     const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
     const [now, setNow] = useState(new Date(new Date().getTime() + timeOffset));
-    const [isSettingsOpen, setIsSettingsOpen] = useState(false); // 
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date(new Date().getTime() + timeOffset)), 1000);
@@ -347,18 +315,18 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
     }, [timeOffset]);
 
 
-    // 1. DJ用のロジックフック (★ eventStartDateStr を渡す)
+    // 1. DJ用のロジックフック (変更なし)
     const {
         schedule,
         eventEndTime,
-        eventStartTimeDate, // ★ 基点となる Date
-        eventEndTimeDate,   // ★ 終了の Date
+        eventStartTimeDate,
+        eventEndTimeDate,
         currentlyPlayingIndex,
         totalEventDuration,
         recalculateTimes,
-    } = useTimetable(timetable, eventConfig.startDate, eventConfig.startTime, now); // ★ 変更
+    } = useTimetable(timetable, eventConfig.startDate, eventConfig.startTime, now);
 
-    // 2. DJ用のD&Dフック (★ 第4引数の依存配列を修正)
+    // 2. DJ用のD&Dフック (変更なし)
     const {
         draggedIndex,
         overIndex,
@@ -366,21 +334,15 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
         listContainerRef,
         handlePointerDown,
         getDragStyles,
-    } = useDragAndDrop(timetable, setTimetable, (newTable) => recalculateTimes(newTable, eventStartTimeDate), [eventConfig.startDate, eventConfig.startTime]); // ★ 第4引数を修正
+    } = useDragAndDrop(timetable, setTimetable, (newTable) => recalculateTimes(newTable, eventStartTimeDate), [eventConfig.startDate, eventConfig.startTime]);
 
-    // 3. ★ イベント設定変更 (ロジック修正)
+    // 3. ★ イベント設定変更 (変更なし)
     const handleEventConfigChange = (field, value) => {
         setEventConfig(prevConfig => {
             const newConfig = { ...prevConfig, [field]: value };
-
-            // ★ 開始日または開始時刻が変わったら、時間再計算
             if (field === 'startDate' || field === 'startTime') {
-                // ★ 新しい日付と時刻から「基点時刻(Date)」を生成して渡す
                 const newBaseTime = parseDateTime(newConfig.startDate, newConfig.startTime);
                 setTimetable(prevTimetable => recalculateTimes(prevTimetable, newBaseTime));
-
-                // ★ VJテーブルも再計算 (VjTimetableManager側でフックが再実行される)
-                // (VjTimetableManager が eventConfig の startDate/startTime を見てるため)
             }
             return newConfig;
         });
@@ -392,7 +354,6 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
             const newTimetable = [...prevTimetable];
             newTimetable[index] = { ...newTimetable[index], [field]: value };
             if (field === 'duration') {
-                // ★ 基点時刻 (eventStartTimeDate) を使って再計算
                 return recalculateTimes(newTimetable, eventStartTimeDate);
             }
             return newTimetable;
@@ -412,16 +373,14 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
                 color: VIVID_COLORS[Math.floor(Math.random() * VIVID_COLORS.length)],
                 isBuffer,
             };
-            // ★ 基点時刻 (eventStartTimeDate) を使って再計算
             return recalculateTimes([...prevTimetable, newDjData], eventStartTimeDate);
         });
     };
 
-    // 6. ★ リセット (startDate もリセット)
+    // 6. ★ リセット (変更なし)
     const executeReset = () => {
         setTimetable([]);
         setVjTimetable([]);
-        // ★ startDate もリセット
         setEventConfig({
             title: 'My Awesome Event',
             startDate: getTodayDateString(),
@@ -443,7 +402,7 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
         });
     };
 
-
+    // (handleShare - 変更なし)
     const handleShare = () => {
         const baseUrl = window.location.href.replace(/#.*$/, '');
         const url = baseUrl + '#live';
@@ -459,7 +418,7 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
         }
     };
 
-    // ★★★ インフォメーション表示用 (変更なし) ★★★
+    // (インフォメーション表示用 - 変更なし)
     const { displayStartTime, displayEndTime } = useMemo(() => {
         if (schedule.length > 0) {
             return {
@@ -467,17 +426,16 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
                 displayEndTime: schedule[schedule.length - 1].endTimeDate
             };
         }
-        // ★ スケジュールが空の場合も、useTimetable が計算した基点時刻 (activeStartTime) を使う
         return {
             displayStartTime: eventStartTimeDate,
             displayEndTime: null
         };
-    }, [schedule, eventStartTimeDate]); // ★ 依存配列を修正
-    // ★★★ 修正ここまで ★★★
+    }, [schedule, eventStartTimeDate]);
 
 
     return (
         <div className="p-4 md:p-8 max-w-7xl mx-auto">
+            {/* (Modal呼び出し - 変更なし) */}
             <ConfirmModal
                 isOpen={isResetConfirmOpen}
                 title="タイムテーブルをリセット"
@@ -485,12 +443,11 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
                 onConfirm={executeReset}
                 onCancel={() => setIsResetConfirmOpen(false)}
             />
-
             <SettingsModal
                 isOpen={isSettingsOpen}
                 onClose={() => setIsSettingsOpen(false)}
                 eventConfig={eventConfig}
-                handleEventConfigChange={handleEventConfigChange} // ★ こっちの関数を渡す
+                handleEventConfigChange={handleEventConfigChange}
                 handleShare={handleShare}
                 onResetClick={() => {
                     setIsSettingsOpen(false);
@@ -499,34 +456,33 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
                 theme={theme}
                 toggleTheme={toggleTheme}
             />
-
             {editingDjIndex !== null && (
                 <ImageEditModal
                     dj={timetable[editingDjIndex]}
-                    onUpdate={(field, value) => handleUpdate(editingDjIndex, field, value)} // ★ こっちの関数を渡す
+                    onUpdate={(field, value) => handleUpdate(editingDjIndex, field, value)}
                     onClose={() => setEditingDjIndex(null)}
                     storage={storage}
                 />
             )}
 
 
+            {/* (ヘッダー - 変更なし) */}
             <header className="flex flex-row justify-between items-center mb-4 gap-4">
-
                 <input
                     type="text"
                     value={eventConfig.title || 'DJ Timekeeper Pro'}
-                    onChange={(e) => handleEventConfigChange('title', e.target.value)} // ★ こっちの関数を渡す
+                    onChange={(e) => handleEventConfigChange('title', e.target.value)}
                     className="text-2xl sm:text-3xl font-bold text-brand-secondary tracking-wide bg-transparent focus:outline-none focus:bg-surface-container/50 rounded-lg p-2 flex-1 min-w-0"
                     placeholder="イベントタイトル"
                 />
-
                 <div className="flex-shrink-0">
                     <button
                         onClick={() => setIsSettingsOpen(true)}
                         title="設定"
-                        className="flex items-center justify-center p-3.5 bg-surface-container/50 text-on-surface-variant hover:bg-surface-container hover:text-on-surface rounded-full transition-colors"
+                        className="flex items-center justify-center gap-2 py-3 px-5 bg-surface-container hover:bg-zinc-700 text-on-surface font-semibold rounded-full transition-colors"
                     >
                         <SettingsIcon className="w-5 h-5" />
+                        <span className="hidden sm:inline">設定</span>
                     </button>
                 </div>
             </header>
@@ -539,11 +495,10 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
             </div>
 
 
-            {/* ★★★ 1. インフォメーション (表示ロジックは変更なし) ★★★ */}
+            {/* (インフォメーション - 変更なし) */}
             <div className="bg-surface-container rounded-xl p-4 mb-8">
                 <div className="bg-surface-background text-on-surface-variant font-semibold py-2 px-4 rounded-full text-sm sm:text-lg tracking-wider font-mono text-center mb-4 max-w-full mx-auto">
                     <div className="flex flex-col sm:flex-row justify-center items-center gap-1 sm:gap-3">
-                        {/* ★ useMemo から来た displayStartTime を使う */}
                         <span>{formatDateTime(displayStartTime)}</span>
                         <span>-</span>
                         {displayEndTime ? (
@@ -553,7 +508,6 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
                         )}
                     </div>
                 </div>
-
                 {totalEventDuration && (
                     <div className="text-center mb-0">
                         <span className="text-xs text-on-surface-variant uppercase">Total DJ Time</span>
@@ -562,7 +516,7 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
                 )}
             </div>
 
-            {/* 2. 2カラムレイアウト (変更なし) */}
+            {/* (2カラムレイアウト - 変更なし) */}
             <div className="flex flex-col lg:flex-row gap-8">
 
                 {/* --- ★ 左カラム (DJリスト) ★ --- */}
@@ -580,7 +534,6 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
                                     dropIndicatorClass = 'drop-indicator-after';
                                 }
                             }
-
                             return (
                                 <div
                                     key={dj.id}
@@ -593,10 +546,10 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
                                         isPlaying={currentlyPlayingIndex === index}
                                         onPointerDown={(e) => handlePointerDown(e, index)}
                                         onEditClick={() => setEditingDjIndex(index)}
-                                        onUpdate={(field, value) => handleUpdate(index, field, value)} // ★ こっちの関数
+                                        onUpdate={(field, value) => handleUpdate(index, field, value)}
                                         onColorPickerToggle={setOpenColorPickerId}
-                                        onCopy={() => handleCopyDj(index)} // ★ こっちの関数
-                                        onRemove={() => handleRemoveDj(index)} // ★ こっちの関数
+                                        onCopy={() => handleCopyDj(index)}
+                                        onRemove={() => handleRemoveDj(index)}
                                         isColorPickerOpen={openColorPickerId === dj.id}
                                         openColorPickerId={openColorPickerId}
                                         isDragging={draggedIndex === index}
@@ -616,13 +569,13 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
                 {/* --- ★ 右カラム (VJリスト) ★ --- */}
                 {eventConfig.vjFeatureEnabled && (
                     <div className="w-full lg:w-1/3 lg:max-w-md space-y-4">
-                        {/* ★ VjTimetableManager に eventConfig.startDate を渡す ★ */}
+                        {/* ★ (変更なし) */}
                         <VjTimetableManager
                             vjTimetable={vjTimetable}
                             setVjTimetable={setVjTimetable}
-                            eventStartDateStr={eventConfig.startDate} // ★ 追加
-                            eventStartTimeStr={eventConfig.startTime} // ★ 変更なし
-                            now={now} // ★ 変更なし
+                            eventStartDateStr={eventConfig.startDate}
+                            eventStartTimeStr={eventConfig.startTime}
+                            now={now}
                         />
                     </div>
                 )}
