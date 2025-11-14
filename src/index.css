@@ -76,33 +76,6 @@ body {
   z-index: 1;
 }
 
-/* 上側に線を表示 */
-.drop-indicator-before::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background-color: rgb(var(--color-brand-primary));
-  /* ここも変数を使うように修正っす */
-  border-radius: 2px;
-  top: -6px;
-  pointer-events: none;
-}
-
-/* 下側に線を表示 */
-.drop-indicator-after::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background-color: rgb(var(--color-brand-primary));
-  /* ここも変数を使うように修正っす */
-  border-radius: 2px;
-  bottom: -6px;
-  pointer-events: none;
-}
 
 /* ▼▼▼ Safari 14 互換性対応 ▼▼▼ */
 @layer utilities {

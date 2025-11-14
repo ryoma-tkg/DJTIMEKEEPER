@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { processImageForUpload } from '../utils/imageProcessor';
+import { useStorageUpload } from '../hooks/useStorageUpload';
+import { useDragAndDrop } from '../hooks/useDragAndDrop';
+import { useTimetable } from '../hooks/useTimetable'; // ★★★ タイムテーブルフックをインポート
 import {
-    VIVID_COLORS,
+    // VIVID_COLORS, // 
     SimpleImage,
-    parseTime,
+    parseTime, // 
     CustomTimeInput,
     ConfirmModal,
     PlayIcon,
@@ -24,37 +25,24 @@ import {
 // 
 const ImageEditModal = ({ dj, onUpdate, onClose, storage }) => {
     const [imageUrl, setImageUrl] = useState(dj.imageUrl || '');
-    const [isUploading, setIsUploading] = useState(false);
-    const [uploadError, setUploadError] = useState(null);
     const fileInputRef = useRef(null);
     const [isUrlInputVisible, setIsUrlInputVisible] = useState(false);
 
+    // 
+    const { isUploading, uploadError, uploadedUrl, handleUpload } = useStorageUpload(storage);
+
+    // 
+    useEffect(() => {
+        if (uploadedUrl) {
+            setImageUrl(uploadedUrl); // 
+        }
+    }, [uploadedUrl]);
+
+    // 
     const handleFileChange = async (e) => {
         const file = e.target.files[0];
-        if (!file || !storage) return;
-        setIsUploading(true);
-        setUploadError(null);
-        let processedFileBlob;
-        try {
-            processedFileBlob = await processImageForUpload(file);
-        } catch (processError) {
-            console.error("Image processing failed:", processError);
-            setUploadError(processError.message || "画像の処理に失敗しました。");
-            setIsUploading(false);
-            return;
-        }
-        try {
-            const originalName = file.name.replace(/\.[^/.]+$/, "");
-            const filePath = `dj_icons/${Date.now()}_${originalName}.jpg`;
-            const storageRef = ref(storage, filePath);
-            const snapshot = await uploadBytes(storageRef, processedFileBlob);
-            const downloadURL = await getDownloadURL(snapshot.ref);
-            setImageUrl(downloadURL);
-        } catch (error) {
-            console.error("Image upload failed:", error);
-            setUploadError("アップロードに失敗しました。");
-        } finally {
-            setIsUploading(false);
+        if (file) {
+            handleUpload(file); // 
         }
     };
 
@@ -142,6 +130,10 @@ const DjItem = memo(({ dj, isPlaying, onPointerDown, onEditClick, onUpdate, onCo
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [isColorPickerOpen, dj.id, onColorPickerToggle]);
+
+    // ★★★ VIVID_COLORS を common.jsx から読むように変更 ★★★
+    // (useTimetable フックに移動したので、DjItem 側は修正不要でした！失礼しました！)
+
     const ringClass = isPlaying ? 'ring-2 shadow-[0_0_12px_var(--tw-ring-color)]' : 'ring-1 ring-zinc-700';
     const draggingClass = isDragging ? 'dragging-item' : '';
 
@@ -162,14 +154,15 @@ const DjItem = memo(({ dj, isPlaying, onPointerDown, onEditClick, onUpdate, onCo
                 onPointerDown={(e) => e.stopPropagation()}
                 className="w-16 h-16 rounded-full bg-surface-background flex items-center justify-center overflow-hidden shrink-0 ring-2 ring-surface-background hover:ring-brand-primary transition-all"
             >
+                {/* */}
                 {dj.imageUrl ? (
                     <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" />
-                ) : (
+                ) : !dj.isBuffer ? ( // 
                     <UserIcon className="w-8 h-8 text-on-surface-variant" />
-                )}
+                ) : null}
             </button>
 
-            {/* ★★★ ここからレスポンシブ修正 ★★★ */}
+            {/* */}
             <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                 {/* */}
                 <div className="flex flex-col">
@@ -191,7 +184,7 @@ const DjItem = memo(({ dj, isPlaying, onPointerDown, onEditClick, onUpdate, onCo
                     <input type="number" value={dj.duration} step="0.1" onChange={(e) => onUpdate('duration', parseFloat(e.target.value) || 0)} className="bg-surface-background text-on-surface p-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary font-bold text-base" />
                 </div>
             </div>
-            {/* ★★★ 修正ここまで ★★★ */}
+            {/* */}
 
             <div className="flex flex-col gap-2 shrink-0 self-center">
                 <div className="relative" ref={colorPickerRef}>
@@ -216,274 +209,142 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
     const [editingDjIndex, setEditingDjIndex] = useState(null);
     const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
     const [now, setNow] = useState(new Date(new Date().getTime() + timeOffset));
-    const [isDropping, setIsDropping] = useState(false);
-
-    const [draggedIndex, setDraggedIndex] = useState(null);
-    const [overIndex, _setOverIndex] = useState(null);
-    const [currentY, setCurrentY] = useState(0);
-
-    const listContainerRef = useRef(null);
-    const itemHeightRef = useRef(0);
-    const dragStartInfoRef = useRef(null);
-    const overIndexRef = useRef(null);
-
-    const isDragging = draggedIndex !== null;
-
-    const setOverIndex = (index) => {
-        _setOverIndex(index);
-        overIndexRef.current = index;
-    };
-
-    useEffect(() => {
-        if (isDropping) {
-            const timer = setTimeout(() => setIsDropping(false), 0);
-            return () => clearTimeout(timer);
-        }
-    }, [isDropping]);
 
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date(new Date().getTime() + timeOffset)), 1000);
         return () => clearInterval(timer);
     }, [timeOffset]);
 
-    const { schedule, eventEndTime, currentlyPlayingIndex, recalculateTimes, handleEventConfigChange, handleUpdate, addNewDj, executeReset, handleRemoveDj, handleCopyDj } = useMemo(() => {
+    // ★★★ 
+    const {
+        schedule,
+        eventEndTime,
+        currentlyPlayingIndex,
+        totalEventDuration,
+        recalculateTimes,
+        handleEventConfigChange,
+        handleUpdate,
+        addNewDj,
+        executeReset,
+        handleRemoveDj,
+        handleCopyDj
+    } = useTimetable(timetable, eventConfig, setTimetable, setEventConfig, now, setIsResetConfirmOpen);
+    // ★★★ 
 
-        const recalculateTimes = (timetableData, eventStartTime) => {
-            if (!timetableData || timetableData.length === 0) return [];
-            const recalculated = [];
-            let lastEndTime = parseTime(eventStartTime);
-            for (let i = 0; i < timetableData.length; i++) {
-                const currentDjData = { ...timetableData[i] };
-                const currentStartTime = new Date(lastEndTime);
-                const durationMinutes = parseFloat(currentDjData.duration) || 0;
-                const currentEndTime = new Date(currentStartTime.getTime() + durationMinutes * 60 * 1000);
-                recalculated.push({
-                    ...currentDjData,
-                    startTime: currentStartTime.toTimeString().slice(0, 5),
-                    endTime: currentEndTime.toTimeString().slice(0, 5),
-                });
-                lastEndTime = currentEndTime;
-            }
-            return recalculated;
-        };
+    // ★★★ 
+    // const { schedule, eventEndTime, currentlyPlayingIndex, recalculateTimes, handleEventConfigChange, handleUpdate, addNewDj, executeReset, handleRemoveDj, handleCopyDj } = useMemo(() => {
+    // 
+    //     const recalculateTimes = (timetableData, eventStartTime) => {
+    //         if (!timetableData || timetableData.length === 0) return [];
+    //         const recalculated = [];
+    //         let lastEndTime = parseTime(eventStartTime);
+    //         for (let i = 0; i < timetableData.length; i++) {
+    //             const currentDjData = { ...timetableData[i] };
+    //             const currentStartTime = new Date(lastEndTime);
+    //             const durationMinutes = parseFloat(currentDjData.duration) || 0;
+    //             const currentEndTime = new Date(currentStartTime.getTime() + durationMinutes * 60 * 1000);
+    //             recalculated.push({
+    //                 ...currentDjData,
+    //                 startTime: currentStartTime.toTimeString().slice(0, 5),
+    //                 endTime: currentEndTime.toTimeString().slice(0, 5),
+    //             });
+    //             lastEndTime = currentEndTime;
+    //         }
+    //         return recalculated;
+    //     };
+    // 
+    //     const schedule = recalculateTimes(timetable, eventConfig.startTime);
+    //     const eventEndTime = schedule.length > 0 ? schedule[schedule.length - 1].endTime : null;
+    // 
+    //     const nowTime = new Date(now);
+    //     const currentlyPlayingIndex = schedule.findIndex(dj => {
+    //         const startTime = parseTime(dj.startTime);
+    //         const endTime = parseTime(dj.endTime);
+    //         if (endTime < startTime) {
+    //             return (nowTime >= startTime) || (nowTime < endTime);
+    //         }
+    //         return nowTime >= startTime && nowTime < endTime;
+    //     });
+    // 
+    //     const handleEventConfigChange = (field, value) => {
+    //         setEventConfig(prevConfig => {
+    //             const newConfig = { ...prevConfig, [field]: value };
+    //             if (field === 'startTime') {
+    //                 setTimetable(prevTimetable => recalculateTimes(prevTimetable, value));
+    //             }
+    //             return newConfig;
+    //         });
+    //     };
+    // 
+    //     const handleUpdate = (index, field, value) => {
+    //         setTimetable(prevTimetable => {
+    //             const newTimetable = [...prevTimetable];
+    //             newTimetable[index] = { ...newTimetable[index], [field]: value };
+    //             if (field === 'duration') {
+    //                 return recalculateTimes(newTimetable, eventConfig.startTime);
+    //             }
+    //             return newTimetable;
+    //         });
+    //     };
+    // 
+    //     const addNewDj = (isBuffer = false) => {
+    //         setTimetable(prevTimetable => {
+    //             const lastDj = prevTimetable[prevTimetable.length - 1];
+    //             const duration = isBuffer ? 5 : (lastDj ? lastDj.duration : 60);
+    //             const newDjData = { id: Date.now(), name: isBuffer ? 'バッファー' : `DJ ${prevTimetable.filter(d => !d.isBuffer).length + 1}`, duration: duration, imageUrl: '', color: VIVID_COLORS[Math.floor(Math.random() * VIVID_COLORS.length)], isBuffer, };
+    //             return recalculateTimes([...prevTimetable, newDjData], eventConfig.startTime);
+    //         });
+    //     };
+    // 
+    //     const executeReset = () => {
+    //         setTimetable([]);
+    //         setEventConfig({ title: 'My Awesome Event', startTime: '22:00' });
+    //         setIsResetConfirmOpen(false);
+    //     };
+    // 
+    //     const handleRemoveDj = (index) => setTimetable(prevTimetable => recalculateTimes(prevTimetable.filter((_, i) => i !== index), eventConfig.startTime));
+    // 
+    //     const handleCopyDj = (index) => {
+    //         setTimetable(prevTimetable => {
+    //             const djToCopy = { ...prevTimetable[index], id: Date.now() };
+    //             const newTimetable = [...prevTimetable.slice(0, index + 1), djToCopy, ...prevTimetable.slice(index + 1)];
+    //             return recalculateTimes(newTimetable, eventConfig.startTime);
+    //         });
+    //     };
+    // 
+    //     return { schedule, eventEndTime, currentlyPlayingIndex, recalculateTimes, handleEventConfigChange, handleUpdate, addNewDj, executeReset, handleRemoveDj, handleCopyDj };
+    // 
+    // }, [timetable, eventConfig.startTime, now, setEventConfig, setTimetable, setIsResetConfirmOpen]);
+    // ★★★ 
 
-        const schedule = recalculateTimes(timetable, eventConfig.startTime);
-        const eventEndTime = schedule.length > 0 ? schedule[schedule.length - 1].endTime : null;
-
-        const nowTime = new Date(now);
-        const currentlyPlayingIndex = schedule.findIndex(dj => {
-            const startTime = parseTime(dj.startTime);
-            const endTime = parseTime(dj.endTime);
-            if (endTime < startTime) {
-                return (nowTime >= startTime) || (nowTime < endTime);
-            }
-            return nowTime >= startTime && nowTime < endTime;
-        });
-
-        const handleEventConfigChange = (field, value) => {
-            setEventConfig(prevConfig => {
-                const newConfig = { ...prevConfig, [field]: value };
-                if (field === 'startTime') {
-                    setTimetable(prevTimetable => recalculateTimes(prevTimetable, value));
-                }
-                return newConfig;
-            });
-        };
-
-        const handleUpdate = (index, field, value) => {
-            setTimetable(prevTimetable => {
-                const newTimetable = [...prevTimetable];
-                newTimetable[index] = { ...newTimetable[index], [field]: value };
-                if (field === 'duration') {
-                    return recalculateTimes(newTimetable, eventConfig.startTime);
-                }
-                return newTimetable;
-            });
-        };
-
-        const addNewDj = (isBuffer = false) => {
-            setTimetable(prevTimetable => {
-                const lastDj = prevTimetable[prevTimetable.length - 1];
-                const duration = isBuffer ? 5 : (lastDj ? lastDj.duration : 60);
-                const newDjData = { id: Date.now(), name: isBuffer ? 'バッファー' : `DJ ${prevTimetable.filter(d => !d.isBuffer).length + 1}`, duration: duration, imageUrl: '', color: VIVID_COLORS[Math.floor(Math.random() * VIVID_COLORS.length)], isBuffer, };
-                return recalculateTimes([...prevTimetable, newDjData], eventConfig.startTime);
-            });
-        };
-
-        const executeReset = () => {
-            setTimetable([]);
-            setEventConfig({ title: 'My Awesome Event', startTime: '22:00' });
-            setIsResetConfirmOpen(false);
-        };
-
-        const handleRemoveDj = (index) => setTimetable(prevTimetable => recalculateTimes(prevTimetable.filter((_, i) => i !== index), eventConfig.startTime));
-
-        const handleCopyDj = (index) => {
-            setTimetable(prevTimetable => {
-                const djToCopy = { ...prevTimetable[index], id: Date.now() };
-                const newTimetable = [...prevTimetable.slice(0, index + 1), djToCopy, ...prevTimetable.slice(index + 1)];
-                return recalculateTimes(newTimetable, eventConfig.startTime);
-            });
-        };
-
-        return { schedule, eventEndTime, currentlyPlayingIndex, recalculateTimes, handleEventConfigChange, handleUpdate, addNewDj, executeReset, handleRemoveDj, handleCopyDj };
-
-    }, [timetable, eventConfig.startTime, now, setEventConfig, setTimetable, setIsResetConfirmOpen]);
+    // ★★★ 
+    // const totalEventDuration = useMemo(() => {
+    //     const totalMinutes = timetable.reduce((sum, dj) => {
+    //         return sum + (parseFloat(dj.duration) || 0);
+    //     }, 0);
+    // 
+    //     if (totalMinutes === 0) return null;
+    // 
+    //     const hours = Math.floor(totalMinutes / 60);
+    //     const minutes = Math.round(totalMinutes % 60);
+    // 
+    //     if (hours > 0) {
+    //         return `${hours}時間 ${minutes}分`;
+    //     } else {
+    //         return `${minutes}分`;
+    //     }
+    // }, [timetable]);
+    // ★★★ 
 
     // 
-    const totalEventDuration = useMemo(() => {
-        const totalMinutes = timetable.reduce((sum, dj) => {
-            return sum + (parseFloat(dj.duration) || 0);
-        }, 0);
-
-        if (totalMinutes === 0) return null;
-
-        const hours = Math.floor(totalMinutes / 60);
-        const minutes = Math.round(totalMinutes % 60);
-
-        if (hours > 0) {
-            return `${hours}時間 ${minutes}分`;
-        } else {
-            return `${minutes}分`;
-        }
-    }, [timetable]);
-
-
-    const handlePointerDown = useCallback((e, index) => {
-        if (!e.target.closest('.cursor-grab')) {
-            return;
-        }
-        e.preventDefault();
-        document.body.classList.add('dragging-no-select');
-
-        const itemElement = e.target.closest('.dj-list-item');
-        if (!itemElement || !listContainerRef.current) return;
-
-        const itemRect = itemElement.getBoundingClientRect();
-        itemHeightRef.current = itemRect.height + 16; // 
-
-        const listRect = listContainerRef.current.getBoundingClientRect();
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-        dragStartInfoRef.current = {
-            initialY: clientY,
-            itemTop: itemRect.top,
-            listTop: listRect.top,
-        };
-
-        setDraggedIndex(index);
-        setOverIndex(index);
-        setCurrentY(clientY);
-
-    }, []);
-
-
-    useEffect(() => {
-        const handlePointerMove = (e) => {
-            if (!dragStartInfoRef.current) return;
-
-            e.preventDefault();
-
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            setCurrentY(clientY);
-
-            const { listTop } = dragStartInfoRef.current;
-            const itemHeight = itemHeightRef.current;
-            if (itemHeight === 0) return;
-
-            const relativeY = clientY - listTop;
-            let newOverIndex = Math.floor((relativeY + (itemHeight / 2)) / itemHeight);
-
-            newOverIndex = Math.max(0, Math.min(timetable.length, newOverIndex));
-
-            if (newOverIndex !== overIndexRef.current) {
-                setOverIndex(newOverIndex);
-            }
-        };
-
-        const handlePointerUp = () => {
-            if (!dragStartInfoRef.current) return;
-
-            setIsDropping(true);
-            document.body.classList.remove('dragging-no-select');
-
-            const finalOverIndex = overIndexRef.current;
-
-            if (draggedIndex !== null && finalOverIndex !== null && (draggedIndex !== finalOverIndex && draggedIndex !== finalOverIndex - 1)) {
-                setTimetable(prevTimetable => {
-                    const newTimetable = [...prevTimetable];
-                    const [movedItem] = newTimetable.splice(draggedIndex, 1);
-
-                    const targetIndex = finalOverIndex > draggedIndex ? finalOverIndex - 1 : finalOverIndex;
-
-                    newTimetable.splice(targetIndex, 0, movedItem);
-                    return recalculateTimes(newTimetable, eventConfig.startTime);
-                });
-            }
-
-            setDraggedIndex(null);
-            setOverIndex(null);
-            setCurrentY(0);
-            dragStartInfoRef.current = null;
-            itemHeightRef.current = 0;
-        };
-
-        if (isDragging) {
-            window.addEventListener('pointermove', handlePointerMove, { passive: false });
-            window.addEventListener('touchmove', handlePointerMove, { passive: false });
-            window.addEventListener('pointerup', handlePointerUp);
-            window.addEventListener('touchend', handlePointerUp);
-
-            return () => {
-                window.removeEventListener('pointermove', handlePointerMove, { passive: false });
-                window.removeEventListener('touchmove', handlePointerMove, { passive: false });
-                window.removeEventListener('pointerup', handlePointerUp);
-                window.removeEventListener('touchend', handlePointerUp);
-            };
-        }
-    }, [isDragging, timetable.length, setOverIndex, setIsDropping, setTimetable, recalculateTimes, eventConfig.startTime, draggedIndex]);
-
-
-    const getDragStyles = (index) => {
-        if (isDropping) {
-            return { transform: 'translateY(0px)', transition: 'none' };
-        }
-        if (!isDragging || !dragStartInfoRef.current) {
-            return { transform: 'translateY(0px)' };
-        }
-
-        const itemHeight = itemHeightRef.current;
-        if (itemHeight === 0) return { transform: 'translateY(0px)' };
-
-        const { initialY, itemTop, listTop } = dragStartInfoRef.current;
-
-        if (index === draggedIndex) {
-            const deltaY = currentY - initialY;
-            const initialTranslateY = itemTop - (listTop + (index * itemHeight));
-
-            return {
-                transform: `translateY(${initialTranslateY + deltaY}px)`,
-                transition: 'none',
-                zIndex: 20,
-            };
-        }
-
-        let translateY = 0;
-
-        if (draggedIndex < overIndex) {
-            if (index > draggedIndex && index < overIndex) {
-                translateY = -itemHeight;
-            }
-        } else if (draggedIndex > overIndex) {
-            if (index >= overIndex && index < draggedIndex) {
-                translateY = itemHeight;
-            }
-        }
-
-        return {
-            transform: `translateY(${translateY}px)`,
-        };
-    };
+    const {
+        draggedIndex,
+        overIndex,
+        isDragging,
+        listContainerRef,
+        handlePointerDown,
+        getDragStyles,
+    } = useDragAndDrop(timetable, setTimetable, recalculateTimes, eventConfig.startTime);
 
     const handleShare = () => {
         const baseUrl = window.location.href.replace(/#.*$/, '');
