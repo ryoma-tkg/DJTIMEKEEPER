@@ -76,8 +76,9 @@ const LiveSettingsModal = ({
     );
 };
 
-// ★★★ VJバーのレイアウトをPC/SP共に修正っす！ ★★★
-const VjBar = ({ vjTimetable, now }) => {
+// ★★★ VJバー (ロジックを `Date.getTime()` 比較に修正) ★★★
+const VjBar = ({ vjTimetable, now, djEventStartTime, djEventStatus }) => {
+
     // 
     const formatVjTime = (seconds) => {
         if (seconds < 0) seconds = 0;
@@ -88,71 +89,105 @@ const VjBar = ({ vjTimetable, now }) => {
         return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     };
 
-    // 
-    const { currentVj, nextVj } = useMemo(() => {
-        let currentVj = null;
-        let nextVj = null;
+    // VJ用のスケジュールを計算 (LiveView本体の schedule 計算ロジックと全く同じ)
+    // ★ VJもDJと同時刻 (djEventStartTime) にスタートする前提
+    const vjSchedule = useMemo(() => {
+        if (vjTimetable.length === 0) return [];
+        const scheduleData = [];
+        let lastEndTime = parseTime(djEventStartTime);
 
-        const sortedVjs = [...vjTimetable].sort((a, b) => {
-            return parseTime(a.startTime) - parseTime(b.startTime);
+        for (const vj of vjTimetable) {
+            const startTime = new Date(lastEndTime);
+            const durationMinutes = parseFloat(vj.duration) || 0;
+            const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
+
+            scheduleData.push({
+                ...vj,
+                startTime: startTime.toTimeString().slice(0, 5),
+                endTime: endTime.toTimeString().slice(0, 5),
+                startTimeDate: startTime,
+                endTimeDate: endTime,
+            });
+
+            lastEndTime = endTime;
+        }
+        return scheduleData;
+    }, [vjTimetable, djEventStartTime]); // ★ djEventStartTime に依存
+
+    // VJの再生中インデックスを計算 (LiveView本体の currentlyPlayingIndex ロジックと全く同じ)
+    const currentlyPlayingVjIndex = useMemo(() => {
+        // ★ djEventStatus が 'ON_AIR_BLOCK' の時だけ判定する
+        if (djEventStatus !== 'ON_AIR_BLOCK') return -1;
+
+        const nowTime = new Date(now).getTime(); // Get time as number
+
+        // ★★★ VJ側も `Date` オブジェクトで比較するっす！ (バグ修正) ★★★
+        return vjSchedule.findIndex(vj => {
+            const startTime = vj.startTimeDate.getTime();
+            const endTime = vj.endTimeDate.getTime();
+            return nowTime >= startTime && nowTime < endTime;
         });
+        // ★★★ 修正ここまで ★★★
+    }, [now, vjSchedule, djEventStatus]); // ★ djEventStatus に依存
 
-        for (const vj of sortedVjs) {
-            const startTime = parseTime(vj.startTime);
-            const endTime = parseTime(vj.endTime);
+    // VJの残り時間を計算 (LiveView本体の ON AIR ロジックと全く同じ)
+    const { currentVj, nextVj, remainingSeconds } = useMemo(() => {
+        const nowTime = new Date(now).getTime(); // ★ now を数値で
 
-            // 
-            const isPlaying = (endTime < startTime)
-                ? (now >= startTime) || (now < endTime) // 
-                : (now >= startTime && now < endTime);  // 
+        if (currentlyPlayingVjIndex === -1) {
 
-            if (isPlaying) {
-                currentVj = vj;
-            } else if (now < startTime && !nextVj) {
-                nextVj = vj; // 
+            // ★ UPCOMING の場合の「次のVJ」を探す
+            if (djEventStatus === 'UPCOMING' && vjSchedule.length > 0) {
+                return { currentVj: null, nextVj: vjSchedule[0], remainingSeconds: 0 };
             }
+            // ★ DJの合間 の場合の「次のVJ」を探す
+            if (djEventStatus === 'ON_AIR_BLOCK' && vjSchedule.length > 0) {
+                const upcomingVj = vjSchedule.find(vj => nowTime < vj.startTimeDate.getTime());
+                return { currentVj: null, nextVj: upcomingVj || null, remainingSeconds: 0 };
+            }
+
+            return { currentVj: null, nextVj: null, remainingSeconds: 0 };
         }
 
-        // 
-        if (!currentVj && !nextVj && sortedVjs.length > 0 && now < sortedVjs[0].startTime) {
-            nextVj = sortedVjs[0];
-        }
+        // --- ON AIR ---
+        const dj = vjSchedule[currentlyPlayingVjIndex];
+        const nextDj = (currentlyPlayingVjIndex < vjSchedule.length - 1) ? vjSchedule[currentlyPlayingVjIndex + 1] : null;
 
-        return { currentVj, nextVj };
-    }, [vjTimetable, now]);
+        // ★★★ VJの残り時間も `Date` オブジェクトから直接計算っす！ (バグ修正) ★★★
+        const remainingMs = (dj.endTimeDate.getTime() - nowTime);
+        // ★★★ 修正ここまで ★★★
+        const remainingSec = Math.floor(remainingMs / 1000);
 
-    // VJ
-    const remainingSeconds = useMemo(() => {
-        if (!currentVj) return 0;
-        const endTime = parseTime(currentVj.endTime);
-        let remainingMs = endTime.getTime() - now.getTime();
+        return { currentVj: dj, nextVj: nextDj, remainingSeconds: remainingSec };
 
-        // 
-        if (endTime < parseTime(currentVj.startTime) && endTime < now) {
-            remainingMs += 24 * 60 * 60 * 1000; // 
-        }
+    }, [currentlyPlayingVjIndex, vjSchedule, now, djEventStatus]); // ★ now に依存
 
-        return Math.max(0, remainingMs / 1000);
-    }, [currentVj, now]);
 
+    // ★ DJイベントが 'STANDBY' か 'FINISHED' の時は VJ バー自体を表示しない
+    if (djEventStatus === 'STANDBY' || djEventStatus === 'FINISHED') {
+        return null;
+    }
 
     return (
         <div className="absolute bottom-32 left-0 right-0 w-full h-auto min-h-[6rem] z-10 flex flex-col items-center justify-center px-4 md:px-8 py-4">
 
             {/* --- 区切り線（上） --- */}
-            <div className="w-full max-w-3xl border-t border-on-surface/10 mb-4" /> {/* ★ max-w-3xl に変更 */}
+            <div className="w-full max-w-3xl border-t border-on-surface/10 mb-4" />
 
             {/* --- VJ情報 (1ライン表示) --- */}
-            <div className="flex items-baseline justify-center gap-2 sm:gap-4 flex-nowrap w-full max-w-3xl"> {/* ★ max-w-3xl に変更 */}
+            <div className="flex items-baseline justify-center gap-2 sm:gap-4 flex-nowrap w-full max-w-3xl">
 
                 {/* --- 1. 現在のVJ --- */}
                 {currentVj ? (
-                    <div className="flex items-baseline gap-2 min-w-0"> {/* ★ min-w-0 追加 */}
+                    <div className="flex items-baseline gap-2 min-w-0">
                         <span className="text-lg sm:text-2xl font-bold truncate max-w-[100px] sm:max-w-xs">{currentVj.name}</span>
                         <span className="text-xl sm:text-3xl font-mono font-bold text-on-surface-variant tabular-nums">{formatVjTime(remainingSeconds)}</span>
                     </div>
                 ) : (
-                    <span className="text-lg sm:text-2xl font-bold text-on-surface-variant/50">VJ STANDBY</span>
+                    // ★ currentVj がいなくても、nextVj がいる（＝UPCOMINGか合間）なら STANDBY を表示
+                    nextVj ?
+                        <span className="text-lg sm:text-2xl font-bold text-on-surface-variant/50">VJ STANDBY</span>
+                        : null // VJが誰もいない場合は何も表示しない
                 )}
 
                 {/* --- 2. 区切り --- */}
@@ -162,9 +197,10 @@ const VjBar = ({ vjTimetable, now }) => {
 
                 {/* --- 3. 次のVJ --- */}
                 {nextVj ? (
-                    <div className="flex items-baseline gap-2 text-left min-w-0"> {/* ★ hidden 削除, min-w-0 追加 */}
+                    <div className="flex items-baseline gap-2 text-left min-w-0">
                         <span className="text-xs sm:text-sm text-on-surface-variant uppercase font-bold self-center">NEXT VJ</span>
                         <span className="text-sm sm:text-lg font-semibold truncate max-w-[100px] sm:max-w-xs">{nextVj.name}</span>
+                        {/* ★ HH:MM 文字列を使う */}
                         <span className="text-sm sm:text-lg font-mono text-on-surface-variant/70 whitespace-nowrap">{nextVj.startTime}~</span>
                     </div>
                 ) : null}
@@ -172,6 +208,7 @@ const VjBar = ({ vjTimetable, now }) => {
         </div>
     );
 };
+// ★★★ VJバー ここまで ★★★
 
 
 // 
@@ -206,46 +243,130 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
     );
     const wakeLockRef = useRef(null); // 
 
+    // (前回修正した eventStartTime, eventEndTime, eventStatus の useMemo - 変更なし)
+    const { eventStartTime, eventEndTime, eventStatus } = useMemo(() => {
+        if (timetable.length === 0) {
+            const startTime = parseTime(eventConfig.startTime);
+            return {
+                eventStartTime: startTime,
+                eventEndTime: startTime,
+                eventStatus: 'UPCOMING',
+            };
+        }
+
+        const nowTime = new Date(now).getTime();
+
+        const totalDurationMs = timetable.reduce((sum, dj) => {
+            return sum + (parseFloat(dj.duration) || 0) * 60 * 1000;
+        }, 0);
+
+        const startTimeToday = parseTime(eventConfig.startTime);
+        const endTimeToday = new Date(startTimeToday.getTime() + totalDurationMs);
+
+        const startTimeYesterday = new Date(startTimeToday.getTime() - 24 * 60 * 60 * 1000);
+        const endTimeYesterday = new Date(endTimeToday.getTime() - 24 * 60 * 60 * 1000);
+
+        const bufferMs = 3 * 60 * 60 * 1000;
+
+        let activeStartTime = startTimeToday;
+        let status = 'STANDBY';
+
+        if (nowTime >= startTimeYesterday.getTime() && nowTime < endTimeYesterday.getTime()) {
+            activeStartTime = startTimeYesterday;
+            status = 'ON_AIR_BLOCK';
+        } else if (nowTime >= endTimeYesterday.getTime() && nowTime < (endTimeYesterday.getTime() + bufferMs)) {
+            activeStartTime = startTimeYesterday;
+            status = 'FINISHED';
+        } else if (nowTime >= (startTimeToday.getTime() - bufferMs) && nowTime < startTimeToday.getTime()) {
+            activeStartTime = startTimeToday;
+            status = 'UPCOMING';
+        } else if (nowTime >= startTimeToday.getTime() && nowTime < endTimeToday.getTime()) {
+            activeStartTime = startTimeToday;
+            status = 'ON_AIR_BLOCK';
+        } else if (nowTime < startTimeYesterday.getTime() - bufferMs) {
+            activeStartTime = startTimeYesterday;
+            status = 'STANDBY'; // 
+        } else if (nowTime > endTimeToday.getTime()) {
+            activeStartTime = startTimeToday;
+            status = 'FINISHED';
+        } else {
+            activeStartTime = startTimeToday;
+            status = 'STANDBY';
+        }
+
+        return {
+            eventStartTime: activeStartTime,
+            eventEndTime: new Date(activeStartTime.getTime() + totalDurationMs),
+            eventStatus: status, // 'UPCOMING', 'ON_AIR_BLOCK', 'FINISHED', 'STANDBY'
+        };
+
+    }, [timetable, eventConfig.startTime, now]);
+
+
+    // (前回修正した schedule の useMemo - 変更なし)
     const schedule = useMemo(() => {
         if (timetable.length === 0) return [];
         const scheduleData = [];
-        let lastEndTime = parseTime(eventConfig.startTime);
+
+        let lastEndTime = eventStartTime;
+
         for (const dj of timetable) {
             const startTime = new Date(lastEndTime);
             const durationMinutes = parseFloat(dj.duration) || 0;
             const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
-            scheduleData.push({ ...dj, startTime, endTime });
+
+            scheduleData.push({
+                ...dj,
+                startTime: startTime.toTimeString().slice(0, 5),
+                endTime: endTime.toTimeString().slice(0, 5),
+                startTimeDate: startTime,
+                endTimeDate: endTime,
+            });
+
             lastEndTime = endTime;
         }
         return scheduleData;
-    }, [timetable, eventConfig.startTime]);
+    }, [timetable, eventStartTime]);
 
+    // ★★★ 修正箇所 1/3 (ロジック修正) ★★★
+    // (前回修正した currentlyPlayingIndex の useMemo)
     const currentlyPlayingIndex = useMemo(() => {
-        return schedule.findIndex(dj => now >= dj.startTime && now < dj.endTime)
-    }, [now, schedule]);
+        // ★ eventStatus が ON_AIR_BLOCK の時だけ判定
+        if (eventStatus !== 'ON_AIR_BLOCK') return -1;
 
-    // 
-    const { eventStartTime, eventEndTime, eventRemainingSeconds, eventElapsedSeconds } = useMemo(() => {
-        if (schedule.length === 0) {
-            return { eventStartTime: null, eventEndTime: null, eventRemainingSeconds: 0, eventElapsedSeconds: 0 };
+        const nowTime = new Date(now).getTime(); // Get time as number
+
+        // ★★★ ロジックを `parseTime` 依存から `Date` オブジェクト依存に修正っす！
+        // これで "昨日" の 22:00 スタートのイベントが正しく判定されるっす
+        return schedule.findIndex(dj => {
+            // schedule 配列の Date オブジェクトをそのまま使う
+            const startTime = dj.startTimeDate.getTime();
+            const endTime = dj.endTimeDate.getTime();
+
+            // `now` が開始と終了の間にあればOK
+            return nowTime >= startTime && nowTime < endTime;
+        });
+        // ★★★ 修正ここまで ★★★
+    }, [now, schedule, eventStatus]); // ★ eventStatus に依存
+    // ★★★ 修正ここまで ★★★
+
+
+    // (前回修正した eventRemainingSeconds などの useMemo - 変更なし)
+    const { eventRemainingSeconds, eventElapsedSeconds } = useMemo(() => {
+        if (timetable.length === 0) {
+            const elapsed = (new Date(now).getTime() - eventStartTime.getTime()) / 1000;
+            return { eventRemainingSeconds: 0, eventElapsedSeconds: elapsed };
         }
-        // 
-        const startTime = schedule[0].startTime;
-        // 
-        const endTime = schedule[schedule.length - 1].endTime;
 
-        // 
-        const remaining = (endTime.getTime() - now.getTime()) / 1000;
-        // 
-        const elapsed = (now.getTime() - startTime.getTime()) / 1000;
+        const remaining = (eventEndTime.getTime() - new Date(now).getTime()) / 1000;
+        const elapsed = (new Date(now).getTime() - eventStartTime.getTime()) / 1000;
 
         return {
-            eventStartTime: startTime,
-            eventEndTime: endTime,
             eventRemainingSeconds: Math.max(0, remaining),
             eventElapsedSeconds: Math.max(0, elapsed),
         };
-    }, [schedule, now]);
+    }, [schedule, now, eventStartTime, eventEndTime, timetable.length]);
+
 
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date(new Date().getTime() + timeOffset)), 1000);
@@ -260,61 +381,114 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         };
     }, [timeOffset]);
 
-    // 
+    // ★★★ 修正箇所 2/3 (ロジック修正) ★★★
+    // (前回修正した useEffect (currentDataの判定))
     useEffect(() => {
         const currentIndex = currentlyPlayingIndex;
-
         let newContentData = null;
+        const nowTime = new Date(now).getTime(); // ★ now を数値で
 
-        if (currentIndex !== -1) {
-            // --- ON AIR ---
-            const dj = schedule[currentIndex];
-            const nextDj = (currentIndex < schedule.length - 1) ? schedule[currentIndex + 1] : null;
-            const total = (dj.endTime - dj.startTime) / 1000;
-            const remainingMs = (dj.endTime - now);
-            const remainingSeconds = Math.floor(remainingMs / 1000);
-            const visualProgress = (remainingSeconds <= 0 && remainingMs > -1000)
-                ? 100
-                : (total > 0 ? ((total - (remainingMs / 1000)) / total) * 100 : 0);
+        switch (eventStatus) {
+            case 'ON_AIR_BLOCK':
+                if (currentIndex !== -1) {
+                    // --- ON AIR ---
+                    const dj = schedule[currentIndex];
+                    const nextDj = (currentIndex < schedule.length - 1) ? schedule[currentIndex + 1] : null;
 
-            newContentData = {
-                ...dj,
-                status: 'ON AIR',
-                timeLeft: remainingSeconds,
-                progress: visualProgress,
-                nextDj: nextDj,
-                animationKey: dj.id
-            };
+                    // ★★★ DJの残り時間も `Date` オブジェクトから直接計算っす！ (バグ修正) ★★★
+                    const total = (dj.endTimeDate.getTime() - dj.startTimeDate.getTime()) / 1000;
+                    const remainingMs = (dj.endTimeDate.getTime() - nowTime);
+                    // ★★★ 修正ここまで ★★★
 
-        } else {
-            const upcomingDj = schedule.find(dj => now < dj.startTime);
-            if (upcomingDj) {
-                // --- UPCOMING ---
-                const remainingMs = (upcomingDj.startTime - now);
-                const remainingSeconds = Math.ceil(remainingMs / 1000);
+                    const remainingSeconds = Math.floor(remainingMs / 1000);
+                    const visualProgress = (remainingSeconds <= 0 && remainingMs > -1000)
+                        ? 100
+                        : (total > 0 ? ((total - (remainingMs / 1000)) / total) * 100 : 0);
 
-                newContentData = {
-                    ...upcomingDj,
-                    status: 'UPCOMING',
-                    timeLeft: remainingSeconds,
-                    progress: 0,
-                    nextDj: schedule[0],
-                    animationKey: `upcoming-${upcomingDj.id}`
-                };
-            } else {
-                // --- FINISHED ---
+                    newContentData = {
+                        ...dj,
+                        status: 'ON AIR',
+                        timeLeft: remainingSeconds,
+                        progress: visualProgress,
+                        nextDj: nextDj,
+                        animationKey: dj.id
+                    };
+                } else {
+                    // ON_AIR_BLOCK なのに再生中のDJがいない (DJの合間)
+                    const upcomingDj = schedule.find(dj => nowTime < dj.startTimeDate.getTime());
+                    if (upcomingDj) {
+                        const remainingMs = (upcomingDj.startTimeDate.getTime() - nowTime);
+                        const remainingSeconds = Math.ceil(remainingMs / 1000);
+                        newContentData = {
+                            ...upcomingDj,
+                            status: 'UPCOMING',
+                            timeLeft: remainingSeconds,
+                            progress: 0,
+                            nextDj: upcomingDj,
+                            animationKey: `upcoming-${upcomingDj.id}`
+                        };
+                    } else {
+                        newContentData = {
+                            id: 'finished',
+                            status: 'FINISHED',
+                            animationKey: 'finished'
+                        };
+                    }
+                }
+                break;
+
+            case 'UPCOMING':
+                {
+                    const upcomingDj = schedule.length > 0 ? schedule[0] : null;
+                    if (upcomingDj) {
+                        const remainingMs = (upcomingDj.startTimeDate.getTime() - nowTime);
+                        const remainingSeconds = Math.ceil(remainingMs / 1000);
+
+                        newContentData = {
+                            ...upcomingDj,
+                            status: 'UPCOMING',
+                            timeLeft: remainingSeconds,
+                            progress: 0,
+                            nextDj: upcomingDj,
+                            animationKey: `upcoming-${upcomingDj.id}`
+                        };
+                    } else {
+                        newContentData = {
+                            id: 'empty',
+                            status: 'UPCOMING',
+                            animationKey: 'empty',
+                            timeLeft: 0,
+                            progress: 0,
+                            nextDj: null
+                        };
+                    }
+                }
+                break;
+
+            case 'FINISHED':
                 newContentData = {
                     id: 'finished',
                     status: 'FINISHED',
                     animationKey: 'finished'
                 };
-            }
+                break;
+
+            case 'STANDBY':
+            default:
+                newContentData = {
+                    id: 'standby',
+                    status: 'STANDBY',
+                    animationKey: 'standby'
+                };
+                break;
         }
+
         setCurrentData(newContentData);
 
-    }, [now, schedule, currentlyPlayingIndex]);
+    }, [now, schedule, currentlyPlayingIndex, eventStatus, eventStartTime]);
+    // ★★★ 修正ここまで ★★★
 
-    // 
+    // (useEffect (visibleContent) - 変更なし)
     useEffect(() => {
         // 
         if (!visibleContent && currentData) {
@@ -343,7 +517,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         }
     }, [currentData, visibleContent]);
 
-    // 
+    // (useEffect (WakeLock) - 変更なし)
     useEffect(() => {
         const requestWakeLock = async () => {
             if ('wakeLock' in navigator && isWakeLockEnabled) {
@@ -388,7 +562,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
     }, [isWakeLockEnabled]); // 
     // 
 
-    // 
+    // (handleWakeLockToggle - 変更なし)
     const handleWakeLockToggle = () => {
         const newValue = !isWakeLockEnabled;
         setIsWakeLockEnabled(newValue);
@@ -400,6 +574,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         }
     };
 
+    // (timelineTransform - 変更なし)
     const timelineTransform = useMemo(() => {
         if (schedule.length === 0 || containerWidth === 0) return 'translateX(0px)';
         const itemWidth = 256, gap = 24, step = itemWidth + gap;
@@ -409,7 +584,9 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         let targetIndex = schedule.findIndex(dj => dj.id === targetId);
 
         if (targetIndex === -1) {
-            if (visibleContent?.status === 'FINISHED') targetIndex = schedule.length - 1;
+            if (visibleContent?.status === 'FINISHED' || visibleContent?.status === 'STANDBY') {
+                targetIndex = schedule.length - 1;
+            }
             else targetIndex = 0;
         }
 
@@ -417,7 +594,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         return `translateX(${finalX}px)`;
     }, [visibleContent, containerWidth, schedule]);
 
-    // 
+    // (formatTime - 変更なし)
     const formatTime = (seconds) => {
         if (seconds < 0) seconds = 0;
         const h = Math.floor(seconds / 3600);
@@ -426,7 +603,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     };
 
-    // 
+    // (formatDurationHHMMSS - 変更なし)
     const formatDurationHHMMSS = (totalSeconds) => {
         if (totalSeconds < 0) totalSeconds = 0;
         const h = Math.floor(totalSeconds / 3600);
@@ -435,38 +612,36 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     };
 
-    // 
+    // (bgColorStyle - 変更なし)
     const bgColorStyle = useMemo(() => {
         if (visibleContent?.status !== 'ON AIR' || isFadingOut) {
             return {};
         }
-        // 
-        const opacity = theme === 'light' ? '66' : '33'; // 
+        const opacity = theme === 'light' ? '66' : '33';
         return {
             background: `radial-gradient(ellipse 80% 60% at 50% 120%, ${visibleContent.color}${opacity}, transparent)`
         };
     }, [visibleContent, isFadingOut, theme]);
 
-    // 
+    // (showToast - 変更なし)
     const showToast = (message) => {
         if (toastTimerRef.current) {
             clearTimeout(toastTimerRef.current);
-            setToast({ message: '', visible: false }); // 
+            setToast({ message: '', visible: false });
         }
 
-        // 
         setTimeout(() => {
             setToast({ message, visible: true });
             toastTimerRef.current = setTimeout(() => {
                 setToast(prev => ({ ...prev, visible: false }));
                 toastTimerRef.current = null;
-            }, 2000); // 2
-        }, 100); // 
+            }, 2000);
+        }, 100);
     };
 
-    // 
+    // (handleTimerClick - 変更なし)
     const handleTimerClick = () => {
-        if (schedule.length === 0) return; // 
+        if (schedule.length === 0) return;
 
         if (timerDisplayMode === 'currentTime') {
             setTimerDisplayMode('eventRemaining');
@@ -481,29 +656,39 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
     };
 
 
+    // (renderContent - 変更なし、STANDBYが追加されただけ)
     const renderContent = (content) => {
         if (!content) return null;
 
         // --- UPCOMING ---
         if (content.status === 'UPCOMING') {
             const dj = content;
-            const eventStartTime = eventConfig.startTime;
-            const eventEndTime = schedule.length > 0
-                ? schedule[schedule.length - 1].endTime.toTimeString().slice(0, 5)
-                : '??:??';
+
+            const eventStartTimeStr = eventConfig.startTime;
+            const eventEndTimeStr = schedule.length > 0 && dj.endTime
+                ? schedule[schedule.length - 1].endTime
+                : eventStartTimeStr;
+
+            const displayColor = schedule.length > 0 && dj.color ? dj.color : '#888888';
+            const eventTitle = eventConfig.title || "イベント待機中";
 
             return (
                 <main className="w-full max-w-6xl mx-auto flex flex-col items-center justify-center text-center">
-                    {/* */}
+
                     <h2 className="text-xl sm:text-2xl md:text-3xl text-on-surface-variant font-bold tracking-widest mb-4">UPCOMING</h2>
-                    <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold break-words leading-tight">{eventConfig.title}</h1>
-                    <p className="text-lg sm:text-2xl md:text-3xl font-semibold tracking-wider font-mono mt-4" style={{ color: dj.color }}>
-                        {eventStartTime} - {eventEndTime}
+
+                    <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold break-words leading-tight">{eventTitle}</h1>
+
+                    <p className="text-lg sm:text-2xl md:text-3xl font-semibold tracking-wider font-mono mt-4" style={{ color: displayColor }}>
+                        {eventStartTimeStr} - {eventEndTimeStr}
                     </p>
-                    <p className="flex flex-col items-center justify-center text-5xl sm:text-6xl md:text-8xl text-on-surface my-12">
-                        <span className="text-xl sm:text-3xl md:text-4xl text-on-surface-variant font-sans font-bold mb-2">開始まで</span>
-                        <span className="font-mono inline-block text-center w-[5ch]">{formatTime(dj.timeLeft)}</span>
-                    </p>
+
+                    {schedule.length > 0 && (
+                        <p className="flex flex-col items-center justify-center text-5xl sm:text-6xl md:text-8xl text-on-surface my-12">
+                            <span className="text-xl sm:text-3xl md:text-4xl text-on-surface-variant font-sans font-bold mb-2">開始まで</span>
+                            <span className="font-mono inline-block text-center w-[5ch]">{formatTime(dj.timeLeft)}</span>
+                        </p>
+                    )}
                 </main>
             );
         }
@@ -513,12 +698,9 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
             const dj = content;
             const isImageReady = !dj.imageUrl || loadedUrls.has(dj.imageUrl);
 
-            // 
-
             return (
                 <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-4 md:space-y-0 md:space-x-8">
 
-                    {/* */}
                     {!dj.isBuffer && (
                         <div className={`
                             w-full max-w-[240px] sm:max-w-xs md:max-w-sm aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0 relative
@@ -547,18 +729,15 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                             )}
                         </div>
                     )}
-                    {/* */}
 
-                    {/* */}
                     <div className={`flex flex-col ${dj.isBuffer ? 'items-center text-center' : 'text-center md:text-left'}`}>
                         <div className="flex flex-col">
-                            {/* */}
+
                             <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold break-words leading-tight mb-2">{dj.name}</h1>
 
-                            {/* */}
 
                             <p className="text-lg sm:text-2xl md:text-3xl font-semibold tracking-wider font-mono mb-2" style={{ color: dj.color }}>
-                                {dj.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {dj.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {dj.startTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {dj.endTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </p>
                             {dj.isBuffer ? (
                                 <p className="flex flex-col items-center justify-center text-5xl sm:text-6xl md:text-8xl text-on-surface my-2">
@@ -572,7 +751,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                                 </p>
                             )}
 
-                            {/* */}
+
                             <div className={`bg-surface-container rounded-full h-3.5 overflow-hidden w-full mt-2`}>
                                 <div className="h-full rounded-full transition-all duration-500 ease-in-out"
                                     style={{ width: `${dj.progress}%`, backgroundColor: dj.color }}></div>
@@ -581,8 +760,12 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                         {dj.nextDj && (
                             <div className="mt-6 pt-4 border-t border-on-surface-variant/20">
                                 <p className="text-sm text-on-surface-variant font-bold tracking-widest mb-1">NEXT UP</p>
-                                {/* */}
-                                <p className="text-xl sm:text-2xl font-semibold">{dj.nextDj.name} <span className="text-base sm:text-lg font-sans text-on-surface-variant ml-2 font-mono">{dj.nextDj.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ~</span></p>
+
+                                <p className="text-xl sm:text-2xl font-semibold">{dj.nextDj.name}
+                                    <span className="text-base sm:text-lg font-sans text-on-surface-variant ml-2 font-mono">
+                                        {dj.nextDj.startTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ~
+                                    </span>
+                                </p>
                             </div>
                         )}
                     </div>
@@ -592,23 +775,35 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
 
         // --- FINISHED ---
         if (content.status === 'FINISHED') {
-            {/* */ }
             return (<div className="text-center"><h1 className="text-4xl sm:text-5xl md:text-7xl font-bold">EVENT FINISHED</h1></div>);
+        }
+
+        // --- STANDBY --- 
+        if (content.status === 'STANDBY') {
+            const eventTitle = eventConfig.title || "DJ Timekeeper Pro";
+            return (
+                <div className="text-center">
+                    <h2 className="text-xl sm:text-2xl md:text-3xl text-on-surface-variant font-bold tracking-widest mb-4">STANDBY</h2>
+                    <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold break-words leading-tight">{eventTitle}</h1>
+                </div>
+            );
         }
 
         return null;
     };
 
 
-    // 
+    // (scheduleForModal - 変更なし)
     const scheduleForModal = useMemo(() => {
+        if (schedule.length === 0) return [];
+
         return schedule.map(dj => ({
             ...dj,
-            startTime: dj.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            endTime: dj.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            // 
-            startTimeDate: dj.startTime.toISOString(),
-            endTimeDate: dj.endTime.toISOString(),
+            startTime: dj.startTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            endTime: dj.endTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+
+            startTimeDate: dj.startTimeDate.toISOString(),
+            endTimeDate: dj.endTimeDate.toISOString(),
         }));
     }, [schedule]);
 
@@ -643,8 +838,11 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                         {timerDisplayMode === 'currentTime' && (
                             now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
                         )}
-                        {timerDisplayMode === 'eventRemaining' && (
+                        {timerDisplayMode === 'eventRemaining' && timetable.length > 0 && (
                             `-${formatDurationHHMMSS(eventRemainingSeconds)}`
+                        )}
+                        {timerDisplayMode === 'eventRemaining' && timetable.length === 0 && (
+                            `-${formatDurationHHMMSS(0)}`
                         )}
                         {timerDisplayMode === 'eventElapsed' && (
                             `+${formatDurationHHMMSS(eventElapsedSeconds)}`
@@ -691,7 +889,8 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                             setIsFullTimelineOpen(true);
                             setIsMenuOpen(false);
                         }}
-                        className="w-full text-left bg-surface-background hover:bg-surface-background/70 text-on-surface font-semibold py-3 px-4 rounded-lg transition-colors duration-200"
+                        className="w-full text-left bg-surface-background hover:bg-surface-background/70 text-on-surface font-semibold py-3 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={schedule.length === 0} // 
                     >
                         全体を見る
                     </button>
@@ -747,13 +946,18 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                 </div>
             </div>
 
-            {/* ★★★ VJバーの表示条件に「!isReadOnly」を追加っす！ ★★★ */}
+            {/* (VJバー - 変更なし) */}
             {eventConfig.vjFeatureEnabled && !isReadOnly && (
-                <VjBar vjTimetable={vjTimetable} now={now} />
+                <VjBar
+                    vjTimetable={vjTimetable}
+                    now={now}
+                    djEventStartTime={eventConfig.startTime} // ★ DJの開始時刻(HH:MM)
+                    djEventStatus={eventStatus} // ★ DJの現在の状態
+                />
             )}
 
             {/* Bottom Timeline */}
-            {currentData?.status !== 'FINISHED' && (
+            {schedule.length > 0 && (
                 <div ref={timelineContainerRef} className="absolute bottom-0 left-0 right-0 w-full shrink-0 overflow-hidden mask-gradient z-10 pb-4 h-32">
                     <div
                         className="flex h-full items-center space-x-6 px-4 py-2 will-change-transform"
@@ -776,7 +980,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                                             ${borderClass} 
                                             ${dj.isBuffer ? 'justify-center' : 'space-x-6'} 
                                         
-                                            ${isPlaying ? 'opacity-100 scale-100' : 'opacity-60 scale-90'}
+                                            ${(isPlaying || (eventStatus === 'UPCOMING' || (eventStatus === 'ON_AIR_BLOCK' && currentlyPlayingIndex === -1)) && index === 0) ? 'opacity-100 scale-100' : 'opacity-60 scale-90'}
                                             transition-all duration-1000 ease-in-out 
                                             will-change-[opacity,transform,border] 
                                           `}
@@ -796,7 +1000,9 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
 
                                     <div className="overflow-hidden flex flex-col justify-center">
                                         <p className={`text-lg font-bold truncate w-full ${dj.isBuffer ? 'text-center' : 'text-left'}`}>{dj.name}</p>
-                                        <p className={`text-sm font-mono text-on-surface-variant ${dj.isBuffer ? 'text-center' : 'text-left'}`}>{dj.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                        <p className={`text-sm font-mono text-on-surface-variant ${dj.isBuffer ? 'text-center' : 'text-left'}`}>
+                                            {dj.startTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
                                     </div>
                                 </div>
                             );

@@ -58,17 +58,18 @@ export const DjItem = memo(({ dj, isPlaying, onPointerDown, onEditClick, onUpdat
                     <input type="text" value={dj.name} onChange={(e) => onUpdate('name', e.target.value)} className="bg-surface-background text-on-surface p-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary" />
                 </div>
 
-                {/* */}
+                {/* ★★★ ここを元のシンプルな表示に戻したっす！ ★★★ */}
                 <div className="flex flex-col">
                     <label className="text-xs text-on-surface-variant mb-1">Time Slot</label>
                     <div className="bg-surface-background/50 p-2 rounded-lg w-full text-center font-semibold text-on-surface-variant font-mono">
+                        {/* dj.startTime と dj.endTime (HH:MM) を使う */}
                         <span>{dj.startTime}</span>
                         <span className="mx-2">-</span>
                         <span>{dj.endTime}</span>
                     </div>
                 </div>
+                {/* ★★★ 修正ここまで ★★★ */}
 
-                {/* */}
 
                 {/* */}
                 <div className="flex flex-col md:col-span-2">
