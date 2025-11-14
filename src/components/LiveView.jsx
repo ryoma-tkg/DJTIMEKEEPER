@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
-// ★★★ SettingsIcon, MoonIcon, SunIcon をインポートっす！
+// 
 import { SimpleImage, UserIcon, parseTime, GodModeIcon, MenuIcon, XIcon, InfoIcon, ToastNotification, SettingsIcon, MoonIcon, SunIcon } from './common';
 import { FullTimelineView } from './FullTimelineView';
 
@@ -8,7 +8,7 @@ const BackgroundImage = memo(() => {
     return null;
 });
 
-// ★★★ 閲覧者向けの設定モーダルを新しく作るっす！ ★★★
+// 
 const LiveSettingsModal = ({
     isOpen,
     onClose,
@@ -19,7 +19,7 @@ const LiveSettingsModal = ({
 }) => {
     if (!isOpen) return null;
 
-    // テーマ切り替えUI
+    // 
     const ThemeToggle = () => (
         <div className="flex items-center justify-between">
             <label className="text-base text-on-surface">テーマ</label>
@@ -40,11 +40,10 @@ const LiveSettingsModal = ({
         </div>
     );
 
-    // スリープ防止トグルUI
+    // 
     const WakeLockToggle = () => (
         <div className="flex items-center justify-between">
             <label className="text-base text-on-surface">画面のスリープ防止</label>
-            {/* ★★★ 元の「justify」で切り替えるロジックに戻すっす！ ★★★ */}
             <button
                 onClick={onWakeLockToggle}
                 className={`w-14 h-8 rounded-full flex items-center p-1 transition-colors ${isWakeLockEnabled ? 'bg-brand-primary justify-end' : 'bg-surface-background justify-start'
@@ -77,16 +76,111 @@ const LiveSettingsModal = ({
     );
 };
 
+// ★★★ VJバーのレイアウトを大幅修正っす！ ★★★
+const VjBar = ({ vjTimetable, now }) => {
+    // 
+    const formatVjTime = (seconds) => {
+        if (seconds < 0) seconds = 0;
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        // 
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    };
+
+    // 
+    const { currentVj, nextVj } = useMemo(() => {
+        let currentVj = null;
+        let nextVj = null;
+
+        const sortedVjs = [...vjTimetable].sort((a, b) => {
+            return parseTime(a.startTime) - parseTime(b.startTime);
+        });
+
+        for (const vj of sortedVjs) {
+            const startTime = parseTime(vj.startTime);
+            const endTime = parseTime(vj.endTime);
+
+            // 
+            const isPlaying = (endTime < startTime)
+                ? (now >= startTime) || (now < endTime) // 
+                : (now >= startTime && now < endTime);  // 
+
+            if (isPlaying) {
+                currentVj = vj;
+            } else if (now < startTime && !nextVj) {
+                nextVj = vj; // 
+            }
+        }
+
+        // 
+        if (!currentVj && !nextVj && sortedVjs.length > 0 && now < sortedVjs[0].startTime) {
+            nextVj = sortedVjs[0];
+        }
+
+        return { currentVj, nextVj };
+    }, [vjTimetable, now]);
+
+    // VJ
+    const remainingSeconds = useMemo(() => {
+        if (!currentVj) return 0;
+        const endTime = parseTime(currentVj.endTime);
+        let remainingMs = endTime.getTime() - now.getTime();
+
+        // 
+        if (endTime < parseTime(currentVj.startTime) && endTime < now) {
+            remainingMs += 24 * 60 * 60 * 1000; // 
+        }
+
+        return Math.max(0, remainingMs / 1000);
+    }, [currentVj, now]);
+
+
+    return (
+        <div className="absolute bottom-32 left-0 right-0 w-full h-auto min-h-[6rem] z-10 flex flex-col items-center justify-center px-4 md:px-8 py-4">
+
+            {/* --- 区切り線（上） --- */}
+            <div className="w-full max-w-2xl border-t border-on-surface/10 mb-4" />
+
+            {/* --- VJ情報 (1ライン表示) --- */}
+            <div className="flex items-center justify-center gap-4 sm:gap-6 flex-wrap">
+                {/* --- 現在のVJ --- */}
+                {currentVj ? (
+                    <div className="flex items-baseline gap-2">
+                        <span className="text-lg sm:text-2xl font-bold truncate max-w-[150px] sm:max-w-xs">{currentVj.name}</span>
+                        <span className="text-xl sm:text-3xl font-mono font-bold text-on-surface-variant">{formatVjTime(remainingSeconds)}</span>
+                    </div>
+                ) : (
+                    <span className="text-lg sm:text-2xl font-bold text-on-surface-variant/50">VJ STANDBY</span>
+                )}
+
+                {/* --- 区切り（現在と次がいる場合） --- */}
+                {currentVj && nextVj && (
+                    <span className="text-2xl text-on-surface-variant/30 hidden sm:block">|</span>
+                )}
+
+                {/* --- 次のVJ --- */}
+                {nextVj ? (
+                    <div className="flex items-baseline gap-2 text-left">
+                        <span className="text-xs sm:text-sm text-on-surface-variant uppercase font-bold">NEXT VJ</span>
+                        <span className="text-sm sm:text-lg font-semibold truncate max-w-[150px] sm:max-w-xs">{nextVj.name} <span className="font-mono text-on-surface-variant/70 ml-1">{nextVj.startTime}~</span></span>
+                    </div>
+                ) : null}
+            </div>
+        </div>
+    );
+};
+
 
 // 
-export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isReadOnly, theme, toggleTheme }) => { // ★★★ toggleTheme を props で受け取る
+export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedUrls, timeOffset, isReadOnly, theme, toggleTheme }) => { // 
     const [now, setNow] = useState(new Date(new Date().getTime() + timeOffset));
     const timelineContainerRef = useRef(null);
     const [containerWidth, setContainerWidth] = useState(0);
 
     const [isFullTimelineOpen, setIsFullTimelineOpen] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false); // 
-    const [isSettingsOpen, setIsSettingsOpen] = useState(false); // ★★★ 設定モーダル用の state
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false); // 
 
     // 
     const [currentData, setCurrentData] = useState(null);
@@ -104,7 +198,7 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
     const [toast, setToast] = useState({ message: '', visible: false });
     const toastTimerRef = useRef(null);
 
-    // ★★★ スリープ防止の設定を localStorage から読み込むっす！
+    // 
     const [isWakeLockEnabled, setIsWakeLockEnabled] = useState(
         localStorage.getItem('wakeLockEnabled') === 'true'
     );
@@ -247,7 +341,7 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
         }
     }, [currentData, visibleContent]);
 
-    // ★★★ スリープ防止ロジックを修正っす！ ★★★
+    // 
     useEffect(() => {
         const requestWakeLock = async () => {
             if ('wakeLock' in navigator && isWakeLockEnabled) {
@@ -289,10 +383,10 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
                 clearTimeout(toastTimerRef.current);
             }
         };
-    }, [isWakeLockEnabled]); // ★★★ isWakeLockEnabled が変わったら実行し直すっす！
+    }, [isWakeLockEnabled]); // 
     // 
 
-    // ★★★ スリープ防止トグル用の関数っす！ ★★★
+    // 
     const handleWakeLockToggle = () => {
         const newValue = !isWakeLockEnabled;
         setIsWakeLockEnabled(newValue);
@@ -417,6 +511,8 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
             const dj = content;
             const isImageReady = !dj.imageUrl || loadedUrls.has(dj.imageUrl);
 
+            // 
+
             return (
                 <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-4 md:space-y-0 md:space-x-8">
 
@@ -456,6 +552,9 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
                         <div className="flex flex-col">
                             {/* */}
                             <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold break-words leading-tight mb-2">{dj.name}</h1>
+
+                            {/* */}
+
                             <p className="text-lg sm:text-2xl md:text-3xl font-semibold tracking-wider font-mono mb-2" style={{ color: dj.color }}>
                                 {dj.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {dj.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </p>
@@ -470,6 +569,8 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
                                     <span className="font-mono inline-block text-left w-[5ch]">{formatTime(dj.timeLeft)}</span>
                                 </p>
                             )}
+
+                            {/* */}
                             <div className={`bg-surface-container rounded-full h-3.5 overflow-hidden w-full mt-2`}>
                                 <div className="h-full rounded-full transition-all duration-500 ease-in-out"
                                     style={{ width: `${dj.progress}%`, backgroundColor: dj.color }}></div>
@@ -562,7 +663,7 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
             {/* */}
 
 
-            {/* ★★★ ハンバーガーメニューの中身を修正っす！ ★★★ */}
+            {/* */}
             {/* */}
             <div
                 className={`
@@ -581,7 +682,7 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
                         <XIcon className="w-5 h-5" />
                     </button>
                 </div>
-                {/* ★★★ ボタンを修正っす！ ★★★ */}
+                {/* */}
                 <div className="flex flex-col gap-2">
                     <button
                         onClick={() => {
@@ -592,15 +693,7 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
                     >
                         全体を見る
                     </button>
-                    {!isReadOnly && (
-                        <button
-                            onClick={() => setMode('edit')}
-                            className="w-full text-left bg-surface-background hover:bg-surface-background/70 text-on-surface font-semibold py-3 px-4 rounded-lg transition-colors duration-200"
-                        >
-                            編集モードに戻る
-                        </button>
-                    )}
-                    {/* ★★★ 「設定」ボタンを追加っす！ ★★★ */}
+                    {/* */}
                     <button
                         onClick={() => {
                             setIsSettingsOpen(true);
@@ -612,10 +705,18 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
                         <span>表示設定</span>
                     </button>
                     {/* */}
+                    {!isReadOnly && (
+                        <button
+                            onClick={() => setMode('edit')}
+                            className="w-full text-left bg-surface-background hover:bg-surface-background/70 text-on-surface font-semibold py-3 px-4 rounded-lg transition-colors duration-200"
+                        >
+                            編集モードに戻る
+                        </button>
+                    )}
                 </div>
             </div>
 
-            {/* ★★★ 設定モーダルを呼び出すっす！ ★★★ */}
+            {/* */}
             <LiveSettingsModal
                 isOpen={isSettingsOpen}
                 onClose={() => setIsSettingsOpen(false)}
@@ -624,7 +725,7 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
                 isWakeLockEnabled={isWakeLockEnabled}
                 onWakeLockToggle={handleWakeLockToggle}
             />
-            {/* ★★★ 修正ここまで ★★★ */}
+            {/* */}
 
 
             {/* */}
@@ -643,6 +744,11 @@ export const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffs
                     )}
                 </div>
             </div>
+
+            {/* */}
+            {eventConfig.vjFeatureEnabled && (
+                <VjBar vjTimetable={vjTimetable} now={now} />
+            )}
 
             {/* Bottom Timeline */}
             {currentData?.status !== 'FINISHED' && (

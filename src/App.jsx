@@ -17,7 +17,9 @@ import { useImagePreloader } from './hooks/useImagePreloader'; //
 const App = () => {
     const [mode, setMode] = useState('edit');
     const [timetable, setTimetable] = useState([]);
-    const [eventConfig, setEventConfig] = useState({ title: 'DJ Timekeeper Pro', startTime: '22:00' });
+    const [vjTimetable, setVjTimetable] = useState([]); // 
+    // 
+    const [eventConfig, setEventConfig] = useState({ title: 'DJ Timekeeper Pro', startTime: '22:00', vjFeatureEnabled: false });
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [appStatus, setAppStatus] = useState('connecting');
     const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -75,7 +77,7 @@ const App = () => {
     // 
     useEffect(() => {
         if (window.location.hash === '#live') {
-            // ★★★ 
+            // 
             console.log("閲覧専用モード (#live) で起動っす！");
             setIsReadOnly(true);
             setMode('live');
@@ -127,7 +129,8 @@ const App = () => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 setTimetable(data.timetable || []);
-                setEventConfig(data.eventConfig || { title: 'DJ Timekeeper Pro', startTime: '22:00' });
+                setVjTimetable(data.vjTimetable || []); // 
+                setEventConfig(data.eventConfig || { title: 'DJ Timekeeper Pro', startTime: '22:00', vjFeatureEnabled: false });
             } else {
                 console.log("No shared document! Creating initial data.");
             }
@@ -148,11 +151,12 @@ const App = () => {
     const saveDataToFirestore = useCallback(() => {
         if (isReadOnly || appStatus !== 'online' || !isAuthenticated || !dbRef.current) return;
         const docRef = doc(dbRef.current, 'artifacts', appId, 'public', 'sharedTimetable');
-        const dataToSave = { timetable, eventConfig };
+        // 
+        const dataToSave = { timetable, vjTimetable, eventConfig };
         setDoc(docRef, dataToSave, { merge: true }).catch(error => {
             console.error("Error saving data to Firestore:", error);
         });
-    }, [timetable, eventConfig, isAuthenticated, appStatus, isReadOnly]);
+    }, [timetable, vjTimetable, eventConfig, isAuthenticated, appStatus, isReadOnly]); // 
 
     useEffect(() => {
         if (isReadOnly || appStatus === 'offline' || isInitialLoading) {
@@ -164,17 +168,17 @@ const App = () => {
         return () => {
             clearTimeout(handler);
         };
-    }, [timetable, eventConfig, saveDataToFirestore, appStatus, isInitialLoading, isReadOnly]);
+    }, [timetable, vjTimetable, eventConfig, saveDataToFirestore, appStatus, isInitialLoading, isReadOnly]); // 
 
     // 
     const handleSetMode = (newMode) => {
         if (isReadOnly && newMode === 'edit') {
-            // ★★★ 
+            // 
             console.warn("閲覧専用モードのため、編集モードには戻れません。");
             return;
         }
         if (newMode === 'live' && !imagesLoaded) {
-            // ★★★ 
+            // 
             console.warn("まだ画像の準備中っす！ちょっと待ってからもう一回押してくださいっす！");
             return;
         }
@@ -203,7 +207,7 @@ const App = () => {
             return (
                 <div className="flex items-center justify-center h-screen p-8 text-center bg-surface-background text-on-surface">
                     <div className="bg-surface-container p-8 rounded-2xl shadow-2xl max-w-2xl">
-                        {/* ★★★ */}
+                        {/* */}
                         <h1 className="text-2xl font-bold text-red-400 mb-4">Firebaseの設定が必要です</h1>
                         <p className="text-on-surface-variant mb-6">
                             このアプリを動作させるには、<code>src/firebase.js</code> ファイル内の <code>firebaseConfig</code> オブジェクトを、ご自身のFirebaseプロジェクトのものに置き換える必要があります。
@@ -221,7 +225,7 @@ const firebaseConfig = {
                         <p className="text-on-surface-variant mt-6 text-sm">
                             Firebaseコンソールでプロジェクトを作成し、ウェブアプリの設定画面から <code>firebaseConfig</code> をコピーして貼り付けてください。
                         </p>
-                        {/* ★★★ */}
+                        {/* */}
                     </div>
                 </div>
             );
@@ -230,22 +234,7 @@ const firebaseConfig = {
         case 'online':
             return (
                 <>
-                    {/* ★★★ 設定モーダルに移動するため、テーマボタンは削除っす！ ★★★ */}
-                    {/* <button
-                        onClick={toggleTheme}
-                        className="fixed bottom-4 right-4 z-50 bg-surface-container text-on-surface p-3 rounded-full shadow-lg hover:bg-brand-primary"
-                        title="
-"
-                    >
-                        {theme === 'dark' ? (
-                            <MoonIcon className="w-5 h-5" />
-                        ) : (
-                            <SunIcon className="w-5 h-5" />
-                        )}
-                    </button> */}
-                    {/* ★★★ 削除ここまで ★★★ */}
-
-
+                    {/* */}
                     {/* */}
                     {appStatus === 'offline' && (
                         <div className="fixed bottom-4 left-4 z-50 bg-amber-500/90 text-white font-bold py-2 px-4 rounded-full shadow-lg flex items-center gap-2 animate-fade-in-up">
@@ -262,22 +251,25 @@ const firebaseConfig = {
                             setEventConfig={setEventConfig}
                             timetable={timetable}
                             setTimetable={setTimetable}
+                            vjTimetable={vjTimetable} // 
+                            setVjTimetable={setVjTimetable} // 
                             setMode={handleSetMode}
                             storage={storageRef.current} // 
                             timeOffset={timeOffset}
-                            theme={theme} // ★★★ 追加っす！
-                            toggleTheme={toggleTheme} // ★★★ 追加っす！
+                            theme={theme} // 
+                            toggleTheme={toggleTheme} // 
                         /> :
                         // 
                         <LiveView
                             timetable={timetable}
+                            vjTimetable={vjTimetable} // 
                             eventConfig={eventConfig}
                             setMode={handleSetMode}
                             loadedUrls={loadedUrls}
                             timeOffset={timeOffset}
                             isReadOnly={isReadOnly}
                             theme={theme} // 
-                            toggleTheme={toggleTheme}
+                            toggleTheme={toggleTheme} // 
                         />
                     }
                 </>

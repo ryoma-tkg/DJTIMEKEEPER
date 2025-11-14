@@ -13,11 +13,99 @@ import {
     SettingsIcon, // 
     XIcon, // 
     SunIcon, // 
-    MoonIcon // 
+    MoonIcon, // 
+    TrashIcon // 
 } from './common';
 
-// --- SettingsModal (
-// 
+// --- VJタイムテーブルの専用コンポーネント (変更なし) ---
+const VjTimetableManager = ({ vjTimetable, setVjTimetable }) => {
+
+    // VJ追加
+    const handleAddVj = () => {
+        const newVj = {
+            id: Date.now(),
+            name: `VJ ${vjTimetable.length + 1}`,
+            startTime: '22:00',
+            endTime: '05:00'
+        };
+        setVjTimetable(prev => [...prev, newVj]);
+    };
+
+    // VJの情報を更新
+    const handleUpdateVj = (index, field, value) => {
+        setVjTimetable(prev => {
+            const newVjList = [...prev];
+            newVjList[index] = { ...newVjList[index], [field]: value };
+            return newVjList;
+        });
+    };
+
+    // VJ削除
+    const handleRemoveVj = (index) => {
+        setVjTimetable(prev => prev.filter((_, i) => i !== index));
+    };
+
+    return (
+        <div className="w-full flex-shrink-0 space-y-4">
+            <h2 className="text-xl font-bold text-on-surface mb-2">VJ タイムテーブル</h2>
+
+            <div className="space-y-4">
+                {vjTimetable.map((vj, index) => (
+                    <div key={vj.id} className="bg-surface-container rounded-2xl p-4 space-y-3">
+                        {/* VJ名 */}
+                        <div>
+                            <label className="text-xs text-on-surface-variant mb-1 block">VJ Name</label>
+                            <input
+                                type="text"
+                                value={vj.name}
+                                onChange={(e) => handleUpdateVj(index, 'name', e.target.value)}
+                                className="bg-surface-background text-on-surface p-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                            />
+                        </div>
+                        {/* 開始・終了時刻 */}
+                        <div className="flex gap-2">
+                            <div className="flex-1">
+                                <label className="text-xs text-on-surface-variant mb-1 block">Start Time</label>
+                                <input
+                                    type="time"
+                                    value={vj.startTime}
+                                    onChange={(e) => handleUpdateVj(index, 'startTime', e.target.value)}
+                                    className="bg-surface-background text-on-surface p-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary text-center font-mono"
+                                />
+                            </div>
+                            <div className="flex-1">
+                                <label className="text-xs text-on-surface-variant mb-1 block">End Time</label>
+                                <input
+                                    type="time"
+                                    value={vj.endTime}
+                                    onChange={(e) => handleUpdateVj(index, 'endTime', e.target.value)}
+                                    className="bg-surface-background text-on-surface p-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary text-center font-mono"
+                                />
+                            </div>
+                        </div>
+                        {/* 削除ボタン */}
+                        <button
+                            onClick={() => handleRemoveVj(index)}
+                            className="w-full flex items-center justify-center gap-2 text-red-400 hover:text-red-600 text-sm font-semibold py-1"
+                        >
+                            <TrashIcon className="w-4 h-4" /> 削除
+                        </button>
+                    </div>
+                ))}
+            </div>
+
+            <button
+                onClick={handleAddVj}
+                className="w-full flex items-center justify-center bg-surface-container hover:opacity-90 text-on-surface-variant font-bold py-3 px-4 rounded-full transition-opacity duration-200"
+            >
+                <PlusIcon className="w-5 h-5 mr-2" /><span>VJを追加</span>
+            </button>
+        </div>
+    );
+};
+
+
+// --- SettingsModal (変更なし) ---
 const SettingsModal = ({
     isOpen,
     onClose,
@@ -30,6 +118,7 @@ const SettingsModal = ({
 }) => {
     if (!isOpen) return null;
 
+    // 
     const ThemeToggle = () => (
         <div className="flex items-center justify-between">
             <label className="text-base text-on-surface">テーマ</label>
@@ -46,6 +135,20 @@ const SettingsModal = ({
                         <SunIcon className="w-5 h-5" /> <span>ライト</span>
                     </>
                 )}
+            </button>
+        </div>
+    );
+
+    // 
+    const VjFeatureToggle = () => (
+        <div className="flex items-center justify-between">
+            <label className="text-base text-on-surface">VJタイムテーブル機能</label>
+            <button
+                onClick={() => handleEventConfigChange('vjFeatureEnabled', !eventConfig.vjFeatureEnabled)}
+                className={`w-14 h-8 rounded-full flex items-center p-1 transition-colors ${eventConfig.vjFeatureEnabled ? 'bg-brand-primary justify-end' : 'bg-surface-background justify-start'
+                    }`}
+            >
+                <span className="w-6 h-6 rounded-full bg-white shadow-md block" />
             </button>
         </div>
     );
@@ -83,6 +186,9 @@ const SettingsModal = ({
                                 onChange={(v) => handleEventConfigChange('startTime', v)}
                             />
                         </div>
+
+                        {/* */}
+                        <VjFeatureToggle />
                     </div>
                 </div>
 
@@ -122,7 +228,8 @@ const SettingsModal = ({
 // 
 
 // --- TimetableEditor (
-export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTimetable, setMode, storage, timeOffset, theme, toggleTheme }) => { // 
+// 
+export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTimetable, vjTimetable, setVjTimetable, setMode, storage, timeOffset, theme, toggleTheme }) => {
 
     const [openColorPickerId, setOpenColorPickerId] = useState(null);
     const [editingDjIndex, setEditingDjIndex] = useState(null);
@@ -176,7 +283,7 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
     };
 
     return (
-        <div className="p-4 md:p-8 max-w-4xl mx-auto">
+        <div className="p-4 md:p-8 max-w-4xl mx-auto"> {/* ★★★ max-w-7xl から 4xl に戻すっす！ */}
             <ConfirmModal
                 isOpen={isResetConfirmOpen}
                 title="タイムテーブルをリセット"
@@ -208,9 +315,9 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
                 />
             )}
 
-            {/* ★★★ ヘッダーレイアウト修正っす！ ★★★ */}
+            {/* */}
             <header className="flex flex-row justify-between items-center mb-4 gap-4">
-                {/* タイトル入力欄 (SPでも幅を取るように) */}
+                {/* */}
                 <input
                     type="text"
                     value={eventConfig.title || 'DJ Timekeeper Pro'}
@@ -218,7 +325,7 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
                     className="text-2xl sm:text-3xl font-bold text-brand-secondary tracking-wide bg-transparent focus:outline-none focus:bg-surface-container/50 rounded-lg p-2 flex-1 min-w-0" // 
                     placeholder="イベントタイトル"
                 />
-                {/* 設定ボタン (flex-shrink-0で縮まないように) */}
+                {/* */}
                 <div className="flex-shrink-0">
                     <button
                         onClick={() => setIsSettingsOpen(true)}
@@ -230,7 +337,7 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
                 </div>
             </header>
 
-            {/* ★★★ Liveモードボタンをヘッダーの下に移動っす！ ★★★ */}
+            {/* */}
             <div className="mb-6">
                 <button onClick={() => timetable.length > 0 && setMode('live')} disabled={timetable.length === 0} className="w-full flex items-center justify-center bg-brand-primary hover:opacity-90 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-full transition-opacity duration-200 shadow-lg">
                     <PlayIcon className="w-5 h-5 mr-2" /><span>Liveモード</span>
@@ -238,65 +345,82 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
             </div>
 
 
+            {/* ★★★ 2カラムレイアウトをやめて、縦積みに戻すっす！ ★★★ */}
+            <div className="flex flex-col gap-8">
+
+                {/* --- DJリスト --- */}
+                <div className="flex-1 space-y-4">
+                    <div className="bg-surface-container rounded-xl p-4">
+                        {eventEndTime && (
+                            <div className="bg-surface-background text-on-surface-variant font-semibold py-2 px-4 rounded-full text-lg tracking-wider font-mono text-center mb-4 max-w-xs mx-auto">
+                                {eventConfig.startTime} - {eventEndTime}
+                            </div>
+                        )}
+
+                        {totalEventDuration && (
+                            <div className="text-center mb-0">
+                                <span className="text-xs text-on-surface-variant uppercase">Total DJ Time</span>
+                                <p className="text-2xl font-bold text-on-surface">{totalEventDuration}</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* ★★★ DJタイムテーブルの見出しを追加っす！ ★★★ */}
+                    <h2 className="text-xl font-bold text-on-surface mb-2 mt-4">DJ タイムテーブル</h2>
+
+                    <div className="space-y-4" ref={listContainerRef}>
+                        {schedule.map((dj, index) => {
+                            let dropIndicatorClass = '';
+                            if (isDragging) {
+                                if (index === overIndex) {
+                                    dropIndicatorClass = 'drop-indicator-before';
+                                }
+                                if (overIndex === timetable.length && index === timetable.length - 1) {
+                                    dropIndicatorClass = 'drop-indicator-after';
+                                }
+                            }
+
+                            return (
+                                <div
+                                    key={dj.id}
+                                    data-dj-index={index}
+                                    className={`dj-list-item ${dropIndicatorClass}`}
+                                    style={getDragStyles(index)}
+                                >
+                                    <DjItem
+                                        dj={dj}
+                                        isPlaying={currentlyPlayingIndex === index}
+                                        onPointerDown={(e) => handlePointerDown(e, index)}
+                                        onEditClick={() => setEditingDjIndex(index)}
+                                        onUpdate={(field, value) => handleUpdate(index, field, value)}
+                                        onColorPickerToggle={setOpenColorPickerId}
+                                        onCopy={() => handleCopyDj(index)}
+                                        onRemove={() => handleRemoveDj(index)}
+                                        isColorPickerOpen={openColorPickerId === dj.id}
+                                        openColorPickerId={openColorPickerId}
+                                        isDragging={draggedIndex === index}
+                                        showVjName={false} // 
+                                    />
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <div className="mt-6 flex flex-col sm:flex-row gap-4">
+                        <button onClick={() => addNewDj(false)} className="w-full flex items-center justify-center bg-brand-primary hover:opacity-90 text-white font-bold py-3 px-4 rounded-full transition-opacity duration-200"><PlusIcon className="w-5 h-5 mr-2" /><span>DJを追加</span></button>
+                        <button onClick={() => addNewDj(true)} className="w-full flex items-center justify-center bg-surface-container hover:opacity-90 text-on-surface-variant font-bold py-3 px-4 rounded-full transition-opacity duration-200"><PlusIcon className="w-5 h-5 mr-2" /><span>バッファーを追加</span></button>
+                    </div>
+                </div>
+
+                {/* --- VJリスト --- */}
+                {eventConfig.vjFeatureEnabled && (
+                    <VjTimetableManager
+                        vjTimetable={vjTimetable}
+                        setVjTimetable={setVjTimetable}
+                    />
+                )}
+            </div>
             {/* */}
-            <div className="bg-surface-container rounded-xl p-4 mb-8">
-                {eventEndTime && (
-                    <div className="bg-surface-container/50 text-on-surface-variant font-semibold py-2 px-4 rounded-full text-lg tracking-wider font-mono text-center mb-4 max-w-xs mx-auto">
-                        {eventConfig.startTime} - {eventEndTime}
-                    </div>
-                )}
-
-                {totalEventDuration && (
-                    <div className="text-center mb-4">
-                        <span className="text-xs text-on-surface-variant uppercase">Total Time</span>
-                        <p className="text-2xl font-bold text-on-surface">{totalEventDuration}</p>
-                    </div>
-                )}
-
-                {/* */}
-            </div>
-
-            <div className="space-y-4" ref={listContainerRef}>
-                {schedule.map((dj, index) => {
-                    let dropIndicatorClass = '';
-                    if (isDragging) {
-                        if (index === overIndex) {
-                            dropIndicatorClass = 'drop-indicator-before';
-                        }
-                        if (overIndex === timetable.length && index === timetable.length - 1) {
-                            dropIndicatorClass = 'drop-indicator-after';
-                        }
-                    }
-
-                    return (
-                        <div
-                            key={dj.id}
-                            data-dj-index={index}
-                            className={`dj-list-item ${dropIndicatorClass}`}
-                            style={getDragStyles(index)}
-                        >
-                            <DjItem
-                                dj={dj}
-                                isPlaying={currentlyPlayingIndex === index}
-                                onPointerDown={(e) => handlePointerDown(e, index)}
-                                onEditClick={() => setEditingDjIndex(index)}
-                                onUpdate={(field, value) => handleUpdate(index, field, value)}
-                                onColorPickerToggle={setOpenColorPickerId}
-                                onCopy={() => handleCopyDj(index)}
-                                onRemove={() => handleRemoveDj(index)}
-                                isColorPickerOpen={openColorPickerId === dj.id}
-                                openColorPickerId={openColorPickerId}
-                                isDragging={draggedIndex === index}
-                            />
-                        </div>
-                    );
-                })}
-            </div>
-
-            <div className="mt-6 flex flex-col sm:flex-row gap-4">
-                <button onClick={() => addNewDj(false)} className="w-full flex items-center justify-center bg-brand-primary hover:opacity-90 text-white font-bold py-3 px-4 rounded-full transition-opacity duration-200"><PlusIcon className="w-5 h-5 mr-2" /><span>DJを追加</span></button>
-                <button onClick={() => addNewDj(true)} className="w-full flex items-center justify-center bg-surface-container hover:opacity-90 text-on-surface-variant font-bold py-3 px-4 rounded-full transition-opacity duration-200"><PlusIcon className="w-5 h-5 mr-2" /><span>バッファーを追加</span></button>
-            </div>
         </div>
     );
 };

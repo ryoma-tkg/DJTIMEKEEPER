@@ -8,6 +8,7 @@ import {
     CopyIcon,
 } from './common';
 
+// 
 export const DjItem = memo(({ dj, isPlaying, onPointerDown, onEditClick, onUpdate, onColorPickerToggle, onCopy, onRemove, isColorPickerOpen, openColorPickerId, isDragging }) => {
     const colorPickerRef = useRef(null);
     useEffect(() => {
@@ -56,6 +57,7 @@ export const DjItem = memo(({ dj, isPlaying, onPointerDown, onEditClick, onUpdat
                     <label className="text-xs text-on-surface-variant mb-1">{dj.isBuffer ? 'Title' : 'DJ Name'}</label>
                     <input type="text" value={dj.name} onChange={(e) => onUpdate('name', e.target.value)} className="bg-surface-background text-on-surface p-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary" />
                 </div>
+
                 {/* */}
                 <div className="flex flex-col">
                     <label className="text-xs text-on-surface-variant mb-1">Time Slot</label>
@@ -65,8 +67,11 @@ export const DjItem = memo(({ dj, isPlaying, onPointerDown, onEditClick, onUpdat
                         <span>{dj.endTime}</span>
                     </div>
                 </div>
+
                 {/* */}
-                <div className="flex flex-col col-span-1 md:col-span-2">
+
+                {/* */}
+                <div className="flex flex-col md:col-span-2">
                     <label className="text-xs text-on-surface-variant mb-1">Duration (min)</label>
                     <input type="number" value={dj.duration} step="0.1" onChange={(e) => onUpdate('duration', parseFloat(e.target.value) || 0)} className="bg-surface-background text-on-surface p-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary font-bold text-base" />
                 </div>

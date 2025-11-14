@@ -52,7 +52,15 @@ export const useTimetable = (timetable, eventConfig, setTimetable, setEventConfi
             setTimetable(prevTimetable => {
                 const lastDj = prevTimetable[prevTimetable.length - 1];
                 const duration = isBuffer ? 5 : (lastDj ? lastDj.duration : 60);
-                const newDjData = { id: Date.now(), name: isBuffer ? 'バッファー' : `DJ ${prevTimetable.filter(d => !d.isBuffer).length + 1}`, duration: duration, imageUrl: '', color: VIVID_COLORS[Math.floor(Math.random() * VIVID_COLORS.length)], isBuffer, };
+                // 
+                const newDjData = {
+                    id: Date.now(),
+                    name: isBuffer ? 'バッファー' : `DJ ${prevTimetable.filter(d => !d.isBuffer).length + 1}`,
+                    duration: duration,
+                    imageUrl: '',
+                    color: VIVID_COLORS[Math.floor(Math.random() * VIVID_COLORS.length)],
+                    isBuffer,
+                };
                 return recalculateTimes([...prevTimetable, newDjData], eventConfig.startTime);
             });
         };
@@ -77,7 +85,7 @@ export const useTimetable = (timetable, eventConfig, setTimetable, setEventConfi
 
     }, [timetable, eventConfig.startTime, now, setEventConfig, setTimetable, setIsResetConfirmOpen]);
 
-    // 合計時間の計算ロジックもこっちに持ってきたっす！
+    // 
     const totalEventDuration = useMemo(() => {
         const totalMinutes = timetable.reduce((sum, dj) => {
             return sum + (parseFloat(dj.duration) || 0);
@@ -95,7 +103,7 @@ export const useTimetable = (timetable, eventConfig, setTimetable, setEventConfi
         }
     }, [timetable]);
 
-    // イベント開始時間ハンドラもこっちに移動っす！
+    // 
     const handleEventConfigChange = (field, value) => {
         setEventConfig(prevConfig => {
             const newConfig = { ...prevConfig, [field]: value };
@@ -111,7 +119,7 @@ export const useTimetable = (timetable, eventConfig, setTimetable, setEventConfi
         eventEndTime,
         currentlyPlayingIndex,
         totalEventDuration,
-        recalculateTimes, // D&Dフックで使うためにこれも返すっす
+        recalculateTimes, // 
         handleEventConfigChange,
         handleUpdate,
         addNewDj,
