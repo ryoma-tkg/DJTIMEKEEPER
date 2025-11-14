@@ -1,36 +1,34 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
-// ★★★ firebase のコア機能だけ残す ★★★
+// 
 import {
     auth, db, storage, appId,
     signInAnonymously, onAuthStateChanged,
     doc, onSnapshot, setDoc,
 } from './firebase';
 
-// ★★★ 新しいコンポーネントをインポート ★★★
+// 
 import { TimetableEditor } from './components/TimetableEditor';
-import { FullTimelineView } from './components/FullTimelineView';
 import { SimpleImage, UserIcon, AlertTriangleIcon, parseTime, GodModeIcon } from './components/common';
+import { FullTimelineView } from './components/FullTimelineView';
 
 
-// ★★★ App.jsx に残すコンポーネント (LiveView とその仲間たち) ★★★
-
+// 
 const BackgroundImage = memo(() => {
     return null;
 });
 
 const useImagePreloader = (urls) => {
     const [loadedUrls, setLoadedUrls] = useState(new Set());
-    // 依存配列用に、URLリストを文字列化
+    // 
     const urlsKey = JSON.stringify(urls);
 
     useEffect(() => {
         let isCancelled = false;
-        // urlsKey からURLリストを復元（これが「最新」のリスト）
+        // 
         const filteredUrls = JSON.parse(urlsKey);
 
-        // ★ 1. (クリーンアップ)
-        // まず、新しいURLリスト (filteredUrls) に存在しない
-        // 古いURLを現在のState (loadedUrls) から安全に削除する
+        // 
+        // 
         setLoadedUrls(prevSet => {
             const newSet = new Set();
             let changed = false;
@@ -39,23 +37,23 @@ const useImagePreloader = (urls) => {
                 if (filteredUrls.includes(url)) {
                     newSet.add(url);
                 } else {
-                    changed = true; // 削除されたURLがあった
+                    changed = true; // 
                 }
             });
 
-            // 削除されたURLがなく、サイズも同じなら (追加もなかった)
+            // 
             if (!changed && prevSet.size === filteredUrls.length) {
-                return prevSet; // Stateの参照を変えない（不要な再レンダリング防止）
+                return prevSet; // 
             }
             return newSet;
         });
 
-        // ★ 2. ロード処理 (filteredUrls 全てに対して)
+        // 
         const loadImages = async () => {
             try {
                 await Promise.all(
                     filteredUrls.map(url => {
-                        // urlがnullやundefinedでないことを確認
+                        // 
                         if (!url) {
                             return Promise.resolve();
                         }
@@ -65,14 +63,13 @@ const useImagePreloader = (urls) => {
                             img.src = url;
                             img.onload = () => {
                                 if (!isCancelled) {
-                                    // ★ 3. (最重要) 
-                                    // ロード完了時に関数型更新で「追加」する
-                                    // これが並行処理でStateを安全に更新する唯一の方法っす
+                                    // 
+                                    // 
                                     setLoadedUrls(prevSet => {
-                                        // 既に (クリーンアップ後のSetに) あれば何もしない
+                                        // 
                                         if (prevSet.has(url)) return prevSet;
 
-                                        // 破壊的変更をせず、新しいSetを返す
+                                        // 
                                         const updatedSet = new Set(prevSet);
                                         updatedSet.add(url);
                                         return updatedSet;
@@ -81,7 +78,7 @@ const useImagePreloader = (urls) => {
                                 resolve();
                             };
                             img.onerror = () => {
-                                // ロード失敗しても次へ (コンソールには出しておく)
+                                // 
                                 console.warn(`[useImagePreloader] Failed to load image: ${url}`);
                                 resolve();
                             };
@@ -93,10 +90,10 @@ const useImagePreloader = (urls) => {
             }
         };
 
-        loadImages(); // 非同期で実行開始
+        loadImages(); // 
 
         return () => { isCancelled = true; };
-    }, [urlsKey]); // urlsKey (文字列) に依存
+    }, [urlsKey]); // 
 
     const allLoaded = urls.filter(Boolean).every(url => loadedUrls.has(url));
     return { loadedUrls, allLoaded };
@@ -111,8 +108,13 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
 
     // 
     const [currentData, setCurrentData] = useState(null);
+
+    // 
     const [visibleContent, setVisibleContent] = useState(null);
+    // 
     const [isFadingOut, setIsFadingOut] = useState(false);
+
+    // 
     const animationTimerRef = useRef(null);
 
     const schedule = useMemo(() => {
@@ -123,7 +125,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
             const startTime = new Date(lastEndTime);
             const durationMinutes = parseFloat(dj.duration) || 0;
             const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
-            scheduleData.push({ ...dj, startTime, endTime }); // 
+            scheduleData.push({ ...dj, startTime, endTime });
             lastEndTime = endTime;
         }
         return scheduleData;
@@ -202,10 +204,12 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
 
     // 
     useEffect(() => {
+        // 
         if (!visibleContent && currentData) {
             setVisibleContent(currentData);
             return;
         }
+        // 
         if (currentData && visibleContent) {
             if (currentData.animationKey !== visibleContent.animationKey) {
 
@@ -220,11 +224,54 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
                     animationTimerRef.current = null;
                 }, FADE_OUT_DURATION);
             }
+            // 
             else if (currentData.animationKey === visibleContent.animationKey && !isFadingOut) {
                 setVisibleContent(currentData);
             }
         }
     }, [currentData, visibleContent]);
+
+    // 
+    useEffect(() => {
+        let wakeLock = null;
+
+        const requestWakeLock = async () => {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Wake Lock is active!');
+                } else {
+                    console.warn('Wake Lock API is not supported on this browser.');
+                }
+            } catch (err) {
+                // 
+                console.error(`${err.name}, ${err.message}`);
+            }
+        };
+
+        // 
+        requestWakeLock();
+
+        // 
+        const handleVisibilityChange = () => {
+            if (wakeLock !== null && document.visibilityState === 'visible') {
+                requestWakeLock();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            // 
+            if (wakeLock !== null) {
+                wakeLock.release().then(() => {
+                    console.log('Wake Lock released');
+                    wakeLock = null;
+                });
+            }
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, []);
+    // 
 
 
     const timelineTransform = useMemo(() => {
@@ -290,7 +337,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
             return (
                 <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
 
-                    {/* ★★★ バッファじゃない時だけアイコンエリアを表示 ★★★ */}
+                    {/* */}
                     {!dj.isBuffer && (
                         <div className={`
                             w-full max-w-sm sm:max-w-md aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0 relative
@@ -302,7 +349,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
                                 ${isImageReady ? 'opacity-100' : 'opacity-100'} 
                             `}>
 
-                                {/* ★★★ アイコンロジック（UserIconのみ） ★★★ */}
+                                {/* */}
                                 {dj.imageUrl && isImageReady ? (
                                     <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" />
                                 ) : (
@@ -321,7 +368,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
                             )}
                         </div>
                     )}
-                    {/* ★★★ 囲いここまで ★★★ */}
+                    {/* */}
 
                     {/* */}
                     <div className={`flex flex-col ${dj.isBuffer ? 'items-center text-center' : 'text-center md:text-left'}`}>
@@ -391,7 +438,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
             {/* */}
             <div className="absolute top-4 md:top-8 right-4 flex gap-2 z-20">
                 <button
-                    onClick={() => setIsFullTimelineOpen(true)} // 
+                    onClick={() => setIsFullTimelineOpen(true)}
                     className="flex items-center bg-surface-container/50 backdrop-blur-sm hover:bg-surface-container text-white font-semibold py-2 px-4 rounded-full transition-colors duration-200 text-sm"
                 >
                     全体を見る
@@ -425,7 +472,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
             {currentData?.status !== 'FINISHED' && (
                 <div ref={timelineContainerRef} className="absolute bottom-0 left-0 right-0 w-full shrink-0 overflow-hidden mask-gradient z-10 pb-4 h-32">
                     <div
-                        className="flex h-full items-center space-x-6 px-2 py-2 will-change-transform"
+                        className="flex h-full items-center space-x-6 px-4 py-2 will-change-transform"
                         style={{
                             transform: timelineTransform,
                             transition: 'transform 0.4s ease-in-out'
@@ -433,22 +480,24 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
                     >
                         {schedule.map((dj, index) => {
                             const isPlaying = currentlyPlayingIndex === index;
+                            // 
+                            const borderClass = isPlaying ? 'border-2 border-white' : 'border border-white/30';
 
                             return (
                                 <div
                                     key={dj.id}
                                     className={`
                                             shrink-0 w-64 h-24 bg-surface-container/40 backdrop-blur-sm rounded-2xl p-4 flex items-center 
-                                            border border-white/30 
+                                            ${borderClass} 
                                             ${dj.isBuffer ? 'justify-center' : 'space-x-6'} 
                                         
                                             ${isPlaying ? 'opacity-100 scale-100' : 'opacity-60 scale-90'}
-                                            transition-[opacity,transform] duration-1000 ease-in-out
-                                            will-change-[opacity,transform]
-                                        `}
+                                            transition-all duration-1000 ease-in-out 
+                                            will-change-[opacity,transform,border] 
+                                          `}
                                 >
 
-                                    {/* ★★★ バッファのアイコン非表示ロジック ★★★ */}
+                                    {/* */}
                                     {dj.imageUrl ? (
                                         <div className="w-14 h-14 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center overflow-hidden">
                                             <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" />
@@ -458,7 +507,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
                                             <UserIcon className="w-8 h-8 text-on-surface-variant" />
                                         </div>
                                     ) : null /* */}
-                                    {/* ★★★ 修正ここまで ★★★ */}
+                                    {/* */}
 
                                     <div className="overflow-hidden flex flex-col justify-center">
                                         <p className={`text-lg font-bold truncate w-full ${dj.isBuffer ? 'text-center' : 'text-left'}`}>{dj.name}</p>
@@ -474,7 +523,7 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
             {/* */}
             <FullTimelineView
                 isOpen={isFullTimelineOpen}
-                onClose={() => setIsFullTimelineOpen(false)} // 
+                onClose={() => setIsFullTimelineOpen(false)}
                 schedule={scheduleForModal}
                 now={now}
                 currentlyPlayingIndex={currentlyPlayingIndex}
@@ -483,7 +532,8 @@ const LiveView = ({ timetable, eventConfig, setMode, loadedUrls, timeOffset, isR
     );
 };
 
-// ★★★ メインの App コンポーネント (スリム化) ★★★
+
+// 
 const App = () => {
     const [mode, setMode] = useState('edit');
     const [timetable, setTimetable] = useState([]);
@@ -492,14 +542,33 @@ const App = () => {
     const [appStatus, setAppStatus] = useState('connecting');
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const dbRef = useRef(null);
-    const storageRef = useRef(null); // ★ storage の Ref は App.jsx で持つ
+    const storageRef = useRef(null);
     const [timeOffset, setTimeOffset] = useState(0);
     const [isReadOnly, setIsReadOnly] = useState(false);
+
+    // 
+    const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+
+    useEffect(() => {
+        if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+            localStorage.setItem('theme', 'dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+            localStorage.setItem('theme', 'light');
+        }
+    }, [theme]);
+
+    const toggleTheme = () => {
+        setTheme(prevTheme => (prevTheme === 'dark' ? 'light' : 'dark'));
+    };
+    // 
+
 
     const imageUrlsToPreload = useMemo(() => timetable.map(dj => dj.imageUrl), [timetable]);
     const { loadedUrls, allLoaded: imagesLoaded } = useImagePreloader(imageUrlsToPreload);
 
-    // 時刻同期ロジック (変更なし)
+    // 
     useEffect(() => {
         const fetchTimeOffset = async () => {
             if (appStatus !== 'online') {
@@ -523,9 +592,10 @@ const App = () => {
         fetchTimeOffset();
     }, [appStatus]);
 
-    // 起動時ロジック (ローディング制御変更)
+    // 
     useEffect(() => {
         if (window.location.hash === '#live') {
+            // ★★★ 
             console.log("閲覧専用モード (#live) で起動っす！");
             setIsReadOnly(true);
             setMode('live');
@@ -541,7 +611,7 @@ const App = () => {
 
         try {
             dbRef.current = db;
-            storageRef.current = storage; // ★ storage の実体を Ref に保存
+            storageRef.current = storage;
 
             onAuthStateChanged(auth, async (user) => {
                 if (user) {
@@ -562,7 +632,7 @@ const App = () => {
         return () => clearTimeout(connectionTimeout);
     }, []);
 
-    // データ購読ロジック (ローディング制御変更)
+    // 
     useEffect(() => {
         if (appStatus !== 'online' || !isAuthenticated || !dbRef.current) {
             if (appStatus === 'offline' && isInitialLoading) {
@@ -581,7 +651,7 @@ const App = () => {
             } else {
                 console.log("No shared document! Creating initial data.");
             }
-            // ★★★ データ読み込み完了！ここでローディングを解除するっす！ ★★★
+            // 
             if (isInitialLoading) {
                 setIsInitialLoading(false);
             }
@@ -594,7 +664,7 @@ const App = () => {
         return () => unsubscribe();
     }, [isAuthenticated, appStatus, isInitialLoading]);
 
-    // データ保存ロジック (isReadOnly / isInitialLoading 対応)
+    // 
     const saveDataToFirestore = useCallback(() => {
         if (isReadOnly || appStatus !== 'online' || !isAuthenticated || !dbRef.current) return;
         const docRef = doc(dbRef.current, 'artifacts', appId, 'public', 'sharedTimetable');
@@ -616,14 +686,16 @@ const App = () => {
         };
     }, [timetable, eventConfig, saveDataToFirestore, appStatus, isInitialLoading, isReadOnly]);
 
-    // モード切り替えハンドラ (isReadOnly / imagesLoaded 対応)
+    // 
     const handleSetMode = (newMode) => {
         if (isReadOnly && newMode === 'edit') {
+            // ★★★ 
             console.warn("閲覧専用モードのため、編集モードには戻れません。");
             return;
         }
         if (newMode === 'live' && !imagesLoaded) {
-            alert("まだ画像の準備中っす！ちょっと待ってからもう一回押してくださいっす！");
+            // ★★★ 
+            console.warn("まだ画像の準備中っす！ちょっと待ってからもう一回押してくださいっす！");
             return;
         }
         setMode(newMode);
@@ -642,7 +714,7 @@ const App = () => {
         );
     }
 
-    // メインの描画切り替え
+    // 
     switch (appStatus) {
         case 'connecting':
             return <div className="flex items-center justify-center h-screen"><p className="text-2xl">Connecting...</p></div>;
@@ -651,13 +723,14 @@ const App = () => {
             return (
                 <div className="flex items-center justify-center h-screen p-8 text-center bg-surface-background text-on-surface">
                     <div className="bg-surface-container p-8 rounded-2xl shadow-2xl max-w-2xl">
+                        {/* ★★★ */}
                         <h1 className="text-2xl font-bold text-red-400 mb-4">Firebaseの設定が必要です</h1>
                         <p className="text-on-surface-variant mb-6">
                             このアプリを動作させるには、<code>src/firebase.js</code> ファイル内の <code>firebaseConfig</code> オブジェクトを、ご自身のFirebaseプロジェクトのものに置き換える必要があります。
                         </p>
                         <code className="bg-surface-background text-left p-4 rounded-lg block overflow-x-auto text-sm">
                             <pre className="whitespace-pre-wrap">
-                                {`// src/firebase.js内のこの部分を書き換えてください
+                                {`// src/firebase.js
 const firebaseConfig = {
   apiKey: "ご自身のAPIキー",
   authDomain: "your-project.firebaseapp.com",
@@ -668,6 +741,7 @@ const firebaseConfig = {
                         <p className="text-on-surface-variant mt-6 text-sm">
                             Firebaseコンソールでプロジェクトを作成し、ウェブアプリの設定画面から <code>firebaseConfig</code> をコピーして貼り付けてください。
                         </p>
+                        {/* ★★★ */}
                     </div>
                 </div>
             );
@@ -676,6 +750,21 @@ const firebaseConfig = {
         case 'online':
             return (
                 <>
+                    {/* */}
+                    <button
+                        onClick={toggleTheme}
+                        className="fixed bottom-4 right-4 z-50 bg-surface-container text-on-surface p-3 rounded-full shadow-lg hover:bg-brand-primary"
+                        title="
+"
+                    >
+                        {theme === 'dark' ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                        ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                        )}
+                    </button>
+                    {/* */}
+
                     {appStatus === 'offline' && (
                         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-amber-500/90 text-white font-bold py-2 px-4 rounded-full shadow-lg flex items-center gap-2 animate-fade-in-up">
                             <AlertTriangleIcon className="w-5 h-5" />
@@ -683,19 +772,19 @@ const firebaseConfig = {
                         </div>
                     )}
 
-                    {/* ★★★ ここが最終的な切り替えっす！ ★★★ */}
+                    {/* */}
                     {mode === 'edit' && !isReadOnly ?
-                        // TimetableEditor に App が持つ state や関数を props で渡す
+                        // 
                         <TimetableEditor
                             eventConfig={eventConfig}
                             setEventConfig={setEventConfig}
                             timetable={timetable}
                             setTimetable={setTimetable}
                             setMode={handleSetMode}
-                            storage={storageRef.current} // ★ storage の実体を渡す
+                            storage={storageRef.current} // 
                             timeOffset={timeOffset}
                         /> :
-                        // LiveView にも App が持つ state や関数を props で渡す
+                        // 
                         <LiveView
                             timetable={timetable}
                             eventConfig={eventConfig}

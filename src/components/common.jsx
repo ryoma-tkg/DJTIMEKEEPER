@@ -46,11 +46,15 @@ export const CustomTimeInput = ({ value, onChange }) => {
     const buttonClasses = "px-3 py-3 rounded-lg bg-surface-background hover:bg-zinc-700 text-sm font-semibold w-12";
     return (
         <div className="flex items-center gap-1.5">
-            <button type="button" onClick={() => adjustTime(-15)} className={buttonClasses}>-15</button>
+            {/* ★★★ 
+            */}
+            <button type="button" onClick={() => adjustTime(-15)} className={`${buttonClasses} hidden sm:block`}>-15</button>
             <button type="button" onClick={() => adjustTime(-5)} className={buttonClasses}>-5</button>
             <input type="time" value={value} onChange={(e) => onChange(e.target.value)} className="bg-surface-background text-on-surface p-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary text-center font-mono font-bold text-base" />
             <button type="button" onClick={() => adjustTime(5)} className={buttonClasses}>+5</button>
-            <button type="button" onClick={() => adjustTime(15)} className={buttonClasses}>+15</button>
+            {/* ★★★ 
+            */}
+            <button type="button" onClick={() => adjustTime(15)} className={`${buttonClasses} hidden sm:block`}>+15</button>
         </div>
     );
 };
