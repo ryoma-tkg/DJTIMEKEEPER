@@ -1,206 +1,30 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
-import { useStorageUpload } from '../hooks/useStorageUpload';
 import { useDragAndDrop } from '../hooks/useDragAndDrop';
-import { useTimetable } from '../hooks/useTimetable'; // ★★★ タイムテーブルフックをインポート
+import { useTimetable } from '../hooks/useTimetable';
+import { ImageEditModal } from './ImageEditModal'; // ★★★ インポート
+import { DjItem } from './DjItem'; // ★★★ インポート
 import {
-    // VIVID_COLORS, // 
-    SimpleImage,
-    parseTime, // 
     CustomTimeInput,
     ConfirmModal,
     PlayIcon,
     PlusIcon,
-    TrashIcon,
-    GripIcon,
-    UserIcon,
-    UploadIcon,
     CopyIcon,
-    XIcon,
     ResetIcon,
-    AlertTriangleIcon,
-    GodModeIcon // 
 } from './common';
 
 // --- ImageEditModal (
-// 
-const ImageEditModal = ({ dj, onUpdate, onClose, storage }) => {
-    const [imageUrl, setImageUrl] = useState(dj.imageUrl || '');
-    const fileInputRef = useRef(null);
-    const [isUrlInputVisible, setIsUrlInputVisible] = useState(false);
-
-    // 
-    const { isUploading, uploadError, uploadedUrl, handleUpload } = useStorageUpload(storage);
-
-    // 
-    useEffect(() => {
-        if (uploadedUrl) {
-            setImageUrl(uploadedUrl); // 
-        }
-    }, [uploadedUrl]);
-
-    // 
-    const handleFileChange = async (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            handleUpload(file); // 
-        }
-    };
-
-    const handleSave = () => {
-        onUpdate('imageUrl', imageUrl);
-        onClose();
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in-up" onClick={onClose}>
-            <div className="bg-surface-container rounded-2xl p-6 w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-bold">アイコンを設定</h2>
-                    <button onClick={onClose} className="p-1 rounded-full hover:bg-surface-background"><XIcon className="w-6 h-6" /></button>
-                </div>
-                <div className="flex items-center justify-center my-6">
-                    <div className="w-40 h-40 rounded-full bg-surface-background flex items-center justify-center overflow-hidden">
-                        {imageUrl ? <SimpleImage src={imageUrl} className="w-full h-full object-cover" /> : <UserIcon className="w-20 h-20 text-on-surface-variant" />}
-                    </div>
-                </div>
-
-                <div className="space-y-4">
-                    {isUrlInputVisible && (
-                        <div className="animate-fade-in-up">
-                            <label className="text-sm text-on-surface-variant mb-1 block">Image URL</label>
-                            <input type="text" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} className="bg-surface-background text-on-surface p-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary" placeholder="https://example.com/image.png" />
-                        </div>
-                    )}
-                    <div>
-                        <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
-                        <button onClick={() => fileInputRef.current.click()} disabled={isUploading} className="w-full flex items-center justify-center gap-2 bg-surface-background hover:opacity-80 text-on-surface font-semibold py-3 px-4 rounded-lg transition-opacity duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
-                            {isUploading ? (
-                                <>
-                                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                    <span>処理・アップロード中...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <UploadIcon className="w-5 h-5" />
-                                    <span>ローカルからアップロード</span>
-                                </>
-                            )}
-                        </button>
-                        {uploadError && <p className="text-red-400 text-sm mt-2 text-center">{uploadError}</p>}
-                        {!uploadError && (
-                            <p className="text-xs text-on-surface-variant/70 mt-2 text-center">
-                                ※ CMYKカラーのJPEGをアップすると、色が変になる場合があるっす！
-                                <br />
-                                その時は、RGBのJPEGかPNGで試してみてほしいっす！
-                            </p>
-                        )}
-                    </div>
-                    {!isUrlInputVisible && (
-                        <div>
-                            <button
-                                onClick={() => setIsUrlInputVisible(true)}
-                                className="w-full flex items-center justify-center gap-2 bg-surface-background/50 hover:bg-surface-background/80 text-on-surface-variant font-semibold py-3 px-4 rounded-lg transition-colors duration-200"
-                            >
-                                <span>URLで設定する</span>
-                            </button>
-                        </div>
-                    )}
-                </div>
-
-                <div className="mt-6 flex justify-end gap-3">
-                    <button onClick={onClose} className="py-2 px-5 rounded-full bg-surface-background text-on-surface font-semibold">キャンセル</button>
-                    <button onClick={handleSave} disabled={isUploading} className="py-2 px-5 rounded-full bg-brand-primary text-white font-semibold disabled:opacity-50">保存</button>
-                </div>
-            </div>
-        </div>
-    );
-};
+// ★★★ 
+// ★★★ 
+// ★★★ 
+// ★★★ 
+// ★★★ 
 
 // --- DjItem (
-// 
-const DjItem = memo(({ dj, isPlaying, onPointerDown, onEditClick, onUpdate, onColorPickerToggle, onCopy, onRemove, isColorPickerOpen, openColorPickerId, isDragging }) => {
-    const colorPickerRef = useRef(null);
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            const target = event.target;
-            if (isColorPickerOpen && colorPickerRef.current && !colorPickerRef.current.contains(target) && !target.closest(`[data-color-picker-trigger="${dj.id}"]`)) {
-                onColorPickerToggle(null);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [isColorPickerOpen, dj.id, onColorPickerToggle]);
-
-    // ★★★ VIVID_COLORS を common.jsx から読むように変更 ★★★
-    // (useTimetable フックに移動したので、DjItem 側は修正不要でした！失礼しました！)
-
-    const ringClass = isPlaying ? 'ring-2 shadow-[0_0_12px_var(--tw-ring-color)]' : 'ring-1 ring-zinc-700';
-    const draggingClass = isDragging ? 'dragging-item' : '';
-
-    return (
-        <div
-            className={`bg-surface-container rounded-2xl flex items-center gap-4 p-4 ${ringClass} ${draggingClass}`}
-            style={{ '--tw-ring-color': isPlaying ? dj.color : 'transparent' }}
-        >
-            <div
-                className="cursor-grab touch-none p-3 -m-3"
-                onPointerDown={onPointerDown}
-            >
-                <GripIcon className="w-6 h-6 text-on-surface-variant shrink-0" />
-            </div>
-
-            <button
-                onClick={() => onEditClick()}
-                onPointerDown={(e) => e.stopPropagation()}
-                className="w-16 h-16 rounded-full bg-surface-background flex items-center justify-center overflow-hidden shrink-0 ring-2 ring-surface-background hover:ring-brand-primary transition-all"
-            >
-                {/* */}
-                {dj.imageUrl ? (
-                    <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" />
-                ) : !dj.isBuffer ? ( // 
-                    <UserIcon className="w-8 h-8 text-on-surface-variant" />
-                ) : null}
-            </button>
-
-            {/* */}
-            <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                {/* */}
-                <div className="flex flex-col">
-                    <label className="text-xs text-on-surface-variant mb-1">{dj.isBuffer ? 'Title' : 'DJ Name'}</label>
-                    <input type="text" value={dj.name} onChange={(e) => onUpdate('name', e.target.value)} className="bg-surface-background text-on-surface p-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary" />
-                </div>
-                {/* */}
-                <div className="flex flex-col">
-                    <label className="text-xs text-on-surface-variant mb-1">Time Slot</label>
-                    <div className="bg-surface-background/50 p-2 rounded-lg w-full text-center font-semibold text-on-surface-variant font-mono">
-                        <span>{dj.startTime}</span>
-                        <span className="mx-2">-</span>
-                        <span>{dj.endTime}</span>
-                    </div>
-                </div>
-                {/* */}
-                <div className="flex flex-col col-span-1 md:col-span-2">
-                    <label className="text-xs text-on-surface-variant mb-1">Duration (min)</label>
-                    <input type="number" value={dj.duration} step="0.1" onChange={(e) => onUpdate('duration', parseFloat(e.target.value) || 0)} className="bg-surface-background text-on-surface p-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary font-bold text-base" />
-                </div>
-            </div>
-            {/* */}
-
-            <div className="flex flex-col gap-2 shrink-0 self-center">
-                <div className="relative" ref={colorPickerRef}>
-                    <button type="button" data-color-picker-trigger={dj.id} onClick={() => onColorPickerToggle(dj.id === openColorPickerId ? null : dj.id)} className="w-9 h-9 rounded-full ring-2 ring-on-surface-variant" style={{ backgroundColor: dj.color }} />
-                    {isColorPickerOpen && (
-                        <div className="absolute w-40 bottom-full mb-2 right-0 bg-surface-background p-2 rounded-lg shadow-2xl grid grid-cols-4 gap-2 z-10">
-                            {VIVID_COLORS.map(color => (<button key={color} type="button" onClick={() => { onUpdate('color', color); onColorPickerToggle(null); }} className="w-8 h-8 rounded-full transition-transform hover:scale-110 focus:outline-none ring-1 ring-black/20" style={{ backgroundColor: color }} />))}
-                        </div>
-                    )}
-                </div>
-                <button onClick={onCopy} className="text-on-surface-variant hover:text-brand-primary p-2 rounded-full transition-colors"><CopyIcon className="w-5 h-5" /></button>
-                <button onClick={onRemove} className="text-on-surface-variant hover:text-red-500 p-2 rounded-full transition-colors"><TrashIcon className="w-5 h-5" /></button>
-            </div>
-        </div>
-    );
-});
+// ★★★ 
+// ★★★ 
+// ★★★ 
+// ★★★ 
+// ★★★ 
 
 // --- TimetableEditor (
 export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTimetable, setMode, storage, timeOffset }) => {
@@ -215,7 +39,7 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
         return () => clearInterval(timer);
     }, [timeOffset]);
 
-    // ★★★ 
+    // 
     const {
         schedule,
         eventEndTime,
@@ -229,112 +53,6 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
         handleRemoveDj,
         handleCopyDj
     } = useTimetable(timetable, eventConfig, setTimetable, setEventConfig, now, setIsResetConfirmOpen);
-    // ★★★ 
-
-    // ★★★ 
-    // const { schedule, eventEndTime, currentlyPlayingIndex, recalculateTimes, handleEventConfigChange, handleUpdate, addNewDj, executeReset, handleRemoveDj, handleCopyDj } = useMemo(() => {
-    // 
-    //     const recalculateTimes = (timetableData, eventStartTime) => {
-    //         if (!timetableData || timetableData.length === 0) return [];
-    //         const recalculated = [];
-    //         let lastEndTime = parseTime(eventStartTime);
-    //         for (let i = 0; i < timetableData.length; i++) {
-    //             const currentDjData = { ...timetableData[i] };
-    //             const currentStartTime = new Date(lastEndTime);
-    //             const durationMinutes = parseFloat(currentDjData.duration) || 0;
-    //             const currentEndTime = new Date(currentStartTime.getTime() + durationMinutes * 60 * 1000);
-    //             recalculated.push({
-    //                 ...currentDjData,
-    //                 startTime: currentStartTime.toTimeString().slice(0, 5),
-    //                 endTime: currentEndTime.toTimeString().slice(0, 5),
-    //             });
-    //             lastEndTime = currentEndTime;
-    //         }
-    //         return recalculated;
-    //     };
-    // 
-    //     const schedule = recalculateTimes(timetable, eventConfig.startTime);
-    //     const eventEndTime = schedule.length > 0 ? schedule[schedule.length - 1].endTime : null;
-    // 
-    //     const nowTime = new Date(now);
-    //     const currentlyPlayingIndex = schedule.findIndex(dj => {
-    //         const startTime = parseTime(dj.startTime);
-    //         const endTime = parseTime(dj.endTime);
-    //         if (endTime < startTime) {
-    //             return (nowTime >= startTime) || (nowTime < endTime);
-    //         }
-    //         return nowTime >= startTime && nowTime < endTime;
-    //     });
-    // 
-    //     const handleEventConfigChange = (field, value) => {
-    //         setEventConfig(prevConfig => {
-    //             const newConfig = { ...prevConfig, [field]: value };
-    //             if (field === 'startTime') {
-    //                 setTimetable(prevTimetable => recalculateTimes(prevTimetable, value));
-    //             }
-    //             return newConfig;
-    //         });
-    //     };
-    // 
-    //     const handleUpdate = (index, field, value) => {
-    //         setTimetable(prevTimetable => {
-    //             const newTimetable = [...prevTimetable];
-    //             newTimetable[index] = { ...newTimetable[index], [field]: value };
-    //             if (field === 'duration') {
-    //                 return recalculateTimes(newTimetable, eventConfig.startTime);
-    //             }
-    //             return newTimetable;
-    //         });
-    //     };
-    // 
-    //     const addNewDj = (isBuffer = false) => {
-    //         setTimetable(prevTimetable => {
-    //             const lastDj = prevTimetable[prevTimetable.length - 1];
-    //             const duration = isBuffer ? 5 : (lastDj ? lastDj.duration : 60);
-    //             const newDjData = { id: Date.now(), name: isBuffer ? 'バッファー' : `DJ ${prevTimetable.filter(d => !d.isBuffer).length + 1}`, duration: duration, imageUrl: '', color: VIVID_COLORS[Math.floor(Math.random() * VIVID_COLORS.length)], isBuffer, };
-    //             return recalculateTimes([...prevTimetable, newDjData], eventConfig.startTime);
-    //         });
-    //     };
-    // 
-    //     const executeReset = () => {
-    //         setTimetable([]);
-    //         setEventConfig({ title: 'My Awesome Event', startTime: '22:00' });
-    //         setIsResetConfirmOpen(false);
-    //     };
-    // 
-    //     const handleRemoveDj = (index) => setTimetable(prevTimetable => recalculateTimes(prevTimetable.filter((_, i) => i !== index), eventConfig.startTime));
-    // 
-    //     const handleCopyDj = (index) => {
-    //         setTimetable(prevTimetable => {
-    //             const djToCopy = { ...prevTimetable[index], id: Date.now() };
-    //             const newTimetable = [...prevTimetable.slice(0, index + 1), djToCopy, ...prevTimetable.slice(index + 1)];
-    //             return recalculateTimes(newTimetable, eventConfig.startTime);
-    //         });
-    //     };
-    // 
-    //     return { schedule, eventEndTime, currentlyPlayingIndex, recalculateTimes, handleEventConfigChange, handleUpdate, addNewDj, executeReset, handleRemoveDj, handleCopyDj };
-    // 
-    // }, [timetable, eventConfig.startTime, now, setEventConfig, setTimetable, setIsResetConfirmOpen]);
-    // ★★★ 
-
-    // ★★★ 
-    // const totalEventDuration = useMemo(() => {
-    //     const totalMinutes = timetable.reduce((sum, dj) => {
-    //         return sum + (parseFloat(dj.duration) || 0);
-    //     }, 0);
-    // 
-    //     if (totalMinutes === 0) return null;
-    // 
-    //     const hours = Math.floor(totalMinutes / 60);
-    //     const minutes = Math.round(totalMinutes % 60);
-    // 
-    //     if (hours > 0) {
-    //         return `${hours}時間 ${minutes}分`;
-    //     } else {
-    //         return `${minutes}分`;
-    //     }
-    // }, [timetable]);
-    // ★★★ 
 
     // 
     const {
