@@ -15,13 +15,16 @@ import {
     SunIcon, // 
     MoonIcon, // 
     TrashIcon, // 
-    parseTime, // 
+    parseTime, // ★ parseDateTime は useTimetable が内部で使うのでここでは不要
     GripIcon, // 
-    VIVID_COLORS // 
+    VIVID_COLORS, // 
+    CalendarIcon, // ★ インポート
+    parseDateTime, // ★ インポート
+    getTodayDateString // ★ インポート
 } from './common';
 
 
-// ★★★ VJリストのアイテム (先輩の要望通り UI 修正) ★★★
+// ★★★ VJリストのアイテム (変更なし) ★★★
 const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging }) => {
     const draggingClass = isDragging ? 'dragging-item' : '';
 
@@ -76,17 +79,17 @@ const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging }) => {
 // ★★★ VJアイテム ここまで ★★★
 
 
-// ★★★ VJタイムテーブル管理 (ロジックフックの変更に対応) ★★★
-const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartTimeStr, now }) => {
+// ★★★ VJタイムテーブル管理 (useTimetable の呼び出しを修正) ★★★
+const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, eventStartTimeStr, now }) => {
 
-    // 1. VJ用のロジックフックを呼び出し (now を渡す)
+    // 1. VJ用のロジックフック (★ eventStartDateStr を渡す)
     const {
         schedule: vjSchedule, // VJのスケジュール (Dateオブジェクトなど計算済み)
         eventStartTimeDate: vjEventStartTimeDate, // ★ VJの基点となる Date
         recalculateTimes: recalculateVjTimes // VJの時間再計算関数
-    } = useTimetable(vjTimetable, eventStartTimeStr, now);
+    } = useTimetable(vjTimetable, eventStartDateStr, eventStartTimeStr, now); // ★ 変更
 
-    // 2. VJ用のD&Dフックを呼び出し
+    // 2. VJ用のD&Dフック (★ 第4引数の依存配列を修正)
     const {
         draggedIndex: vjDraggedIndex,
         overIndex: vjOverIndex,
@@ -94,8 +97,7 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartTimeStr, no
         listContainerRef: vjListContainerRef,
         handlePointerDown: handleVjPointerDown,
         getDragStyles: getVjDragStyles,
-        // ★ recalculateTimes が基点時刻を要求するようになったので、D&Dフックの呼び出し方を修正
-    } = useDragAndDrop(vjTimetable, setVjTimetable, (newTable) => recalculateVjTimes(newTable, vjEventStartTimeDate), eventStartTimeStr);
+    } = useDragAndDrop(vjTimetable, setVjTimetable, (newTable) => recalculateVjTimes(newTable, vjEventStartTimeDate), [eventStartDateStr, eventStartTimeStr]); // ★ 第4引数を修正
 
 
     // VJ追加 (duration で追加)
@@ -178,7 +180,7 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartTimeStr, no
 // ★★★ VJマネージャー ここまで ★★★
 
 
-// --- SettingsModal (変更なし) ---
+// --- ★★★ SettingsModal (日付入力UIを追加) ★★★ ---
 const SettingsModal = ({
     isOpen,
     onClose,
@@ -238,7 +240,7 @@ const SettingsModal = ({
 
                 <h2 className="text-2xl font-bold mb-6">設定</h2>
 
-                {/* --- 1. --- */}
+                {/* --- 1. イベント設定 (★ 日付入力フィールド追加) --- */}
                 <div className="mb-6">
                     <h3 className="text-sm font-bold text-on-surface-variant tracking-wider uppercase mb-3">イベント設定</h3>
                     <div className="space-y-4">
@@ -252,6 +254,21 @@ const SettingsModal = ({
                                 placeholder="イベントタイトル"
                             />
                         </div>
+
+                        {/* ★★★ 開始日と開始時刻を上下2段に変更 ★★★ */}
+                        <div>
+                            <label className="text-xs text-on-surface-variant mb-1 block">イベント開始日</label>
+                            <div className="relative">
+                                <input
+                                    type="date"
+                                    value={eventConfig.startDate || ''} // YYYY-MM-DD
+                                    onChange={(e) => handleEventConfigChange('startDate', e.target.value)}
+                                    // ★★★ p-3 に修正して高さを合わせる ★★★
+                                    className="bg-surface-background text-on-surface p-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary font-mono font-bold text-base appearance-none pr-10"
+                                />
+                                <CalendarIcon className="w-5 h-5 text-on-surface-variant absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                            </div>
+                        </div>
                         <div>
                             <label className="text-xs text-on-surface-variant mb-1 block">イベント開始時間</label>
                             <CustomTimeInput
@@ -259,13 +276,14 @@ const SettingsModal = ({
                                 onChange={(v) => handleEventConfigChange('startTime', v)}
                             />
                         </div>
+                        {/* ★★★ ここまで ★★★ */}
 
                         {/* */}
                         <VjFeatureToggle />
                     </div>
                 </div>
 
-                {/* --- 2. --- */}
+                {/* --- 2. アプリ設定 (変更なし) --- */}
                 <div className="mb-6">
                     <h3 className="text-sm font-bold text-on-surface-variant tracking-wider uppercase mb-3">アプリ設定</h3>
                     <div className="space-y-4">
@@ -282,7 +300,7 @@ const SettingsModal = ({
                     </div>
                 </div>
 
-                {/* --- 3. --- */}
+                {/* --- 3. 危険ゾーン (変更なし) --- */}
                 <div>
                     <h3 className="text-sm font-bold text-red-400 tracking-wider uppercase mb-3">危険ゾーン</h3>
                     <button
@@ -298,7 +316,7 @@ const SettingsModal = ({
         </div>
     );
 };
-// 
+// ★★★ SettingsModal ここまで ★★★
 
 // (日付フォーマット関数 - 変更なし)
 const formatDateTime = (date) => {
@@ -314,8 +332,7 @@ const formatDateTime = (date) => {
 };
 
 
-// --- TimetableEditor (
-// 
+// --- ★★★ TimetableEditor (useTimetable 呼び出しを大幅修正) ★★★
 export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTimetable, vjTimetable, setVjTimetable, setMode, storage, timeOffset, theme, toggleTheme }) => {
 
     const [openColorPickerId, setOpenColorPickerId] = useState(null);
@@ -330,7 +347,7 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
     }, [timeOffset]);
 
 
-    // 1. DJ用のロジックフック (now を渡す)
+    // 1. DJ用のロジックフック (★ eventStartDateStr を渡す)
     const {
         schedule,
         eventEndTime,
@@ -339,9 +356,9 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
         currentlyPlayingIndex,
         totalEventDuration,
         recalculateTimes,
-    } = useTimetable(timetable, eventConfig.startTime, now); // ★ now を渡す
+    } = useTimetable(timetable, eventConfig.startDate, eventConfig.startTime, now); // ★ 変更
 
-    // 2. DJ用のD&Dフック (recalculateTimes の呼び出し方を修正)
+    // 2. DJ用のD&Dフック (★ 第4引数の依存配列を修正)
     const {
         draggedIndex,
         overIndex,
@@ -349,24 +366,27 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
         listContainerRef,
         handlePointerDown,
         getDragStyles,
-    } = useDragAndDrop(timetable, setTimetable, (newTable) => recalculateTimes(newTable, eventStartTimeDate), eventConfig.startTime);
+    } = useDragAndDrop(timetable, setTimetable, (newTable) => recalculateTimes(newTable, eventStartTimeDate), [eventConfig.startDate, eventConfig.startTime]); // ★ 第4引数を修正
 
-    // 3. イベント設定変更
+    // 3. ★ イベント設定変更 (ロジック修正)
     const handleEventConfigChange = (field, value) => {
         setEventConfig(prevConfig => {
             const newConfig = { ...prevConfig, [field]: value };
-            if (field === 'startTime') {
-                // ★ startTime (HH:MM) が変わった場合、
-                // recalculateTimes は「基点時刻(Date)」を要求するので、
-                // ここでは parseTime で "今日" の Date を暫定的に渡す
-                // (次の now の更新で useTimetable が正しい基点時刻に補正してくれる)
-                setTimetable(prevTimetable => recalculateTimes(prevTimetable, parseTime(value)));
+
+            // ★ 開始日または開始時刻が変わったら、時間再計算
+            if (field === 'startDate' || field === 'startTime') {
+                // ★ 新しい日付と時刻から「基点時刻(Date)」を生成して渡す
+                const newBaseTime = parseDateTime(newConfig.startDate, newConfig.startTime);
+                setTimetable(prevTimetable => recalculateTimes(prevTimetable, newBaseTime));
+
+                // ★ VJテーブルも再計算 (VjTimetableManager側でフックが再実行される)
+                // (VjTimetableManager が eventConfig の startDate/startTime を見てるため)
             }
             return newConfig;
         });
     };
 
-    // 4. DJアイテムの更新
+    // 4. DJアイテムの更新 (変更なし)
     const handleUpdate = (index, field, value) => {
         setTimetable(prevTimetable => {
             const newTimetable = [...prevTimetable];
@@ -379,7 +399,7 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
         });
     };
 
-    // 5. DJの追加
+    // 5. DJの追加 (変更なし)
     const addNewDj = (isBuffer = false) => {
         setTimetable(prevTimetable => {
             const lastDj = prevTimetable[prevTimetable.length - 1];
@@ -397,18 +417,24 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
         });
     };
 
-    // 6. リセット
+    // 6. ★ リセット (startDate もリセット)
     const executeReset = () => {
         setTimetable([]);
         setVjTimetable([]);
-        setEventConfig({ title: 'My Awesome Event', startTime: '22:00', vjFeatureEnabled: false });
+        // ★ startDate もリセット
+        setEventConfig({
+            title: 'My Awesome Event',
+            startDate: getTodayDateString(),
+            startTime: '22:00',
+            vjFeatureEnabled: false
+        });
         setIsResetConfirmOpen(false);
     };
 
-    // 7. DJの削除
+    // 7. DJの削除 (変更なし)
     const handleRemoveDj = (index) => setTimetable(prevTimetable => recalculateTimes(prevTimetable.filter((_, i) => i !== index), eventStartTimeDate));
 
-    // 8. DJのコピー
+    // 8. DJのコピー (変更なし)
     const handleCopyDj = (index) => {
         setTimetable(prevTimetable => {
             const djToCopy = { ...prevTimetable[index], id: Date.now() };
@@ -433,7 +459,7 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
         }
     };
 
-    // ★★★ インフォメーション表示用 (useTimetable から eventStartTimeDate をもらう) ★★★
+    // ★★★ インフォメーション表示用 (変更なし) ★★★
     const { displayStartTime, displayEndTime } = useMemo(() => {
         if (schedule.length > 0) {
             return {
@@ -590,12 +616,13 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
                 {/* --- ★ 右カラム (VJリスト) ★ --- */}
                 {eventConfig.vjFeatureEnabled && (
                     <div className="w-full lg:w-1/3 lg:max-w-md space-y-4">
-                        {/* ★ 新しくなった VjTimetableManager を呼び出す */}
+                        {/* ★ VjTimetableManager に eventConfig.startDate を渡す ★ */}
                         <VjTimetableManager
                             vjTimetable={vjTimetable}
                             setVjTimetable={setVjTimetable}
-                            eventStartTimeStr={eventConfig.startTime} // ★ DJの開始時刻(HH:MM)を渡す
-                            now={now} // ★ 現在時刻を渡す
+                            eventStartDateStr={eventConfig.startDate} // ★ 追加
+                            eventStartTimeStr={eventConfig.startTime} // ★ 変更なし
+                            now={now} // ★ 変更なし
                         />
                     </div>
                 )}

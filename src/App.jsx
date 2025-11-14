@@ -8,9 +8,20 @@ import {
 
 // 
 import { TimetableEditor } from './components/TimetableEditor';
-import { AlertTriangleIcon } from './components/common'; // 
+import { AlertTriangleIcon, getTodayDateString } from './components/common'; // ★ getTodayDateString をインポート
 import { LiveView } from './components/LiveView'; // 
 import { useImagePreloader } from './hooks/useImagePreloader'; // 
+
+
+// ★★★ eventConfig の初期値に startDate を追加 ★★★
+const getDefaultEventConfig = () => ({
+    title: 'DJ Timekeeper Pro',
+    // ★ 今日の日付を YYYY-MM-DD 形式で設定
+    startDate: getTodayDateString(),
+    startTime: '22:00',
+    vjFeatureEnabled: false
+});
+// ★★★ ここまで ★★★
 
 
 // 
@@ -18,8 +29,10 @@ const App = () => {
     const [mode, setMode] = useState('edit');
     const [timetable, setTimetable] = useState([]);
     const [vjTimetable, setVjTimetable] = useState([]); // 
-    // 
-    const [eventConfig, setEventConfig] = useState({ title: 'DJ Timekeeper Pro', startTime: '22:00', vjFeatureEnabled: false });
+
+    // ★★★ eventConfig の初期値を↑の関数から取得 ★★★
+    const [eventConfig, setEventConfig] = useState(getDefaultEventConfig());
+
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [appStatus, setAppStatus] = useState('connecting');
     const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -130,9 +143,18 @@ const App = () => {
                 const data = docSnap.data();
                 setTimetable(data.timetable || []);
                 setVjTimetable(data.vjTimetable || []); // 
-                setEventConfig(data.eventConfig || { title: 'DJ Timekeeper Pro', startTime: '22:00', vjFeatureEnabled: false });
+
+                // ★★★ DBから読み込んだデータが古い形式の場合、デフォルト値で補完する ★★★
+                setEventConfig(prevConfig => ({
+                    ...getDefaultEventConfig(), // デフォルト値を下に敷く
+                    ...(data.eventConfig || {}), // DBの値を上書き
+                    // もしDBにstartDateがなければ、getDefaultで今日の日付が入る
+                }));
+                // ★★★ ここまで ★★★
+
             } else {
                 console.log("No shared document! Creating initial data.");
+                // ★★★ eventConfigはデフォルト（今日の日付）のまま ★★★
             }
             // 
             if (isInitialLoading) {
@@ -263,7 +285,7 @@ const firebaseConfig = {
                         <LiveView
                             timetable={timetable}
                             vjTimetable={vjTimetable} // 
-                            eventConfig={eventConfig}
+                            eventConfig={eventConfig} // ★ eventConfig (startDate入り) を渡す
                             setMode={handleSetMode}
                             loadedUrls={loadedUrls}
                             timeOffset={timeOffset}

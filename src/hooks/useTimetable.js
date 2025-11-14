@@ -1,71 +1,112 @@
-import { useMemo } from 'react';
-import { parseTime } from '../components/common';
+import { useMemo, useCallback } from 'react'; // ★ useCallback をインポート
+import { parseDateTime } from '../components/common'; // ★ parseDateTime をインポート
 
-// ★★★ LiveView.jsx とロジックを完全に統一っす！ ★★★
-export const useTimetable = (timetable, eventStartTimeStr, now) => {
+// ★★★ シグネチャ（引数）は変更なし ★★★
+export const useTimetable = (timetable, eventStartDateStr, eventStartTimeStr, now) => {
 
-    // 1. LiveView と同じロジックで「有効な」イベントの開始/終了時刻と状態を判定
-    const { activeStartTime, eventEndTimeDate, eventStatus } = useMemo(() => {
-        if (timetable.length === 0) {
-            const startTime = parseTime(eventStartTimeStr);
-            return {
-                activeStartTime: startTime, // 基点時刻
-                eventEndTimeDate: startTime, // 終了時刻
-                eventStatus: 'UPCOMING', // 状態
-            };
-        }
+    // 1. ★★★ イベントの基点となる「単一の」Dateオブジェクト (変更なし) ★★★
+    const eventStartTimeDate = useMemo(() => {
+        return parseDateTime(eventStartDateStr, eventStartTimeStr);
+    }, [eventStartDateStr, eventStartTimeStr]);
 
-        const nowTime = new Date(now).getTime();
 
-        const totalDurationMs = timetable.reduce((sum, dj) => {
+    // 2. ★★★ 状態判定ロジックに「3時間バッファー」を導入 ★★★
+    const {
+        schedule,
+        eventEndTimeDate,
+        eventStatus,
+        currentlyPlayingIndex,
+        totalEventDurationMs
+    } = useMemo(() => {
+
+        // (A) 合計時間を計算 (ミリ秒)
+        const totalMs = timetable.reduce((sum, dj) => {
             return sum + (parseFloat(dj.duration) || 0) * 60 * 1000;
         }, 0);
 
-        const startTimeToday = parseTime(eventStartTimeStr);
-        const endTimeToday = new Date(startTimeToday.getTime() + totalDurationMs);
+        if (totalMs === 0) {
+            // タイムテーブルが空の場合
+            const nowTime = new Date(now).getTime();
+            const startTimeMs = eventStartTimeDate.getTime();
+            const upcomingBufferMs = 3 * 60 * 60 * 1000; // 3時間
 
-        const startTimeYesterday = new Date(startTimeToday.getTime() - 24 * 60 * 60 * 1000);
-        const endTimeYesterday = new Date(endTimeToday.getTime() - 24 * 60 * 60 * 1000);
+            let status = 'STANDBY';
+            if (nowTime < (startTimeMs - upcomingBufferMs)) {
+                status = 'STANDBY';
+            } else if (nowTime < startTimeMs) {
+                status = 'UPCOMING';
+            } else {
+                status = 'FINISHED'; // 開始時刻を過ぎたらもう FINISHED 扱い
+            }
 
-        const bufferMs = 3 * 60 * 60 * 1000;
+            return {
+                schedule: [],
+                eventEndTimeDate: new Date(eventStartTimeDate.getTime()), // 終了時刻＝開始時刻
+                eventStatus: status,
+                currentlyPlayingIndex: -1,
+                totalEventDurationMs: 0,
+            };
+        }
 
-        let activeStartTime = startTimeToday;
-        let status = 'STANDBY';
+        // (B) イベントの「絶対的な」終了時刻を計算
+        const endTimeDate = new Date(eventStartTimeDate.getTime() + totalMs);
 
-        if (nowTime >= startTimeYesterday.getTime() && nowTime < endTimeYesterday.getTime()) {
-            activeStartTime = startTimeYesterday;
-            status = 'ON_AIR_BLOCK';
-        } else if (nowTime >= endTimeYesterday.getTime() && nowTime < (endTimeYesterday.getTime() + bufferMs)) {
-            activeStartTime = startTimeYesterday;
-            status = 'FINISHED';
-        } else if (nowTime >= (startTimeToday.getTime() - bufferMs) && nowTime < startTimeToday.getTime()) {
-            activeStartTime = startTimeToday;
-            status = 'UPCOMING';
-        } else if (nowTime >= startTimeToday.getTime() && nowTime < endTimeToday.getTime()) {
-            activeStartTime = startTimeToday;
-            status = 'ON_AIR_BLOCK';
-        } else if (nowTime < startTimeYesterday.getTime() - bufferMs) {
-            activeStartTime = startTimeYesterday;
-            status = 'STANDBY';
-        } else if (nowTime > endTimeToday.getTime()) {
-            activeStartTime = startTimeToday;
-            status = 'FINISHED';
+        // (C) スケジュール配列を計算 (recalculateTimes と同じロジック)
+        const calculatedSchedule = [];
+        let lastEndTime = new Date(eventStartTimeDate.getTime()); // 基点時刻からスタート
+
+        for (let i = 0; i < timetable.length; i++) {
+            const currentItem = { ...timetable[i] };
+            const currentStartTime = new Date(lastEndTime);
+            const durationMinutes = parseFloat(currentItem.duration) || 0;
+            const currentEndTime = new Date(currentStartTime.getTime() + durationMinutes * 60 * 1000);
+
+            calculatedSchedule.push({
+                ...currentItem,
+                startTime: currentStartTime.toTimeString().slice(0, 5),
+                endTime: currentEndTime.toTimeString().slice(0, 5),
+                startTimeDate: currentStartTime,
+                endTimeDate: currentEndTime,
+            });
+            lastEndTime = currentEndTime;
+        }
+
+        // (D) ★★★ 現在の状態と再生中インデックスを計算 (ロジック修正) ★★★
+        const nowTime = new Date(now).getTime();
+        const startTimeMs = eventStartTimeDate.getTime();
+        const upcomingBufferMs = 3 * 60 * 60 * 1000; // 3時間
+
+        let status = 'STANDBY'; // デフォルト
+        let playingIndex = -1;
+
+        if (nowTime < (startTimeMs - upcomingBufferMs)) {
+            status = 'STANDBY'; // 3時間以上前
+        } else if (nowTime < startTimeMs) {
+            status = 'UPCOMING'; // 3時間前から開始まで
+        } else if (nowTime >= endTimeDate.getTime()) {
+            status = 'FINISHED'; // 終了
         } else {
-            activeStartTime = startTimeToday;
-            status = 'STANDBY';
+            // イベント開催期間中
+            status = 'ON_AIR_BLOCK';
+            playingIndex = calculatedSchedule.findIndex(item => {
+                const startTime = item.startTimeDate.getTime();
+                const endTime = item.endTimeDate.getTime();
+                return nowTime >= startTime && nowTime < endTime;
+            });
         }
 
         return {
-            activeStartTime: activeStartTime,
-            eventEndTimeDate: new Date(activeStartTime.getTime() + totalDurationMs),
+            schedule: calculatedSchedule,
+            eventEndTimeDate: endTimeDate,
             eventStatus: status,
+            currentlyPlayingIndex: playingIndex,
+            totalEventDurationMs: totalMs,
         };
 
-    }, [timetable, eventStartTimeStr, now]);
+    }, [timetable, eventStartTimeDate, now]); // ★ 依存配列は変更なし
 
 
-    // 2. `recalculateTimes` 関数を useMemo の外に出す (D&Dや更新で使えるように)
-    // この関数は「基点時刻」を引数に取る純粋な計算機にするっす
+    // 3. (変更なし) D&Dや更新で使えるように外に出しておく
     const recalculateTimes = useCallback((timetableData, baseStartTimeDate) => {
         if (!timetableData || timetableData.length === 0) return [];
         const recalculated = [];
@@ -90,32 +131,10 @@ export const useTimetable = (timetable, eventStartTimeStr, now) => {
         return recalculated;
     }, []); // 依存配列なし
 
-    // 3. schedule と currentlyPlayingIndex を `activeStartTime` を使って計算
-    const { schedule, currentlyPlayingIndex } = useMemo(() => {
-        // ★ `activeStartTime` を基点にスケジュールを計算
-        const calculatedSchedule = recalculateTimes(timetable, activeStartTime);
 
-        // ★ `now` と `eventStatus` を使って再生中インデックスを計算
-        let playingIndex = -1;
-        if (eventStatus === 'ON_AIR_BLOCK') {
-            const nowTime = new Date(now).getTime();
-            playingIndex = calculatedSchedule.findIndex(item => {
-                const startTime = item.startTimeDate.getTime();
-                const endTime = item.endTimeDate.getTime();
-                return nowTime >= startTime && nowTime < endTime;
-            });
-        }
-
-        return { schedule: calculatedSchedule, currentlyPlayingIndex: playingIndex };
-
-    }, [timetable, activeStartTime, eventStatus, now, recalculateTimes]);
-
-
-    // 4. トータル時間
+    // 4. (変更なし) トータル時間 (HH:MM表示用)
     const totalEventDuration = useMemo(() => {
-        const totalMinutes = timetable.reduce((sum, item) => {
-            return sum + (parseFloat(item.duration) || 0);
-        }, 0);
+        const totalMinutes = totalEventDurationMs / 60 / 1000;
 
         if (totalMinutes === 0) return null;
         const hours = Math.floor(totalMinutes / 60);
@@ -126,15 +145,33 @@ export const useTimetable = (timetable, eventStartTimeStr, now) => {
         } else {
             return `${minutes}分`;
         }
-    }, [timetable]);
+    }, [totalEventDurationMs]);
+
+    // 5. (変更なし) イベントの残り時間と経過時間 (LiveView用)
+    const { eventRemainingSeconds, eventElapsedSeconds } = useMemo(() => {
+        const nowTime = new Date(now).getTime();
+
+        const remaining = (eventEndTimeDate.getTime() - nowTime) / 1000;
+        const elapsed = (nowTime - eventStartTimeDate.getTime()) / 1000;
+
+        return {
+            eventRemainingSeconds: Math.max(0, remaining),
+            eventElapsedSeconds: Math.max(0, elapsed),
+        };
+    }, [now, eventStartTimeDate, eventEndTimeDate]);
+
 
     return {
-        schedule,
-        eventEndTime: eventEndTimeDate ? eventEndTimeDate.toTimeString().slice(0, 5) : null,
-        eventEndTimeDate: eventEndTimeDate, // ★ Date オブジェクトも渡す
-        eventStartTimeDate: activeStartTime, // ★ Date オブジェクトを渡す
-        currentlyPlayingIndex,
-        totalEventDuration,
-        recalculateTimes, // ★ 外に出した関数を渡す
+        schedule, // (C)
+        eventEndTime: eventEndTimeDate.toTimeString().slice(0, 5),
+        eventEndTimeDate, // (B)
+        eventStartTimeDate, // (A)
+        eventStatus, // (D)
+        currentlyPlayingIndex, // (D)
+        totalEventDuration, // (4)
+        recalculateTimes, // (3)
+        // (5) LiveViewで使うために追加
+        eventRemainingSeconds,
+        eventElapsedSeconds,
     };
 };

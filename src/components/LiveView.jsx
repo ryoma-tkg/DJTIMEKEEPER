@@ -1,14 +1,26 @@
 import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
-// 
-import { SimpleImage, UserIcon, parseTime, GodModeIcon, MenuIcon, XIcon, InfoIcon, ToastNotification, SettingsIcon, MoonIcon, SunIcon } from './common';
+import { useTimetable } from '../hooks/useTimetable'; // ★★★ インポート ★★★
+import {
+    SimpleImage,
+    UserIcon,
+    GodModeIcon,
+    MenuIcon,
+    XIcon,
+    InfoIcon,
+    ToastNotification,
+    SettingsIcon,
+    MoonIcon,
+    SunIcon
+} from './common';
 import { FullTimelineView } from './FullTimelineView';
 
-// 
+
+// (BackgroundImage - 変更なし)
 const BackgroundImage = memo(() => {
     return null;
 });
 
-// 
+// (LiveSettingsModal - 変更なし)
 const LiveSettingsModal = ({
     isOpen,
     onClose,
@@ -76,8 +88,8 @@ const LiveSettingsModal = ({
     );
 };
 
-// ★★★ VJバー (ロジックを `Date.getTime()` 比較に修正) ★★★
-const VjBar = ({ vjTimetable, now, djEventStartTime, djEventStatus }) => {
+// ★★★ VJバー (useTimetable を使うようにロジック修正) ★★★
+const VjBar = ({ vjTimetable, now, djEventStartDate, djEventStartTime, djEventStatus }) => {
 
     // 
     const formatVjTime = (seconds) => {
@@ -89,63 +101,28 @@ const VjBar = ({ vjTimetable, now, djEventStartTime, djEventStatus }) => {
         return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     };
 
-    // VJ用のスケジュールを計算 (LiveView本体の schedule 計算ロジックと全く同じ)
-    // ★ VJもDJと同時刻 (djEventStartTime) にスタートする前提
-    const vjSchedule = useMemo(() => {
-        if (vjTimetable.length === 0) return [];
-        const scheduleData = [];
-        let lastEndTime = parseTime(djEventStartTime);
+    // ★ 1. VJ用の useTimetable フックを呼び出す
+    const {
+        schedule: vjSchedule,
+        eventStatus: vjEventStatus,
+        currentlyPlayingIndex: currentlyPlayingVjIndex
+    } = useTimetable(vjTimetable, djEventStartDate, djEventStartTime, now);
 
-        for (const vj of vjTimetable) {
-            const startTime = new Date(lastEndTime);
-            const durationMinutes = parseFloat(vj.duration) || 0;
-            const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
 
-            scheduleData.push({
-                ...vj,
-                startTime: startTime.toTimeString().slice(0, 5),
-                endTime: endTime.toTimeString().slice(0, 5),
-                startTimeDate: startTime,
-                endTimeDate: endTime,
-            });
-
-            lastEndTime = endTime;
-        }
-        return scheduleData;
-    }, [vjTimetable, djEventStartTime]); // ★ djEventStartTime に依存
-
-    // VJの再生中インデックスを計算 (LiveView本体の currentlyPlayingIndex ロジックと全く同じ)
-    const currentlyPlayingVjIndex = useMemo(() => {
-        // ★ djEventStatus が 'ON_AIR_BLOCK' の時だけ判定する
-        if (djEventStatus !== 'ON_AIR_BLOCK') return -1;
-
-        const nowTime = new Date(now).getTime(); // Get time as number
-
-        // ★★★ VJ側も `Date` オブジェクトで比較するっす！ (バグ修正) ★★★
-        return vjSchedule.findIndex(vj => {
-            const startTime = vj.startTimeDate.getTime();
-            const endTime = vj.endTimeDate.getTime();
-            return nowTime >= startTime && nowTime < endTime;
-        });
-        // ★★★ 修正ここまで ★★★
-    }, [now, vjSchedule, djEventStatus]); // ★ djEventStatus に依存
-
-    // VJの残り時間を計算 (LiveView本体の ON AIR ロジックと全く同じ)
+    // VJの残り時間を計算
     const { currentVj, nextVj, remainingSeconds } = useMemo(() => {
         const nowTime = new Date(now).getTime(); // ★ now を数値で
 
         if (currentlyPlayingVjIndex === -1) {
-
-            // ★ UPCOMING の場合の「次のVJ」を探す
-            if (djEventStatus === 'UPCOMING' && vjSchedule.length > 0) {
+            // ★ VJフックのステータスが 'UPCOMING' の場合
+            if (vjEventStatus === 'UPCOMING' && vjSchedule.length > 0) {
                 return { currentVj: null, nextVj: vjSchedule[0], remainingSeconds: 0 };
             }
-            // ★ DJの合間 の場合の「次のVJ」を探す
-            if (djEventStatus === 'ON_AIR_BLOCK' && vjSchedule.length > 0) {
+            // ★ VJフックのステータスが 'ON_AIR_BLOCK' (＝DJの合間) の場合
+            if (vjEventStatus === 'ON_AIR_BLOCK' && vjSchedule.length > 0) {
                 const upcomingVj = vjSchedule.find(vj => nowTime < vj.startTimeDate.getTime());
                 return { currentVj: null, nextVj: upcomingVj || null, remainingSeconds: 0 };
             }
-
             return { currentVj: null, nextVj: null, remainingSeconds: 0 };
         }
 
@@ -153,17 +130,17 @@ const VjBar = ({ vjTimetable, now, djEventStartTime, djEventStatus }) => {
         const dj = vjSchedule[currentlyPlayingVjIndex];
         const nextDj = (currentlyPlayingVjIndex < vjSchedule.length - 1) ? vjSchedule[currentlyPlayingVjIndex + 1] : null;
 
-        // ★★★ VJの残り時間も `Date` オブジェクトから直接計算っす！ (バグ修正) ★★★
+        // ★★★ VJの残り時間も `Date` オブジェクトから直接計算 (変更なし)
         const remainingMs = (dj.endTimeDate.getTime() - nowTime);
-        // ★★★ 修正ここまで ★★★
         const remainingSec = Math.floor(remainingMs / 1000);
 
         return { currentVj: dj, nextVj: nextDj, remainingSeconds: remainingSec };
 
-    }, [currentlyPlayingVjIndex, vjSchedule, now, djEventStatus]); // ★ now に依存
+    }, [currentlyPlayingVjIndex, vjSchedule, vjEventStatus, now]); // ★ vjEventStatus に依存
 
 
     // ★ DJイベントが 'STANDBY' か 'FINISHED' の時は VJ バー自体を表示しない
+    // (これはDJのステータスを見るのが正しい)
     if (djEventStatus === 'STANDBY' || djEventStatus === 'FINISHED') {
         return null;
     }
@@ -211,7 +188,7 @@ const VjBar = ({ vjTimetable, now, djEventStartTime, djEventStatus }) => {
 // ★★★ VJバー ここまで ★★★
 
 
-// 
+// ★★★ LiveView 本体 (ロジックを useTimetable に一本化) ★★★
 export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedUrls, timeOffset, isReadOnly, theme, toggleTheme }) => { // 
     const [now, setNow] = useState(new Date(new Date().getTime() + timeOffset));
     const timelineContainerRef = useRef(null);
@@ -243,129 +220,32 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
     );
     const wakeLockRef = useRef(null); // 
 
-    // (前回修正した eventStartTime, eventEndTime, eventStatus の useMemo - 変更なし)
-    const { eventStartTime, eventEndTime, eventStatus } = useMemo(() => {
-        if (timetable.length === 0) {
-            const startTime = parseTime(eventConfig.startTime);
-            return {
-                eventStartTime: startTime,
-                eventEndTime: startTime,
-                eventStatus: 'UPCOMING',
-            };
-        }
 
-        const nowTime = new Date(now).getTime();
+    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+    // ★ 1. すべてのロジックを useTimetable フックから取得 ★
+    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+    const {
+        schedule,
+        eventStartTimeDate,
+        eventEndTimeDate,
+        eventStatus, // 'UPCOMING', 'ON_AIR_BLOCK', 'FINISHED', 'STANDBY'
+        currentlyPlayingIndex,
+        eventRemainingSeconds,
+        eventElapsedSeconds
+    } = useTimetable(
+        timetable,
+        eventConfig.startDate, // ★ 新しい日付を渡す
+        eventConfig.startTime,
+        now
+    );
 
-        const totalDurationMs = timetable.reduce((sum, dj) => {
-            return sum + (parseFloat(dj.duration) || 0) * 60 * 1000;
-        }, 0);
-
-        const startTimeToday = parseTime(eventConfig.startTime);
-        const endTimeToday = new Date(startTimeToday.getTime() + totalDurationMs);
-
-        const startTimeYesterday = new Date(startTimeToday.getTime() - 24 * 60 * 60 * 1000);
-        const endTimeYesterday = new Date(endTimeToday.getTime() - 24 * 60 * 60 * 1000);
-
-        const bufferMs = 3 * 60 * 60 * 1000;
-
-        let activeStartTime = startTimeToday;
-        let status = 'STANDBY';
-
-        if (nowTime >= startTimeYesterday.getTime() && nowTime < endTimeYesterday.getTime()) {
-            activeStartTime = startTimeYesterday;
-            status = 'ON_AIR_BLOCK';
-        } else if (nowTime >= endTimeYesterday.getTime() && nowTime < (endTimeYesterday.getTime() + bufferMs)) {
-            activeStartTime = startTimeYesterday;
-            status = 'FINISHED';
-        } else if (nowTime >= (startTimeToday.getTime() - bufferMs) && nowTime < startTimeToday.getTime()) {
-            activeStartTime = startTimeToday;
-            status = 'UPCOMING';
-        } else if (nowTime >= startTimeToday.getTime() && nowTime < endTimeToday.getTime()) {
-            activeStartTime = startTimeToday;
-            status = 'ON_AIR_BLOCK';
-        } else if (nowTime < startTimeYesterday.getTime() - bufferMs) {
-            activeStartTime = startTimeYesterday;
-            status = 'STANDBY'; // 
-        } else if (nowTime > endTimeToday.getTime()) {
-            activeStartTime = startTimeToday;
-            status = 'FINISHED';
-        } else {
-            activeStartTime = startTimeToday;
-            status = 'STANDBY';
-        }
-
-        return {
-            eventStartTime: activeStartTime,
-            eventEndTime: new Date(activeStartTime.getTime() + totalDurationMs),
-            eventStatus: status, // 'UPCOMING', 'ON_AIR_BLOCK', 'FINISHED', 'STANDBY'
-        };
-
-    }, [timetable, eventConfig.startTime, now]);
-
-
-    // (前回修正した schedule の useMemo - 変更なし)
-    const schedule = useMemo(() => {
-        if (timetable.length === 0) return [];
-        const scheduleData = [];
-
-        let lastEndTime = eventStartTime;
-
-        for (const dj of timetable) {
-            const startTime = new Date(lastEndTime);
-            const durationMinutes = parseFloat(dj.duration) || 0;
-            const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
-
-            scheduleData.push({
-                ...dj,
-                startTime: startTime.toTimeString().slice(0, 5),
-                endTime: endTime.toTimeString().slice(0, 5),
-                startTimeDate: startTime,
-                endTimeDate: endTime,
-            });
-
-            lastEndTime = endTime;
-        }
-        return scheduleData;
-    }, [timetable, eventStartTime]);
-
-    // ★★★ 修正箇所 1/3 (ロジック修正) ★★★
-    // (前回修正した currentlyPlayingIndex の useMemo)
-    const currentlyPlayingIndex = useMemo(() => {
-        // ★ eventStatus が ON_AIR_BLOCK の時だけ判定
-        if (eventStatus !== 'ON_AIR_BLOCK') return -1;
-
-        const nowTime = new Date(now).getTime(); // Get time as number
-
-        // ★★★ ロジックを `parseTime` 依存から `Date` オブジェクト依存に修正っす！
-        // これで "昨日" の 22:00 スタートのイベントが正しく判定されるっす
-        return schedule.findIndex(dj => {
-            // schedule 配列の Date オブジェクトをそのまま使う
-            const startTime = dj.startTimeDate.getTime();
-            const endTime = dj.endTimeDate.getTime();
-
-            // `now` が開始と終了の間にあればOK
-            return nowTime >= startTime && nowTime < endTime;
-        });
-        // ★★★ 修正ここまで ★★★
-    }, [now, schedule, eventStatus]); // ★ eventStatus に依存
-    // ★★★ 修正ここまで ★★★
-
-
-    // (前回修正した eventRemainingSeconds などの useMemo - 変更なし)
-    const { eventRemainingSeconds, eventElapsedSeconds } = useMemo(() => {
-        if (timetable.length === 0) {
-            const elapsed = (new Date(now).getTime() - eventStartTime.getTime()) / 1000;
-            return { eventRemainingSeconds: 0, eventElapsedSeconds: elapsed };
-        }
-
-        const remaining = (eventEndTime.getTime() - new Date(now).getTime()) / 1000;
-        const elapsed = (new Date(now).getTime() - eventStartTime.getTime()) / 1000;
-
-        return {
-            eventRemainingSeconds: Math.max(0, remaining),
-            eventElapsedSeconds: Math.max(0, elapsed),
-        };
-    }, [schedule, now, eventStartTime, eventEndTime, timetable.length]);
+    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+    // ★ 2. 以下の 重複した useMemo ロジックをすべて削除 (120行以上！) ★
+    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+    // const { eventStartTime, eventEndTime, eventStatus } = useMemo(() => { ... }); // 削除
+    // const schedule = useMemo(() => { ... }); // 削除
+    // const currentlyPlayingIndex = useMemo(() => { ... }); // 削除
+    // const { eventRemainingSeconds, eventElapsedSeconds } = useMemo(() => { ... }); // 削除
 
 
     useEffect(() => {
@@ -381,24 +261,23 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         };
     }, [timeOffset]);
 
-    // ★★★ 修正箇所 2/3 (ロジック修正) ★★★
-    // (前回修正した useEffect (currentDataの判定))
+    // ★★★ 3. currentDataの判定 (ロジックは useTimetable の結果を使うように修正) ★★★
     useEffect(() => {
-        const currentIndex = currentlyPlayingIndex;
+        const currentIndex = currentlyPlayingIndex; // フックから取得
         let newContentData = null;
         const nowTime = new Date(now).getTime(); // ★ now を数値で
 
-        switch (eventStatus) {
+        switch (eventStatus) { // フックから取得
             case 'ON_AIR_BLOCK':
                 if (currentIndex !== -1) {
                     // --- ON AIR ---
                     const dj = schedule[currentIndex];
                     const nextDj = (currentIndex < schedule.length - 1) ? schedule[currentIndex + 1] : null;
 
-                    // ★★★ DJの残り時間も `Date` オブジェクトから直接計算っす！ (バグ修正) ★★★
+                    // ★★★ DJの残り時間 (ロジック変更なし、Dateオブジェクトで計算)
                     const total = (dj.endTimeDate.getTime() - dj.startTimeDate.getTime()) / 1000;
                     const remainingMs = (dj.endTimeDate.getTime() - nowTime);
-                    // ★★★ 修正ここまで ★★★
+                    // ★★★ 
 
                     const remainingSeconds = Math.floor(remainingMs / 1000);
                     const visualProgress = (remainingSeconds <= 0 && remainingMs > -1000)
@@ -428,6 +307,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                             animationKey: `upcoming-${upcomingDj.id}`
                         };
                     } else {
+                        // スケジュールは存在するが、最後のDJの合間 (ありえないはずだが念のため)
                         newContentData = {
                             id: 'finished',
                             status: 'FINISHED',
@@ -453,11 +333,15 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                             animationKey: `upcoming-${upcomingDj.id}`
                         };
                     } else {
+                        // スケジュールが空の場合
+                        const remainingMs = (eventStartTimeDate.getTime() - nowTime); // ★ フックから取得
+                        const remainingSeconds = Math.ceil(remainingMs / 1000);
+
                         newContentData = {
                             id: 'empty',
                             status: 'UPCOMING',
                             animationKey: 'empty',
-                            timeLeft: 0,
+                            timeLeft: remainingSeconds, // 開始までの時間を表示
                             progress: 0,
                             nextDj: null
                         };
@@ -475,6 +359,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
 
             case 'STANDBY':
             default:
+                // (useTimetable のロジック変更により、STANDBY は実質 UPCOMING か FINISHED になるはず)
                 newContentData = {
                     id: 'standby',
                     status: 'STANDBY',
@@ -485,7 +370,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
 
         setCurrentData(newContentData);
 
-    }, [now, schedule, currentlyPlayingIndex, eventStatus, eventStartTime]);
+    }, [now, schedule, currentlyPlayingIndex, eventStatus, eventStartTimeDate]); // ★ 依存配列を修正
     // ★★★ 修正ここまで ★★★
 
     // (useEffect (visibleContent) - 変更なし)
@@ -641,7 +526,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
 
     // (handleTimerClick - 変更なし)
     const handleTimerClick = () => {
-        if (schedule.length === 0) return;
+        if (schedule.length === 0 && eventStatus !== 'UPCOMING') return; // ★ スケジュール空でも UPCOMING なら押せるように
 
         if (timerDisplayMode === 'currentTime') {
             setTimerDisplayMode('eventRemaining');
@@ -656,18 +541,16 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
     };
 
 
-    // (renderContent - 変更なし、STANDBYが追加されただけ)
+    // (renderContent - 変更なし)
     const renderContent = (content) => {
         if (!content) return null;
 
         // --- UPCOMING ---
         if (content.status === 'UPCOMING') {
-            const dj = content;
+            const dj = content; // content は dj or "empty" object
 
-            const eventStartTimeStr = eventConfig.startTime;
-            const eventEndTimeStr = schedule.length > 0 && dj.endTime
-                ? schedule[schedule.length - 1].endTime
-                : eventStartTimeStr;
+            const eventStartTimeStr = eventStartTimeDate.toTimeString().slice(0, 5); // ★ フックから
+            const eventEndTimeStr = eventEndTimeDate.toTimeString().slice(0, 5); // ★ フックから
 
             const displayColor = schedule.length > 0 && dj.color ? dj.color : '#888888';
             const eventTitle = eventConfig.title || "イベント待機中";
@@ -679,16 +562,17 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
 
                     <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold break-words leading-tight">{eventTitle}</h1>
 
-                    <p className="text-lg sm:text-2xl md:text-3xl font-semibold tracking-wider font-mono mt-4" style={{ color: displayColor }}>
-                        {eventStartTimeStr} - {eventEndTimeStr}
-                    </p>
-
                     {schedule.length > 0 && (
-                        <p className="flex flex-col items-center justify-center text-5xl sm:text-6xl md:text-8xl text-on-surface my-12">
-                            <span className="text-xl sm:text-3xl md:text-4xl text-on-surface-variant font-sans font-bold mb-2">開始まで</span>
-                            <span className="font-mono inline-block text-center w-[5ch]">{formatTime(dj.timeLeft)}</span>
+                        <p className="text-lg sm:text-2xl md:text-3xl font-semibold tracking-wider font-mono mt-4" style={{ color: displayColor }}>
+                            {eventStartTimeStr} - {eventEndTimeStr}
                         </p>
                     )}
+
+                    {/* ★ スケジュールが空でも開始まで時間を表示 */}
+                    <p className="flex flex-col items-center justify-center text-5xl sm:text-6xl md:text-8xl text-on-surface my-12">
+                        <span className="text-xl sm:text-3xl md:text-4xl text-on-surface-variant font-sans font-bold mb-2">開始まで</span>
+                        <span className="font-mono inline-block text-center w-[5ch]">{formatTime(dj.timeLeft)}</span>
+                    </p>
                 </main>
             );
         }
@@ -834,15 +718,12 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                         onClick={handleTimerClick}
                         title="クリックで表示切替"
                     >
-                        {/* */}
+                        {/* ★ eventRemainingSeconds をフックから取得 */}
                         {timerDisplayMode === 'currentTime' && (
                             now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
                         )}
-                        {timerDisplayMode === 'eventRemaining' && timetable.length > 0 && (
+                        {timerDisplayMode === 'eventRemaining' && (
                             `-${formatDurationHHMMSS(eventRemainingSeconds)}`
-                        )}
-                        {timerDisplayMode === 'eventRemaining' && timetable.length === 0 && (
-                            `-${formatDurationHHMMSS(0)}`
                         )}
                         {timerDisplayMode === 'eventElapsed' && (
                             `+${formatDurationHHMMSS(eventElapsedSeconds)}`
@@ -946,12 +827,13 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                 </div>
             </div>
 
-            {/* (VJバー - 変更なし) */}
+            {/* ★ VJバー (startDate を渡す) */}
             {eventConfig.vjFeatureEnabled && !isReadOnly && (
                 <VjBar
                     vjTimetable={vjTimetable}
                     now={now}
-                    djEventStartTime={eventConfig.startTime} // ★ DJの開始時刻(HH:MM)
+                    djEventStartDate={eventConfig.startDate} // ★ DJの開始「日」
+                    djEventStartTime={eventConfig.startTime} // ★ DJの開始「時刻」
                     djEventStatus={eventStatus} // ★ DJの現在の状態
                 />
             )}
