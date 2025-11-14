@@ -76,7 +76,7 @@ const LiveSettingsModal = ({
     );
 };
 
-// ★★★ VJバーのレイアウトを大幅修正っす！ ★★★
+// ★★★ VJバーのレイアウトをPC/SP共に修正っす！ ★★★
 const VjBar = ({ vjTimetable, now }) => {
     // 
     const formatVjTime = (seconds) => {
@@ -140,30 +140,32 @@ const VjBar = ({ vjTimetable, now }) => {
         <div className="absolute bottom-32 left-0 right-0 w-full h-auto min-h-[6rem] z-10 flex flex-col items-center justify-center px-4 md:px-8 py-4">
 
             {/* --- 区切り線（上） --- */}
-            <div className="w-full max-w-2xl border-t border-on-surface/10 mb-4" />
+            <div className="w-full max-w-3xl border-t border-on-surface/10 mb-4" /> {/* ★ max-w-3xl に変更 */}
 
             {/* --- VJ情報 (1ライン表示) --- */}
-            <div className="flex items-center justify-center gap-4 sm:gap-6 flex-wrap">
-                {/* --- 現在のVJ --- */}
+            <div className="flex items-baseline justify-center gap-2 sm:gap-4 flex-nowrap w-full max-w-3xl"> {/* ★ max-w-3xl に変更 */}
+
+                {/* --- 1. 現在のVJ --- */}
                 {currentVj ? (
-                    <div className="flex items-baseline gap-2">
-                        <span className="text-lg sm:text-2xl font-bold truncate max-w-[150px] sm:max-w-xs">{currentVj.name}</span>
-                        <span className="text-xl sm:text-3xl font-mono font-bold text-on-surface-variant">{formatVjTime(remainingSeconds)}</span>
+                    <div className="flex items-baseline gap-2 min-w-0"> {/* ★ min-w-0 追加 */}
+                        <span className="text-lg sm:text-2xl font-bold truncate max-w-[100px] sm:max-w-xs">{currentVj.name}</span>
+                        <span className="text-xl sm:text-3xl font-mono font-bold text-on-surface-variant tabular-nums">{formatVjTime(remainingSeconds)}</span>
                     </div>
                 ) : (
                     <span className="text-lg sm:text-2xl font-bold text-on-surface-variant/50">VJ STANDBY</span>
                 )}
 
-                {/* --- 区切り（現在と次がいる場合） --- */}
+                {/* --- 2. 区切り --- */}
                 {currentVj && nextVj && (
-                    <span className="text-2xl text-on-surface-variant/30 hidden sm:block">|</span>
+                    <span className="text-2xl text-on-surface-variant/30 mx-2 sm:mx-4">|</span>
                 )}
 
-                {/* --- 次のVJ --- */}
+                {/* --- 3. 次のVJ --- */}
                 {nextVj ? (
-                    <div className="flex items-baseline gap-2 text-left">
-                        <span className="text-xs sm:text-sm text-on-surface-variant uppercase font-bold">NEXT VJ</span>
-                        <span className="text-sm sm:text-lg font-semibold truncate max-w-[150px] sm:max-w-xs">{nextVj.name} <span className="font-mono text-on-surface-variant/70 ml-1">{nextVj.startTime}~</span></span>
+                    <div className="flex items-baseline gap-2 text-left min-w-0"> {/* ★ hidden 削除, min-w-0 追加 */}
+                        <span className="text-xs sm:text-sm text-on-surface-variant uppercase font-bold self-center">NEXT VJ</span>
+                        <span className="text-sm sm:text-lg font-semibold truncate max-w-[100px] sm:max-w-xs">{nextVj.name}</span>
+                        <span className="text-sm sm:text-lg font-mono text-on-surface-variant/70 whitespace-nowrap">{nextVj.startTime}~</span>
                     </div>
                 ) : null}
             </div>
@@ -631,9 +633,9 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
 
                 {/* 2. 時計 (PC: order-2, SP: order-3 / full-width) */}
                 <div className="w-full md:w-auto flex-shrink-0 mx-auto order-3 md:order-2">
-                    {/* */}
+                    {/* ★★★ ガタつき防止 (tabular-nums) を追加っす！ ★★★ */}
                     <div
-                        className="bg-surface-container/50 dark:bg-black/30 backdrop-blur-sm text-on-surface font-bold py-2 px-4 rounded-full text-xl tracking-wider font-mono text-center min-w-[10ch] cursor-pointer"
+                        className="bg-surface-container/50 dark:bg-black/30 backdrop-blur-sm text-on-surface font-bold py-2 px-4 rounded-full text-xl tracking-wider font-mono text-center min-w-[10ch] tabular-nums cursor-pointer"
                         onClick={handleTimerClick}
                         title="クリックで表示切替"
                     >
@@ -745,8 +747,8 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                 </div>
             </div>
 
-            {/* */}
-            {eventConfig.vjFeatureEnabled && (
+            {/* ★★★ VJバーの表示条件に「!isReadOnly」を追加っす！ ★★★ */}
+            {eventConfig.vjFeatureEnabled && !isReadOnly && (
                 <VjBar vjTimetable={vjTimetable} now={now} />
             )}
 

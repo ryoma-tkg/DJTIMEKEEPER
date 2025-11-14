@@ -46,7 +46,7 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable }) => {
     };
 
     return (
-        <div className="w-full flex-shrink-0 space-y-4">
+        <div className="w-full space-y-4">
             <h2 className="text-xl font-bold text-on-surface mb-2">VJ タイムテーブル</h2>
 
             <div className="space-y-4">
@@ -283,7 +283,7 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
     };
 
     return (
-        <div className="p-4 md:p-8 max-w-4xl mx-auto"> {/* ★★★ max-w-7xl から 4xl に戻すっす！ */}
+        <div className="p-4 md:p-8 max-w-7xl mx-auto"> {/* ★★★ max-w-7xl に修正っす！ ★★★ */}
             <ConfirmModal
                 isOpen={isResetConfirmOpen}
                 title="タイムテーブルをリセット"
@@ -345,28 +345,31 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
             </div>
 
 
-            {/* ★★★ 2カラムレイアウトをやめて、縦積みに戻すっす！ ★★★ */}
-            <div className="flex flex-col gap-8">
-
-                {/* --- DJリスト --- */}
-                <div className="flex-1 space-y-4">
-                    <div className="bg-surface-container rounded-xl p-4">
-                        {eventEndTime && (
-                            <div className="bg-surface-background text-on-surface-variant font-semibold py-2 px-4 rounded-full text-lg tracking-wider font-mono text-center mb-4 max-w-xs mx-auto">
-                                {eventConfig.startTime} - {eventEndTime}
-                            </div>
-                        )}
-
-                        {totalEventDuration && (
-                            <div className="text-center mb-0">
-                                <span className="text-xs text-on-surface-variant uppercase">Total DJ Time</span>
-                                <p className="text-2xl font-bold text-on-surface">{totalEventDuration}</p>
-                            </div>
-                        )}
+            {/* ★★★ 1. インフォメーション (カラムの外) ★★★ */}
+            <div className="bg-surface-container rounded-xl p-4 mb-8">
+                {eventEndTime && (
+                    <div className="bg-surface-background text-on-surface-variant font-semibold py-2 px-4 rounded-full text-lg tracking-wider font-mono text-center mb-4 max-w-xs mx-auto">
+                        {eventConfig.startTime} - {eventEndTime}
                     </div>
+                )}
 
-                    {/* ★★★ DJタイムテーブルの見出しを追加っす！ ★★★ */}
-                    <h2 className="text-xl font-bold text-on-surface mb-2 mt-4">DJ タイムテーブル</h2>
+                {totalEventDuration && (
+                    <div className="text-center mb-0">
+                        <span className="text-xs text-on-surface-variant uppercase">Total DJ Time</span>
+                        <p className="text-2xl font-bold text-on-surface">{totalEventDuration}</p>
+                    </div>
+                )}
+            </div>
+
+            {/* ★★★ 2. 2カラムレイアウト (lg:) ★★★ */}
+            <div className="flex flex-col lg:flex-row gap-8">
+
+                {/* --- ★ 左カラム (DJリスト) ★ --- */}
+                <div className="w-full lg:flex-1 space-y-4">
+                    {/* (インフォメーションは↑に移動) */}
+
+                    {/* --- DJタイムテーブル --- */}
+                    <h2 className="text-xl font-bold text-on-surface mb-2">DJ タイムテーブル</h2> {/* mt-4 削除 */}
 
                     <div className="space-y-4" ref={listContainerRef}>
                         {schedule.map((dj, index) => {
@@ -412,15 +415,17 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
                     </div>
                 </div>
 
-                {/* --- VJリスト --- */}
+                {/* --- ★ 右カラム (VJリスト) ★ --- */}
                 {eventConfig.vjFeatureEnabled && (
-                    <VjTimetableManager
-                        vjTimetable={vjTimetable}
-                        setVjTimetable={setVjTimetable}
-                    />
+                    <div className="w-full lg:w-1/3 lg:max-w-md space-y-4">
+                        <VjTimetableManager
+                            vjTimetable={vjTimetable}
+                            setVjTimetable={setVjTimetable}
+                        />
+                    </div>
                 )}
             </div>
-            {/* */}
+            {/* ★★★ 修正ここまで ★★★ */}
         </div>
     );
 };
