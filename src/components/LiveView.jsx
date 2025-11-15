@@ -138,20 +138,20 @@ const VjBar = ({ vjTimetable, now, djEventStartDate, djEventStartTime, djEventSt
     }
 
     return (
-        // ★ 修正: bottom-36 -> bottom-40 (要素を持ち上げ) (変更なし)
+        // (変更なし)
         <div className="absolute bottom-40 left-0 right-0 w-full h-auto min-h-[6rem] z-10 flex flex-col items-center justify-center px-4 md:px-8 py-4">
 
             <div className="w-full max-w-3xl border-t border-on-surface/10 mb-4" />
 
-            {/* ★★★ 修正: flex から grid-cols-3 に変更し、中央揃えを実現 ★★★ */}
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center w-full max-w-3xl">
+            {/* ★★★ ここが根本解決のコードです ★★★ */}
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center w-full max-w-3xl gap-4">
 
-                {/* --- 1. 現在のVJ (flex-1 削除、右寄せ) --- */}
-                <div className="flex items-center gap-3 min-w-0 justify-end">
+                {/* --- 1. 今のVJ (右寄せ) --- */}
+                <div className="flex items-center gap-6 min-w-0 justify-end">
                     {currentVj ? (
                         <>
                             <span className="flex-1 truncate text-right text-xl sm:text-2xl font-bold">{currentVj.name}</span>
-                            <span className="w-[8ch] text-left text-xl sm:text-2xl font-mono font-bold text-on-surface-variant tabular-nums">{formatVjTime(remainingSeconds)}</span>
+                            <span className="w-[7ch] text-left text-xl sm:text-2xl font-mono font-bold text-on-surface-variant tabular-nums">{formatVjTime(remainingSeconds)}</span>
                         </>
                     ) : (
                         nextVj ?
@@ -160,14 +160,13 @@ const VjBar = ({ vjTimetable, now, djEventStartDate, djEventStartTime, djEventSt
                     )}
                 </div>
 
-                {/* --- 2. 区切り (中央のカラム) --- */}
+                {/* --- 2. 区切り (中央) --- */}
                 <div className="text-center">
-                    {/* ★ この mx- で「開き具合」を調整してください (例: mx-2) ★ */}
-                    <span className="text-2xl text-on-surface-variant/30 mx-8 sm:mx-8">|</span>
+                    <span className="text-2xl text-on-surface-variant/30 mx-0 sm:mx-0"></span>
                 </div>
 
-                {/* --- 3. 次のVJ (flex-1 削除、左寄せ) --- */}
-                <div className="flex items-center gap-3 text-left min-w-0 justify-start">
+                {/* --- 3. 次のVJ (左寄せ) --- */}
+                <div className="flex items-center gap-3 text-left min-w-0 justify-start ml-12">
                     {nextVj ? (
                         <>
                             <span className="text-lg text-on-surface-variant uppercase font-bold tracking-widest self-center">NEXT VJ</span>
@@ -208,7 +207,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
     const wakeLockRef = useRef(null);
 
 
-    // ★ 1. すべてのロジックを useTimetable フックから取得 (変更なし)
+    // (変更なし)
     const {
         schedule,
         eventStartTimeDate,
@@ -224,7 +223,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         now
     );
 
-    // (useEffect - 変更なし)
+    // (変更なし)
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date(new Date().getTime() + timeOffset)), 1000);
         const updateWidth = () => {
@@ -238,7 +237,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         };
     }, [timeOffset]);
 
-    // ★ 3. currentDataの判定 (ロジックは useTimetable の結果を使うように修正) (変更なし)
+    // (変更なし)
     useEffect(() => {
         const currentIndex = currentlyPlayingIndex;
         let newContentData = null;
@@ -332,7 +331,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         setCurrentData(newContentData);
     }, [now, schedule, currentlyPlayingIndex, eventStatus, eventStartTimeDate]);
 
-    // (useEffect (visibleContent) - 変更なし)
+    // (変更なし)
     useEffect(() => {
         if (!visibleContent && currentData) {
             setVisibleContent(currentData);
@@ -358,7 +357,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         }
     }, [currentData, visibleContent]);
 
-    // (useEffect (WakeLock) - 変更なし)
+    // (変更なし)
     useEffect(() => {
         const requestWakeLock = async () => {
             if ('wakeLock' in navigator && isWakeLockEnabled) {
@@ -396,7 +395,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         };
     }, [isWakeLockEnabled]);
 
-    // (handleWakeLockToggle - 変更なし)
+    // (変更なし)
     const handleWakeLockToggle = () => {
         const newValue = !isWakeLockEnabled;
         setIsWakeLockEnabled(newValue);
@@ -408,7 +407,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         }
     };
 
-    // (timelineTransform - 変更なし)
+    // (変更なし)
     const timelineTransform = useMemo(() => {
         if (schedule.length === 0 || containerWidth === 0) return 'translateX(0px)';
         const itemWidth = 256, gap = 24, step = itemWidth + gap;
@@ -425,7 +424,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         return `translateX(${finalX}px)`;
     }, [visibleContent, containerWidth, schedule]);
 
-    // (formatTime - 変更なし)
+    // (変更なし)
     const formatTime = (seconds) => {
         if (seconds < 0) seconds = 0;
         const h = Math.floor(seconds / 3600);
@@ -434,7 +433,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     };
 
-    // (formatDurationHHMMSS - 変更なし)
+    // (変更なし)
     const formatDurationHHMMSS = (totalSeconds) => {
         if (totalSeconds < 0) totalSeconds = 0;
         const h = Math.floor(totalSeconds / 3600);
@@ -443,7 +442,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     };
 
-    // (bgColorStyle - 変更なし)
+    // (変更なし)
     const bgColorStyle = useMemo(() => {
         if (visibleContent?.status !== 'ON AIR' || isFadingOut) {
             return {};
@@ -454,7 +453,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         };
     }, [visibleContent, isFadingOut, theme]);
 
-    // (showToast - 変更なし)
+    // (変更なし)
     const showToast = (message) => {
         if (toastTimerRef.current) {
             clearTimeout(toastTimerRef.current);
@@ -469,7 +468,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         }, 100);
     };
 
-    // (handleTimerClick - 変更なし)
+    // (変更なし)
     const handleTimerClick = () => {
         if (schedule.length === 0 && eventStatus !== 'UPCOMING') return;
         if (timerDisplayMode === 'currentTime') {
@@ -485,7 +484,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
     };
 
 
-    // (renderContent - 変更なし)
+    // (変更なし)
     const renderContent = (content) => {
         if (!content) return null;
 
@@ -599,7 +598,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
     };
 
 
-    // (scheduleForModal - 変更なし)
+    // (変更なし)
     const scheduleForModal = useMemo(() => {
         if (schedule.length === 0) return [];
         return schedule.map(dj => ({
@@ -714,7 +713,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                 onWakeLockToggle={handleWakeLockToggle}
             />
 
-            {/* ★ 修正: bottom-32 -> bottom-40 (要素を持ち上げ) */}
+            {/* (変更なし) */}
             <div className="absolute top-36 md:top-24 bottom-40 left-0 right-0 px-4 flex items-center justify-center overflow-hidden">
                 <div className="w-full h-full overflow-y-auto flex items-center justify-center relative">
                     {visibleContent && (
@@ -731,7 +730,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                 </div>
             </div>
 
-            {/* ★ VJバー (startDate を渡す) (変更なし) */}
+            {/* (変更なし) */}
             {eventConfig.vjFeatureEnabled && !isReadOnly && (
                 <VjBar
                     vjTimetable={vjTimetable}

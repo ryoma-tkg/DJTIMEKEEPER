@@ -28,7 +28,7 @@ export const useStorageUpload = (storage) => {
         try {
             // 2. 
             const originalName = file.name.replace(/\.[^/.]+$/, "");
-            const filePath = `dj_icons/${Date.now()}_${originalName}.jpg`;
+            const filePath = `dj_icons/${Date.now()}_${originalName}.webp`; // ★ .jpg から .webp に変更
             const storageRef = ref(storage, filePath);
 
             // 3. 

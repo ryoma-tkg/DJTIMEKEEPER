@@ -1,8 +1,8 @@
 // --- 設定値 ---
 const MAX_DIMENSION = 2048; // 画像の最大幅/高さ (これにリサイズするっす)
 const MAX_SIZE_BYTES = 250 * 1024; // 250KB (これ以下を目指すっす)
-const MIN_QUALITY = 0.5; // JPEGの最低品質 (これ以上は下げない)
-const INITIAL_QUALITY = 0.9; // 最初のJPEG品質
+const MIN_QUALITY = 0.5; // WebPの最低品質 (これ以上は下げない)
+const INITIAL_QUALITY = 0.9; // 最初のWebP品質
 
 /**
  * 画像ファイルを読み込み、Imageオブジェクトとして返すっす
@@ -59,34 +59,34 @@ const resizeImageToCanvas = (img) => {
 };
 
 /**
- * CanvasからJPEGのBlobを非同期で生成するっす (再帰呼び出しで品質調整)
+ * CanvasからWebPのBlobを非同期で生成するっす (再帰呼び出しで品質調整)
  * @param {HTMLCanvasElement} canvas - 描画済み canvas
- * @param {number} quality - 現在のJPEG品質 (0.1 - 1.0)
+ * @param {number} quality - 現在のWebP品質 (0.1 - 1.0)
  * @returns {Promise<Blob>}
  */
-const getJpegBlob = (canvas, quality) => {
+const getWebpBlob = (canvas, quality) => {
     return new Promise((resolve) => {
         // canvas の内容を Blob に変換
         canvas.toBlob(
             (blob) => {
-                console.log(`[ImageProcessor] Quality: ${quality.toFixed(1)}, Size: ${Math.round(blob.size / 1024)} KB`);
+                console.log(`[ImageProcessor] WebP Quality: ${quality.toFixed(1)}, Size: ${Math.round(blob.size / 1024)} KB`);
 
-                // 300KB以下になったらOK
+                // 250KB以下になったらOK
                 if (blob.size <= MAX_SIZE_BYTES) {
                     resolve(blob);
                 }
-                // 300KB超過だけど、もう最低品質 (MIN_QUALITY) なら諦めてそれを使う
+                // 250KB超過だけど、もう最低品質 (MIN_QUALITY) なら諦めてそれを使う
                 else if (quality <= MIN_QUALITY) {
                     console.warn(`[ImageProcessor] 最低品質 (${MIN_QUALITY}) でも ${Math.round(blob.size / 1024)} KB っす...`);
                     resolve(blob);
                 }
-                // 300KB超過で、まだ品質を下げる余地があるなら
+                // 250KB超過で、まだ品質を下げる余地があるなら
                 else {
                     // 0.1 品質を下げて、もう一回自分を呼び出す（再帰）
-                    resolve(getJpegBlob(canvas, quality - 0.1));
+                    resolve(getWebpBlob(canvas, quality - 0.1));
                 }
             },
-            'image/jpeg', // JPEG 形式を指定
+            'image/webp', // ★ WebP 形式を指定 ★
             quality // 画質を指定
         );
     });
@@ -94,7 +94,7 @@ const getJpegBlob = (canvas, quality) => {
 
 
 /**
- * メイン関数: 画像ファイルをリサイズ＆圧縮して 300KB 以下の JPEG Blob に変換するっす
+ * メイン関数: 画像ファイルをリサイズ＆圧縮して 250KB 以下の WebP Blob に変換するっす
  * @param {File} file - ユーザーがアップロードした元の画像ファイル
  * @returns {Promise<Blob>} 変換後の画像 Blob データ
  */
@@ -103,17 +103,17 @@ export const processImageForUpload = async (file) => {
         // 1. 画像ファイルを読み込む
         const img = await loadImage(file);
 
-        // 2. 600px x 600px の枠内にリサイズして canvas に描画
+        // 2. 2048px の枠内にリサイズして canvas に描画
         const canvas = resizeImageToCanvas(img);
 
-        // 3. 300KB以下になるまで品質を調整しながら JPEG Blob を生成
-        const processedBlob = await getJpegBlob(canvas, INITIAL_QUALITY);
+        // 3. 250KB以下になるまで品質を調整しながら WebP Blob を生成
+        const processedBlob = await getWebpBlob(canvas, INITIAL_QUALITY);
 
         return processedBlob;
 
     } catch (error) {
         console.error("画像処理中にエラー発生っす:", error);
-        // エラーが起きても、rejectして呼び出し元 (App.jsx) に伝えるっす
+        // エラーが起きても、rejectして呼び出し元 (useStorageUpload.js) に伝えるっす
         throw new Error(`画像処理に失敗しました: ${error.message}`);
     }
 };
