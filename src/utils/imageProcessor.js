@@ -1,6 +1,6 @@
 // --- 設定値 ---
-const MAX_DIMENSION = 2048; // 画像の最大幅/高さ (これにリサイズするっす)
-const MAX_SIZE_BYTES = 64 * 1024; // 64KB (これ以下を目指すっす)
+const MAX_DIMENSION = 1024; // 画像の最大幅/高さ (これにリサイズするっす)
+const MAX_SIZE_BYTES = 100 * 1024; // 64KB (これ以下を目指すっす)
 const MIN_QUALITY = 0.5; // WebPの最低品質 (これ以上は下げない)
 const INITIAL_QUALITY = 0.9; // 最初のWebP品質
 
