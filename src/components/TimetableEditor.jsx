@@ -41,8 +41,8 @@ const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging }) => {
                 <GripIcon className="w-6 h-6 text-on-surface-variant shrink-0" />
             </div>
 
-            {/* ★ 修正: self-center 削除 (スペーサー) */}
-            <div className="w-16 h-16 shrink-0" />
+            {/* ★★★ 修正: self-center を追加して高さを DjItem と完全に一致させる ★★★ */}
+            <div className="w-16 h-16 shrink-0 self-center" />
 
             {/* VJ情報 (グリッドレイアウトは DjItem と統一済み) */}
             <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
