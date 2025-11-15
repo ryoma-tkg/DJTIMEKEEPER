@@ -42,7 +42,7 @@ const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging }) => {
             </div>
 
             {/* ★★★ 修正: self-center を追加して高さを DjItem と完全に一致させる ★★★ */}
-            <div className="w-16 h-16 shrink-0 self-center" />
+            <div className="shrink-0 self-center" />
 
             {/* VJ情報 (グリッドレイアウトは DjItem と統一済み) */}
             <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
@@ -59,12 +59,11 @@ const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging }) => {
                 {/* 3. Time Slot (col-span-2) */}
                 <div className="flex flex-col md:col-span-2">
                     <label className="text-xs text-on-surface-variant mb-1">Time Slot (Auto)</label>
+                    {/* ★★★ 修正: DjItemとHTML構造を完全に一致させる ★★★ */}
                     <div className="bg-surface-background/50 p-2 rounded-lg w-full text-center font-semibold text-on-surface-variant font-mono">
-                        <div className="flex flex-row justify-center items-center text-sm">
-                            <span>{vj.startTime}</span>
-                            <span className="mx-2">-</span>
-                            <span>{vj.endTime}</span>
-                        </div>
+                        <span>{vj.startTime}</span>
+                        <span className="mx-2">-</span>
+                        <span>{vj.endTime}</span>
                     </div>
                 </div>
             </div>

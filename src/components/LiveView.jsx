@@ -143,17 +143,14 @@ const VjBar = ({ vjTimetable, now, djEventStartDate, djEventStartTime, djEventSt
 
             <div className="w-full max-w-3xl border-t border-on-surface/10 mb-4" />
 
-            {/* ★ 修正: items-baseline -> items-center, justify-between */}
-            <div className="flex items-center justify-between gap-2 sm:gap-4 flex-nowrap w-full max-w-3xl">
+            {/* ★★★ 修正: flex から grid-cols-3 に変更し、中央揃えを実現 ★★★ */}
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center w-full max-w-3xl">
 
-                {/* --- 1. 現在のVJ ★ 修正: Jitter(ガタつき)防止 ＆ マージン --- */}
-                {/* ★ 修正: gap-2 -> gap-3 */}
-                <div className="flex flex-1 items-baseline gap-3 min-w-0 justify-end">
+                {/* --- 1. 現在のVJ (flex-1 削除、右寄せ) --- */}
+                <div className="flex items-center gap-3 min-w-0 justify-end">
                     {currentVj ? (
                         <>
-                            {/* ★ 修正: flex-1 truncate text-right (VJネームが幅を詰め、タイマーを動かさない) */}
                             <span className="flex-1 truncate text-right text-xl sm:text-2xl font-bold">{currentVj.name}</span>
-                            {/* ★ 修正: w-[8ch] text-left (タイマーに固定幅を与え、左揃えにする) */}
                             <span className="w-[8ch] text-left text-xl sm:text-2xl font-mono font-bold text-on-surface-variant tabular-nums">{formatVjTime(remainingSeconds)}</span>
                         </>
                     ) : (
@@ -163,21 +160,19 @@ const VjBar = ({ vjTimetable, now, djEventStartDate, djEventStartTime, djEventSt
                     )}
                 </div>
 
-                {/* --- 2. 区切り --- */}
-                {/* ★ 修正: text-2xl -> text-3xl (中央揃えのため高さを出す) */}
-                <span className="text-3xl text-on-surface-variant/30 mx-2 sm:mx-4">|</span>
+                {/* --- 2. 区切り (中央のカラム) --- */}
+                <div className="text-center">
+                    {/* ★ この mx- で「開き具合」を調整してください (例: mx-2) ★ */}
+                    <span className="text-2xl text-on-surface-variant/30 mx-8 sm:mx-8">|</span>
+                </div>
 
-                {/* --- 3. 次のVJ ★ 修正: DJの「NEXT UP」とUIを統一 --- */}
-                {/* ★ 修正: gap-2 -> gap-3 */}
-                <div className="flex flex-1 items-baseline gap-3 text-left min-w-0 justify-start">
+                {/* --- 3. 次のVJ (flex-1 削除、左寄せ) --- */}
+                <div className="flex items-center gap-3 text-left min-w-0 justify-start">
                     {nextVj ? (
                         <>
-                            {/* ★ 修正: text-lg フォントサイズ統一 */}
                             <span className="text-lg text-on-surface-variant uppercase font-bold tracking-widest self-center">NEXT VJ</span>
-                            {/* ★ 修正: text-lg フォントサイズ統一 */}
                             <span className="text-lg font-semibold truncate max-w-[100px] sm:max-w-xs">{nextVj.name}</span>
-                            {/* ★ 修正: text-lg フォントサイズ統一 + font-mono */}
-                            <span className="text-lg text-on-surface-variant ml-2 font-mono whitespace-nowrap">
+                            <span className="text-lg text-on-surface-variant font-mono whitespace-nowrap">
                                 {nextVj.startTime}~
                             </span>
                         </>
