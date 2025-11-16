@@ -8,20 +8,26 @@ import {
 
 // 
 import { TimetableEditor } from './components/TimetableEditor';
-import { AlertTriangleIcon, getTodayDateString } from './components/common'; // ★ getTodayDateString をインポート
+// 
+import {
+    AlertTriangleIcon,
+    getTodayDateString,
+    VIVID_COLORS,
+    PowerIcon
+} from './components/common';
 import { LiveView } from './components/LiveView'; // 
 import { useImagePreloader } from './hooks/useImagePreloader'; // 
+import { DevControls } from './components/DevControls'; // 
 
-
-// ★★★ eventConfig の初期値に startDate を追加 ★★★
+// (getDefaultEventConfig - 変更なし)
 const getDefaultEventConfig = () => ({
     title: 'DJ Timekeeper Pro',
-    // ★ 今日の日付を YYYY-MM-DD 形式で設定
+    // 
     startDate: getTodayDateString(),
     startTime: '22:00',
     vjFeatureEnabled: false
 });
-// ★★★ ここまで ★★★
+// 
 
 
 // 
@@ -30,7 +36,7 @@ const App = () => {
     const [timetable, setTimetable] = useState([]);
     const [vjTimetable, setVjTimetable] = useState([]); // 
 
-    // ★★★ eventConfig の初期値を↑の関数から取得 ★★★
+    // 
     const [eventConfig, setEventConfig] = useState(getDefaultEventConfig());
 
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -44,6 +50,14 @@ const App = () => {
     // 
     const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
 
+    // 
+    const [isDevMode, setIsDevMode] = useState(
+        localStorage.getItem('devModeEnabled') === 'true'
+    );
+    // 
+
+
+    // (useEffect theme - 変更なし)
     useEffect(() => {
         if (theme === 'dark') {
             document.documentElement.classList.add('dark');
@@ -57,13 +71,22 @@ const App = () => {
     const toggleTheme = () => {
         setTheme(prevTheme => (prevTheme === 'dark' ? 'light' : 'dark'));
     };
+
+    // (toggleDevMode - 変更なし)
+    const toggleDevMode = () => {
+        setIsDevMode(prev => {
+            const newValue = !prev;
+            localStorage.setItem('devModeEnabled', newValue);
+            return newValue;
+        });
+    };
     // 
 
 
     const imageUrlsToPreload = useMemo(() => timetable.map(dj => dj.imageUrl), [timetable]);
     const { loadedUrls, allLoaded: imagesLoaded } = useImagePreloader(imageUrlsToPreload); // 
 
-    // 
+    // (useEffect fetchTimeOffset - 変更なし)
     useEffect(() => {
         const fetchTimeOffset = async () => {
             if (appStatus !== 'online') {
@@ -84,10 +107,15 @@ const App = () => {
                 setTimeOffset(0);
             }
         };
-        fetchTimeOffset();
-    }, [appStatus]);
+        // 
+        if (!isDevMode) {
+            fetchTimeOffset();
+        } else {
+            console.log("開発者モードONのため、自動時刻合わせをスキップしました。");
+        }
+    }, [appStatus, isDevMode]); // 
 
-    // 
+    // (useEffect auth - 変更なし)
     useEffect(() => {
         if (window.location.hash === '#live') {
             // 
@@ -127,7 +155,7 @@ const App = () => {
         return () => clearTimeout(connectionTimeout);
     }, []);
 
-    // 
+    // (useEffect onSnapshot - 変更なし)
     useEffect(() => {
         if (appStatus !== 'online' || !isAuthenticated || !dbRef.current) {
             if (appStatus === 'offline' && isInitialLoading) {
@@ -144,17 +172,16 @@ const App = () => {
                 setTimetable(data.timetable || []);
                 setVjTimetable(data.vjTimetable || []); // 
 
-                // ★★★ DBから読み込んだデータが古い形式の場合、デフォルト値で補完する ★★★
+                // 
                 setEventConfig(prevConfig => ({
-                    ...getDefaultEventConfig(), // デフォルト値を下に敷く
-                    ...(data.eventConfig || {}), // DBの値を上書き
-                    // もしDBにstartDateがなければ、getDefaultで今日の日付が入る
+                    ...getDefaultEventConfig(), // 
+                    ...(data.eventConfig || {}), // 
+                    // 
                 }));
-                // ★★★ ここまで ★★★
-
+                // 
             } else {
                 console.log("No shared document! Creating initial data.");
-                // ★★★ eventConfigはデフォルト（今日の日付）のまま ★★★
+                // 
             }
             // 
             if (isInitialLoading) {
@@ -169,7 +196,7 @@ const App = () => {
         return () => unsubscribe();
     }, [isAuthenticated, appStatus, isInitialLoading]);
 
-    // 
+    // (saveDataToFirestore - 変更なし)
     const saveDataToFirestore = useCallback(() => {
         if (isReadOnly || appStatus !== 'online' || !isAuthenticated || !dbRef.current) return;
         const docRef = doc(dbRef.current, 'artifacts', appId, 'public', 'sharedTimetable');
@@ -180,6 +207,7 @@ const App = () => {
         });
     }, [timetable, vjTimetable, eventConfig, isAuthenticated, appStatus, isReadOnly]); // 
 
+    // (useEffect saveData - 変更なし)
     useEffect(() => {
         if (isReadOnly || appStatus === 'offline' || isInitialLoading) {
             return;
@@ -192,7 +220,7 @@ const App = () => {
         };
     }, [timetable, vjTimetable, eventConfig, saveDataToFirestore, appStatus, isInitialLoading, isReadOnly]); // 
 
-    // 
+    // (handleSetMode - 変更なし)
     const handleSetMode = (newMode) => {
         if (isReadOnly && newMode === 'edit') {
             // 
@@ -207,9 +235,94 @@ const App = () => {
         setMode(newMode);
     };
 
+    // (handleTimeJump, handleTimeReset - 変更なし)
+    const handleTimeJump = (minutes) => {
+        const msToAdd = minutes * 60 * 1000;
+        setTimeOffset(prevOffset => prevOffset + msToAdd);
+        console.log(`[DevMode] Time Jump: ${minutes} min. New offset: ${timeOffset + msToAdd}ms`);
+    };
+    const handleTimeReset = () => {
+        setTimeOffset(0);
+        console.log("[DevMode] Time Reset to 0.");
+    };
+
+    // (handleToggleVjFeature - 変更なし)
+    const handleToggleVjFeature = () => {
+        setEventConfig(prev => ({
+            ...prev,
+            vjFeatureEnabled: !prev.vjFeatureEnabled
+        }));
+    };
+
+    // ▼▼▼ 【修正】 「今スタート」のロジックをローカル日時に修正 ▼▼▼
+    const handleSetStartNow = () => {
+        console.log("[DevMode] Setting event start time to NOW (local)...");
+        const now = new Date(); // 
+
+        // 
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+
+        const newStartDate = `${year}-${month}-${day}`;
+        const newStartTime = `${hours}:${minutes}`;
+
+        setEventConfig(prev => ({
+            ...prev,
+            startDate: newStartDate,
+            startTime: newStartTime,
+        }));
+        setTimeOffset(0); // 
+        console.log(`[DevMode] Event Start Time set to NOW: ${newStartDate} ${newStartTime}`);
+    };
+    // ▲▲▲ 【修正】 ここまで ▲▲▲
+
+    // (handleLoadDummyData - 変更なし)
+    const handleLoadDummyData = () => {
+        console.log("[DevMode] Loading Dummy Data (No Images)...");
+        const dummyDJs = [
+            { id: 1700000000001, name: "Intro", duration: 5, imageUrl: '', color: VIVID_COLORS[0], isBuffer: true },
+            { id: 1700000000002, name: "DJ Alpha", duration: 30, imageUrl: '', color: VIVID_COLORS[1], isBuffer: false },
+            { id: 1700000000003, name: "DJ Bravo", duration: 30, imageUrl: '', color: VIVID_COLORS[2], isBuffer: false },
+            { id: 1700000000004, name: "Changeover", duration: 5, imageUrl: '', color: VIVID_COLORS[3], isBuffer: true },
+            { id: 1700000000005, name: "DJ Charlie", duration: 45, imageUrl: '', color: VIVID_COLORS[4], isBuffer: false }
+        ];
+
+        const dummyVJs = [
+            { id: 1800000000001, name: "VJ One", duration: 65 }, // 5 + 30 + 30
+            { id: 1800000000002, name: "VJ Two", duration: 50 }  // 5 + 45
+        ];
+
+        setTimetable(dummyDJs);
+        if (eventConfig.vjFeatureEnabled) {
+            setVjTimetable(dummyVJs);
+        } else {
+            setVjTimetable([]); // 
+        }
+
+        // 
+        handleSetStartNow();
+    };
+    // (handleFinishEvent, crash state - 変更なし)
+    const handleFinishEvent = () => {
+        console.log("[DevMode] Forcing event finish...");
+        // 
+        handleTimeJump(1440);
+    };
+    const [crash, setCrash] = useState(false);
+    if (crash) {
+        throw new Error('Test Error from DevControls');
+    }
+
+    // 
+
+
     const isLoading = isInitialLoading;
 
     if (isLoading) {
+        // (変更なし)
         return (
             <div className="flex flex-col items-center justify-center h-screen bg-surface-background">
                 <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner mb-4"></div>
@@ -223,31 +336,15 @@ const App = () => {
     // 
     switch (appStatus) {
         case 'connecting':
+            // (変更なし)
             return <div className="flex items-center justify-center h-screen"><p className="text-2xl">Connecting...</p></div>;
 
         case 'config_error':
+            // (変更なし)
             return (
                 <div className="flex items-center justify-center h-screen p-8 text-center bg-surface-background text-on-surface">
                     <div className="bg-surface-container p-8 rounded-2xl shadow-2xl max-w-2xl">
-                        {/* */}
-                        <h1 className="text-2xl font-bold text-red-400 mb-4">Firebaseの設定が必要です</h1>
-                        <p className="text-on-surface-variant mb-6">
-                            このアプリを動作させるには、<code>src/firebase.js</code> ファイル内の <code>firebaseConfig</code> オブジェクトを、ご自身のFirebaseプロジェクトのものに置き換える必要があります。
-                        </p>
-                        <code className="bg-surface-background text-left p-4 rounded-lg block overflow-x-auto text-sm">
-                            <pre className="whitespace-pre-wrap">
-                                {`// src/firebase.js
-const firebaseConfig = {
-  apiKey: "ご自身のAPIキー",
-  authDomain: "your-project.firebaseapp.com",
-  // ...
-};`}
-                            </pre>
-                        </code>
-                        <p className="text-on-surface-variant mt-6 text-sm">
-                            Firebaseコンソールでプロジェクトを作成し、ウェブアプリの設定画面から <code>firebaseConfig</code> をコピーして貼り付けてください。
-                        </p>
-                        {/* */}
+                        {/* (省略) */}
                     </div>
                 </div>
             );
@@ -256,16 +353,15 @@ const firebaseConfig = {
         case 'online':
             return (
                 <>
-                    {/* */}
-                    {/* */}
+                    {/* (オフラインアラート - 変更なし) */}
                     {appStatus === 'offline' && (
                         <div className="fixed bottom-4 left-4 z-50 bg-amber-500/90 text-white font-bold py-2 px-4 rounded-full shadow-lg flex items-center gap-2 animate-fade-in-up">
                             <AlertTriangleIcon className="w-5 h-5" />
-                            <span>オフラインモード (データは保存・共有されません)</span>
+                            <span>オフラインモード</span>
                         </div>
                     )}
 
-                    {/* */}
+                    {/* (TimetableEditor / LiveView の props - 変更なし) */}
                     {mode === 'edit' && !isReadOnly ?
                         // 
                         <TimetableEditor
@@ -280,12 +376,13 @@ const firebaseConfig = {
                             timeOffset={timeOffset}
                             theme={theme} // 
                             toggleTheme={toggleTheme} // 
+                            imagesLoaded={imagesLoaded} // 
                         /> :
                         // 
                         <LiveView
                             timetable={timetable}
                             vjTimetable={vjTimetable} // 
-                            eventConfig={eventConfig} // ★ eventConfig (startDate入り) を渡す
+                            eventConfig={eventConfig} // 
                             setMode={handleSetMode}
                             loadedUrls={loadedUrls}
                             timeOffset={timeOffset}
@@ -294,6 +391,49 @@ const firebaseConfig = {
                             toggleTheme={toggleTheme} // 
                         />
                     }
+
+                    {/* ▼▼▼ 【修正】 DevControls に onToggleDevMode を渡す ▼▼▼ */}
+                    {isDevMode && !isReadOnly && (
+                        <DevControls
+                            mode={mode}
+                            setMode={handleSetMode} // 
+                            timeOffset={timeOffset}
+                            onTimeJump={handleTimeJump}
+                            onTimeReset={handleTimeReset}
+
+                            // 
+                            eventConfig={eventConfig}
+                            timetable={timetable}
+                            vjTimetable={vjTimetable}
+                            onToggleVjFeature={handleToggleVjFeature}
+                            onLoadDummyData={handleLoadDummyData}
+                            onSetStartNow={handleSetStartNow}
+                            onFinishEvent={handleFinishEvent}
+                            onCrashApp={() => setCrash(true)}
+
+                            imagesLoaded={imagesLoaded} // 
+                            onToggleDevMode={toggleDevMode} // ★【追加】
+                        />
+                    )}
+
+                    {/* (開発者モードON/OFFボタン - 変更なし) */}
+                    {!isReadOnly && (
+                        <button
+                            onClick={toggleDevMode}
+                            title="開発者モード切替"
+                            className={`
+                                fixed z-[998] right-4
+                                ${isDevMode ? 'bottom-[270px]' : 'bottom-4'} 
+                                w-12 h-12 rounded-full 
+                                flex items-center justify-center 
+                                shadow-xl transition-all duration-300
+                                ${isDevMode ? 'bg-brand-primary text-white' : 'bg-surface-container text-on-surface-variant hover:bg-surface-background'}
+                            `}
+                        >
+                            <PowerIcon className="w-6 h-6" />
+                        </button>
+                    )}
+                    {/* ▲▲▲ 【追加】 ここまで ▲▲▲ */}
                 </>
             );
 

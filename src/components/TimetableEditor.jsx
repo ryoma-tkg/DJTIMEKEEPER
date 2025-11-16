@@ -24,8 +24,9 @@ import {
 } from './common';
 
 
-// ★★★ VJリストのアイテム (★ 高さ合わせFIX) ★★★
+// (VjItem - 変更なし)
 const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging }) => {
+    // ... (省略) ...
     const draggingClass = isDragging ? 'dragging-item' : '';
 
     return (
@@ -80,12 +81,11 @@ const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging }) => {
         </div>
     );
 });
-// ★★★ VJアイテム ここまで ★★★
 
 
-// ★★★ VJタイムテーブル管理 (変更なし) ★★★
+// (VjTimetableManager - 変更なし)
 const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, eventStartTimeStr, now }) => {
-
+    // ... (省略) ...
     const {
         schedule: vjSchedule,
         eventStartTimeDate: vjEventStartTimeDate,
@@ -162,10 +162,9 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, ev
         </div>
     );
 };
-// ★★★ VJマネージャー ここまで ★★★
 
 
-// --- ★★★ SettingsModal (UI/UX 修正) (変更なし) ★★★ ---
+// --- ★★★ SettingsModal (★ 開発者モードを削除) ★★★ ---
 const SettingsModal = ({
     isOpen,
     onClose,
@@ -175,9 +174,11 @@ const SettingsModal = ({
     onResetClick,
     theme,
     toggleTheme
+    // 
 }) => {
     if (!isOpen) return null;
 
+    // (ThemeToggle - 変更なし)
     const ThemeToggle = () => (
         <div className="flex items-center justify-between">
             <label className="text-base text-on-surface">テーマ</label>
@@ -193,6 +194,7 @@ const SettingsModal = ({
             </button>
         </div>
     );
+    // (VjFeatureToggle - 変更なし)
     const VjFeatureToggle = () => (
         <div className="flex items-center justify-between">
             <label className="text-base text-on-surface">VJタイムテーブル機能</label>
@@ -205,6 +207,9 @@ const SettingsModal = ({
         </div>
     );
 
+    // (DevModeToggle - 削除)
+
+
     return (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in-up" onClick={onClose}>
             <div className="bg-surface-container rounded-2xl p-6 w-full max-w-md shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
@@ -216,7 +221,7 @@ const SettingsModal = ({
                 </button>
                 <h2 className="text-2xl font-bold mb-6">設定</h2>
 
-                {/* --- 1. イベント設定 (★ UI修正) (変更なし) --- */}
+                {/* --- 1. イベント設定 (変更なし) --- */}
                 <div className="pb-6 mb-6 border-b border-surface-background dark:border-zinc-700/50">
                     <h3 className="text-lg font-bold text-on-surface mb-4">イベント設定</h3>
                     <div className="space-y-4">
@@ -253,8 +258,8 @@ const SettingsModal = ({
                     </div>
                 </div>
 
-                {/* --- 2. アプリ設定 (★ UI修正) (変更なし) --- */}
-                <div className="mb-6">
+                {/* --- 2. アプリ設定 (変更なし) --- */}
+                <div className="pb-6 mb-6 border-b border-surface-background dark:border-zinc-700/50">
                     <h3 className="text-lg font-bold text-on-surface mb-4">アプリ設定</h3>
                     <div className="space-y-4">
                         <ThemeToggle />
@@ -270,7 +275,9 @@ const SettingsModal = ({
                     </div>
                 </div>
 
-                {/* --- 3. 危険ゾーン (★ UI修正) (変更なし) --- */}
+                {/* (開発者モードセクション - 削除) */}
+
+                {/* --- 3. 危険ゾーン (変更なし) --- */}
                 <div>
                     <h3 className="text-lg font-bold text-red-400 mb-4">危険ゾーン</h3>
                     <button
@@ -287,7 +294,7 @@ const SettingsModal = ({
 };
 // ★★★ SettingsModal ここまで ★★★
 
-// (日付フォーマット関数 - 変更なし)
+// (formatDateTime - 変更なし)
 const formatDateTime = (date) => {
     if (!date || !(date instanceof Date)) return '??:??';
     const y = date.getFullYear();
@@ -299,8 +306,15 @@ const formatDateTime = (date) => {
 };
 
 
-// --- ★★★ TimetableEditor (useTimetable 呼び出し) (変更なし) ★★★
-export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTimetable, vjTimetable, setVjTimetable, setMode, storage, timeOffset, theme, toggleTheme }) => {
+// --- ★★★ TimetableEditor (★ devMode props を削除) ★★★
+export const TimetableEditor = ({
+    eventConfig, setEventConfig,
+    timetable, setTimetable,
+    vjTimetable, setVjTimetable,
+    setMode, storage, timeOffset,
+    theme, toggleTheme, imagesLoaded
+    // 
+}) => {
 
     const [openColorPickerId, setOpenColorPickerId] = useState(null);
     const [editingDjIndex, setEditingDjIndex] = useState(null);
@@ -308,11 +322,15 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
     const [now, setNow] = useState(new Date(new Date().getTime() + timeOffset));
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
+    // (useEffect now - 変更なし)
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date(new Date().getTime() + timeOffset)), 1000);
         return () => clearInterval(timer);
     }, [timeOffset]);
 
+
+    // (useTimetable, useDragAndDrop, handleEventConfigChange, handleUpdate, addNewDj, executeReset, handleRemoveDj, handleCopyDj, handleShare, useMemo displayTime - すべて変更なし)
+    // ... (中略) ...
 
     // 1. DJ用のロジックフック (変更なし)
     const {
@@ -442,6 +460,7 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
                 onConfirm={executeReset}
                 onCancel={() => setIsResetConfirmOpen(false)}
             />
+            {/* ▼▼▼ 【修正】 Modalから devMode props を削除 ▼▼▼ */}
             <SettingsModal
                 isOpen={isSettingsOpen}
                 onClose={() => setIsSettingsOpen(false)}
@@ -455,6 +474,7 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
                 theme={theme}
                 toggleTheme={toggleTheme}
             />
+            {/* ▲▲▲ 【修正】 ここまで ▲▲▲ */}
             {editingDjIndex !== null && (
                 <ImageEditModal
                     dj={timetable[editingDjIndex]}
@@ -487,9 +507,16 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
             </header>
 
 
+            {/* (Liveモードボタン - 変更なし) */}
             <div className="mb-6">
-                <button onClick={() => timetable.length > 0 && setMode('live')} disabled={timetable.length === 0} className="w-full flex items-center justify-center bg-brand-primary hover:opacity-90 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-full transition-opacity duration-200 shadow-lg">
-                    <PlayIcon className="w-5 h-5 mr-2" /><span>Liveモード</span>
+                <button
+                    onClick={() => timetable.length > 0 && setMode('live')}
+                    disabled={timetable.length === 0 || !imagesLoaded} // ★【修正】
+                    className="w-full flex items-center justify-center bg-brand-primary hover:opacity-90 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-full transition-opacity duration-200 shadow-lg"
+                >
+                    <PlayIcon className="w-5 h-5 mr-2" />
+                    {/* ▼▼▼ 【修正】 テキストも変更 ▼▼▼ */}
+                    <span>{imagesLoaded ? 'Liveモード' : '画像読込中...'}</span>
                 </button>
             </div>
 

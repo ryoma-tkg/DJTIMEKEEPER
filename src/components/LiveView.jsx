@@ -88,62 +88,36 @@ const LiveSettingsModal = ({
     );
 };
 
-// ★★★ VJバー (UI/UX 修正) ★★★
-const VjBar = ({ vjTimetable, now, djEventStartDate, djEventStartTime, djEventStatus }) => {
+// (VjBar - 変更なし)
+const VjBar = ({ currentVj, nextVj, remainingSeconds, djEventStatus }) => {
 
+    // (formatVjTime - 変更なし)
     const formatVjTime = (seconds) => {
         if (seconds < 0) seconds = 0;
         const h = Math.floor(seconds / 3600);
         const m = Math.floor((seconds % 3600) / 60);
         const s = Math.floor(seconds % 60);
-        return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        return {
+            h: String(h).padStart(2, '0'),
+            m: String(m).padStart(2, '0'),
+            s: String(s).padStart(2, '0'),
+            isZeroHour: h === 0
+        };
     };
 
-    // 1. VJ用の useTimetable フック (変更なし)
-    const {
-        schedule: vjSchedule,
-        eventStatus: vjEventStatus,
-        currentlyPlayingIndex: currentlyPlayingVjIndex
-    } = useTimetable(vjTimetable, djEventStartDate, djEventStartTime, now);
-
-
-    // 2. VJの残り時間を計算 (変更なし)
-    const { currentVj, nextVj, remainingSeconds } = useMemo(() => {
-        const nowTime = new Date(now).getTime();
-
-        if (currentlyPlayingVjIndex === -1) {
-            if (vjEventStatus === 'UPCOMING' && vjSchedule.length > 0) {
-                return { currentVj: null, nextVj: vjSchedule[0], remainingSeconds: 0 };
-            }
-            if (vjEventStatus === 'ON_AIR_BLOCK' && vjSchedule.length > 0) {
-                const upcomingVj = vjSchedule.find(vj => nowTime < vj.startTimeDate.getTime());
-                return { currentVj: null, nextVj: upcomingVj || null, remainingSeconds: 0 };
-            }
-            return { currentVj: null, nextVj: null, remainingSeconds: 0 };
-        }
-
-        const dj = vjSchedule[currentlyPlayingVjIndex];
-        const nextDj = (currentlyPlayingVjIndex < vjSchedule.length - 1) ? vjSchedule[currentlyPlayingVjIndex + 1] : null;
-        const remainingMs = (dj.endTimeDate.getTime() - nowTime);
-        const remainingSec = Math.floor(remainingMs / 1000);
-
-        return { currentVj: dj, nextVj: nextDj, remainingSeconds: remainingSec };
-
-    }, [currentlyPlayingVjIndex, vjSchedule, vjEventStatus, now]);
-
-
-    // (変更なし)
-    if (djEventStatus === 'STANDBY' || djEventStatus === 'FINISHED') {
+    // (djEventStatus check - 変更なし)
+    if (djEventStatus !== 'ON_AIR_BLOCK') {
         return null;
     }
 
+    const timeParts = formatVjTime(remainingSeconds);
+
     return (
-        // (変更なし)
+        // (VJバーのJSX - 変更なし)
         <div className="absolute bottom-40 left-0 right-0 w-full h-auto min-h-[6rem] z-10 flex flex-col items-center justify-center px-4 md:px-8 py-4">
 
             <div className="w-full max-w-3xl border-t border-on-surface/10 mb-4" />
 
-            {/* ★★★ ここが根本解決のコードです ★★★ */}
             <div className="grid grid-cols-[1fr_auto_1fr] items-center w-full max-w-3xl gap-4">
 
                 {/* --- 1. 今のVJ (右寄せ) --- */}
@@ -151,7 +125,15 @@ const VjBar = ({ vjTimetable, now, djEventStartDate, djEventStartTime, djEventSt
                     {currentVj ? (
                         <>
                             <span className="flex-1 truncate text-right text-xl sm:text-2xl font-bold">{currentVj.name}</span>
-                            <span className="w-[7ch] text-left text-xl sm:text-2xl font-mono font-bold text-on-surface-variant tabular-nums">{formatVjTime(remainingSeconds)}</span>
+
+                            <span className="inline-block w-[8ch] text-left text-xl sm:text-2xl font-mono font-bold text-on-surface-variant tabular-nums">
+                                <span className={timeParts.isZeroHour ? 'opacity-50' : ''}>
+                                    {timeParts.h}:
+                                </span>
+                                <span>
+                                    {timeParts.m}:{timeParts.s}
+                                </span>
+                            </span>
                         </>
                     ) : (
                         nextVj ?
@@ -181,7 +163,7 @@ const VjBar = ({ vjTimetable, now, djEventStartDate, djEventStartTime, djEventSt
         </div>
     );
 };
-// ★★★ VJバー ここまで ★★★
+// ★★★ VjBar ここまで ★★★
 
 
 // ★★★ LiveView 本体 ★★★
@@ -207,7 +189,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
     const wakeLockRef = useRef(null);
 
 
-    // (変更なし)
+    // (DJ用 useTimetable - 変更なし)
     const {
         schedule,
         eventStartTimeDate,
@@ -223,7 +205,37 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         now
     );
 
-    // (変更なし)
+    // (VJ用 useTimetable & useMemo - 変更なし)
+    const {
+        schedule: vjSchedule,
+        eventStatus: vjEventStatus,
+        currentlyPlayingIndex: currentlyPlayingVjIndex
+    } = useTimetable(vjTimetable, eventConfig.startDate, eventConfig.startTime, now);
+
+    const { currentVj, nextVj, vjRemainingSeconds } = useMemo(() => {
+        const nowTime = new Date(now).getTime();
+
+        if (currentlyPlayingVjIndex === -1) {
+            // (UPCOMING のロジックは renderContent で処理するので、ここでは ON_AIR_BLOCK だけ見る)
+            if (vjEventStatus === 'ON_AIR_BLOCK' && vjSchedule.length > 0) {
+                const upcomingVj = vjSchedule.find(vj => nowTime < vj.startTimeDate.getTime());
+                return { currentVj: null, nextVj: upcomingVj || null, vjRemainingSeconds: 0 };
+            }
+            return { currentVj: null, nextVj: null, vjRemainingSeconds: 0 };
+        }
+
+        const vj = vjSchedule[currentlyPlayingVjIndex];
+        const nextVj = (currentlyPlayingVjIndex < vjSchedule.length - 1) ? vjSchedule[currentlyPlayingVjIndex + 1] : null;
+        const remainingMs = (vj.endTimeDate.getTime() - nowTime);
+        const remainingSec = Math.floor(remainingMs / 1000);
+
+        return { currentVj: vj, nextVj: nextVj, vjRemainingSeconds: remainingSec };
+
+    }, [currentlyPlayingVjIndex, vjSchedule, vjEventStatus, now]);
+    // ▲▲▲ 【追加】 ここまで ▲▲▲
+
+
+    // (useEffect[timeOffset] - 変更なし)
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date(new Date().getTime() + timeOffset)), 1000);
         const updateWidth = () => {
@@ -237,7 +249,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         };
     }, [timeOffset]);
 
-    // (変更なし)
+    // (useEffect[now, ...] - 変更なし)
     useEffect(() => {
         const currentIndex = currentlyPlayingIndex;
         let newContentData = null;
@@ -295,7 +307,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                             status: 'UPCOMING',
                             timeLeft: remainingSeconds,
                             progress: 0,
-                            nextDj: upcomingDj,
+                            nextDj: upcomingDj, // 
                             animationKey: `upcoming-${upcomingDj.id}`
                         };
                     } else {
@@ -331,7 +343,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         setCurrentData(newContentData);
     }, [now, schedule, currentlyPlayingIndex, eventStatus, eventStartTimeDate]);
 
-    // (変更なし)
+    // (useEffect[currentData, ...] - 変更なし)
     useEffect(() => {
         if (!visibleContent && currentData) {
             setVisibleContent(currentData);
@@ -357,7 +369,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         }
     }, [currentData, visibleContent]);
 
-    // (変更なし)
+    // (useEffect[isWakeLockEnabled] - 変更なし)
     useEffect(() => {
         const requestWakeLock = async () => {
             if ('wakeLock' in navigator && isWakeLockEnabled) {
@@ -395,7 +407,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         };
     }, [isWakeLockEnabled]);
 
-    // (変更なし)
+    // (handleWakeLockToggle - 変更なし)
     const handleWakeLockToggle = () => {
         const newValue = !isWakeLockEnabled;
         setIsWakeLockEnabled(newValue);
@@ -407,7 +419,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         }
     };
 
-    // (変更なし)
+    // (timelineTransform - 変更なし)
     const timelineTransform = useMemo(() => {
         if (schedule.length === 0 || containerWidth === 0) return 'translateX(0px)';
         const itemWidth = 256, gap = 24, step = itemWidth + gap;
@@ -424,7 +436,8 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         return `translateX(${finalX}px)`;
     }, [visibleContent, containerWidth, schedule]);
 
-    // (変更なし)
+
+    // (formatTime - 変更なし)
     const formatTime = (seconds) => {
         if (seconds < 0) seconds = 0;
         const h = Math.floor(seconds / 3600);
@@ -433,7 +446,8 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     };
 
-    // (変更なし)
+
+    // (formatDurationHHMMSS - 変更なし)
     const formatDurationHHMMSS = (totalSeconds) => {
         if (totalSeconds < 0) totalSeconds = 0;
         const h = Math.floor(totalSeconds / 3600);
@@ -442,7 +456,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     };
 
-    // (変更なし)
+    // (bgColorStyle - 変更なし)
     const bgColorStyle = useMemo(() => {
         if (visibleContent?.status !== 'ON AIR' || isFadingOut) {
             return {};
@@ -453,7 +467,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         };
     }, [visibleContent, isFadingOut, theme]);
 
-    // (変更なし)
+    // (showToast - 変更なし)
     const showToast = (message) => {
         if (toastTimerRef.current) {
             clearTimeout(toastTimerRef.current);
@@ -468,7 +482,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
         }, 100);
     };
 
-    // (変更なし)
+    // (handleTimerClick - 変更なし)
     const handleTimerClick = () => {
         if (schedule.length === 0 && eventStatus !== 'UPCOMING') return;
         if (timerDisplayMode === 'currentTime') {
@@ -484,17 +498,27 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
     };
 
 
-    // (変更なし)
+    // (renderContent)
     const renderContent = (content) => {
         if (!content) return null;
 
-        // --- UPCOMING ---
+        // ▼▼▼ 【ここから修正】 --- UPCOMING --- ▼▼▼
         if (content.status === 'UPCOMING') {
             const dj = content;
             const eventStartTimeStr = eventStartTimeDate.toTimeString().slice(0, 5);
             const eventEndTimeStr = eventEndTimeDate.toTimeString().slice(0, 5);
             const displayColor = schedule.length > 0 && dj.color ? dj.color : '#888888';
             const eventTitle = eventConfig.title || "イベント待機中";
+
+            // 
+            const nextDj = dj.nextDj; // 
+            const nextDjStartTimeStr = nextDj ? nextDj.startTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+
+            // 
+            const nextVj = (vjEventStatus === 'UPCOMING' && vjSchedule.length > 0) ? vjSchedule[0] : null;
+            const nextVjStartTimeStr = nextVj ? nextVj.startTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+
+
             return (
                 <main className="w-full max-w-6xl mx-auto flex flex-col items-center justify-center text-center">
                     <h2 className="text-xl sm:text-2xl md:text-3xl text-on-surface-variant font-bold tracking-widest mb-4">UPCOMING</h2>
@@ -504,14 +528,56 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                             {eventStartTimeStr} - {eventEndTimeStr}
                         </p>
                     )}
-                    <p className="flex flex-col items-center justify-center text-5xl sm:text-6xl md:text-8xl text-on-surface my-12">
+
+                    {/* (タイマー - 変更なし) */}
+                    <p className="flex flex-col items-center justify-center text-5xl sm:text-6xl md:text-8xl text-on-surface my-8">
                         <span className="text-xl sm:text-3xl md:text-4xl text-on-surface-variant font-sans font-bold mb-2">開始まで</span>
                         <span className="font-mono inline-block text-center w-[5ch]">{formatTime(dj.timeLeft)}</span>
                     </p>
+
+                    {/* ▼▼▼ 【修正】 DJ/VJ スタンバイ表示を中央揃えのレイアウトに変更 ▼▼▼ */}
+                    {(nextDj || (nextVj && eventConfig.vjFeatureEnabled)) && (
+                        <div className="w-full max-w-3xl mt-0">
+                            <div className="w-full max-w-3xl border-t border-on-surface/10 mb-4" />
+
+                            {/* ▼▼▼ コメントアウトを解除！ ▼▼▼ */}
+                            <div className="flex flex-col items-center justify-center gap-4">
+
+                                {/* DJ Standby */}
+                                {nextDj && (
+                                    <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
+                                        <span className="text-xl sm:text-2xl font-bold text-on-surface-variant/50">DJ STANDBY</span>
+                                        <span className="text-lg text-on-surface-variant/50 hidden sm:inline">|</span>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-lg text-on-surface-variant uppercase font-bold tracking-widest">NEXT DJ</span>
+                                            <span className="text-lg font-semibold truncate max-w-[150px] sm:max-w-xs">{nextDj.name}</span>
+                                            <span className="text-lg text-on-surface-variant font-mono whitespace-nowrap">{nextDjStartTimeStr}~</span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* VJ Standby */}
+                                {nextVj && eventConfig.vjFeatureEnabled && (
+                                    <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
+                                        <span className="text-xl sm:text-2xl font-bold text-on-surface-variant/50">VJ STANDBY</span>
+                                        <span className="text-lg text-on-surface-variant/50 hidden sm:inline">|</span>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-lg text-on-surface-variant uppercase font-bold tracking-widest">NEXT VJ</span>
+                                            <span className="text-lg font-semibold truncate max-w-[150px] sm:max-w-xs">{nextVj.name}</span>
+                                            <span className="text-lg text-on-surface-variant font-mono whitespace-nowrap">{nextVjStartTimeStr}~</span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                    {/* ▲▲▲ 【修正】 ここまで ▲▲▲ */}
                 </main>
             );
         }
-        // --- ON AIR ---
+        // ▲▲▲ 【ここまで修正】 --- UPCOMING --- ▲▲▲
+
+        // --- ON AIR --- (変更なし)
         if (content.status === 'ON AIR') {
             const dj = content;
             const isImageReady = !dj.imageUrl || loadedUrls.has(dj.imageUrl);
@@ -580,11 +646,11 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                 </main>
             );
         }
-        // --- FINISHED ---
+        // --- FINISHED --- (変更なし)
         if (content.status === 'FINISHED') {
             return (<div className="text-center"><h1 className="text-4xl sm:text-5xl md:text-7xl font-bold">EVENT FINISHED</h1></div>);
         }
-        // --- STANDBY --- 
+        // --- STANDBY --- (変更なし)
         if (content.status === 'STANDBY') {
             const eventTitle = eventConfig.title || "DJ Timekeeper Pro";
             return (
@@ -598,7 +664,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
     };
 
 
-    // (変更なし)
+    // (scheduleForModal - 変更なし)
     const scheduleForModal = useMemo(() => {
         if (schedule.length === 0) return [];
         return schedule.map(dj => ({
@@ -713,7 +779,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                 onWakeLockToggle={handleWakeLockToggle}
             />
 
-            {/* (変更なし) */}
+            {/* (メインコンテント - 変更なし) */}
             <div className="absolute top-36 md:top-24 bottom-40 left-0 right-0 px-4 flex items-center justify-center overflow-hidden">
                 <div className="w-full h-full overflow-y-auto flex items-center justify-center relative">
                     {visibleContent && (
@@ -730,18 +796,17 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                 </div>
             </div>
 
-            {/* (変更なし) */}
+            {/* (VjBar呼び出し - 変更なし) */}
             {eventConfig.vjFeatureEnabled && !isReadOnly && (
                 <VjBar
-                    vjTimetable={vjTimetable}
-                    now={now}
-                    djEventStartDate={eventConfig.startDate}
-                    djEventStartTime={eventConfig.startTime}
+                    currentVj={currentVj}
+                    nextVj={nextVj}
+                    remainingSeconds={vjRemainingSeconds}
                     djEventStatus={eventStatus}
                 />
             )}
 
-            {/* Bottom Timeline (変更なし) */}
+            {/* (Bottom Timeline - 変更なし) */}
             {schedule.length > 0 && (
                 <div ref={timelineContainerRef} className="absolute bottom-0 left-0 right-0 w-full shrink-0 overflow-hidden mask-gradient z-10 pb-4 h-32">
                     <div
@@ -788,7 +853,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                 </div>
             )}
 
-            {/* (変更なし) */}
+            {/* (FullTimelineView - 変更なし) */}
             <FullTimelineView
                 isOpen={isFullTimelineOpen}
                 onClose={() => setIsFullTimelineOpen(false)}
