@@ -38,18 +38,19 @@ Autoprefixer: 10.4.22
 
 Project Structure
 src/
-├── App.jsx               # Main application component
+├── App.jsx               # Main application component (Manages state: mode, devMode, timeOffset)
 ├── App.css               # Global styles
 ├── index.css             # Base styles
-├── main.jsx              # React entry point
+├── main.jsx              # React entry point (with ErrorBoundary)
 ├── firebase.js           # Firebase configuration and initialization
 ├── assets/               # Static assets
 ├── components/           # React components
-│   ├── common.jsx        # Shared UI components (buttons, modals, etc.)
+│   ├── common.jsx        # Shared UI components (buttons, icons, modals, etc.)
+│   ├── DevControls.jsx   # Developer Mode panel (time jump, dummy data, etc.)
 │   ├── DjItem.jsx        # Individual DJ entry component
 │   ├── FullTimelineView.jsx    # Full timetable view modal
 │   ├── ImageEditModal.jsx      # Image upload and editing modal
-│   ├── LiveView.jsx            # Live broadcast display component
+│   ├── LiveView.jsx            # Live broadcast display (handles DJ animation and VJ logic via `VjDisplay`)
 │   └── TimetableEditor.jsx     # Main editing interface
 ├── hooks/                # Custom React hooks
 │   ├── useDragAndDrop.js       # Drag & drop functionality
@@ -61,9 +62,13 @@ src/
 Key Features & Implementation
 Real-time Synchronization: Firestore enables bidirectional data synchronization between edit mode and live mode.
 
-Drag & Drop Management: useDragAndDrop.js handles reordering of DJ entries.
+Independent Animation Logic: `LiveView.jsx` handles DJ animation state, while its internal `VjDisplay` component independently handles VJ animation state. This ensures DJ and VJ transitions are decoupled and do not interfere.
 
-Image Processing: imageProcessor.js handles client-side image compression and resizing.
+Drag & Drop Management: `useDragAndDrop.js` handles reordering of DJ entries.
+
+Developer Mode: A floating panel (`DevControls.jsx`) provides tools for testing, including time jumping, dummy data loading, and event state manipulation, managed by `App.jsx`.
+
+Image Processing: `imageProcessor.js` handles client-side image compression and resizing.
 
 Responsive Design: Tailwind CSS utility-first approach ensures mobile and desktop compatibility.
 
@@ -71,16 +76,15 @@ Dark Mode Support: Theme preference stored in localStorage.
 
 WakeLock API Integration: Prevents device from automatically sleeping during live broadcast.
 
-Accurate Time Calculation: useTimetable.js uses a specific startDate and startTime as a single source of truth, eliminating "day-crossing" bugs and supporting events longer than 24 hours.
+Accurate Time Calculation: `useTimetable.js` uses a specific `startDate` and `startTime` as a single source of truth, eliminating "day-crossing" bugs and supporting events longer than 24 hours.
 
 Data Model
 Firestore Document Structure
 The application uses a single-document model for simplicity, ideal for its current "single event" scope. All data for this instance of the app is stored in one document.
 
-Path: artifacts/{appId}/public/sharedTimetable (Where appId is defined in src/firebase.js)
+Path: `artifacts/{appId}/public/sharedTimetable` (Where `appId` is defined in `src/firebase.js`)
 
-JavaScript
-
+```javascript
 // Document content:
 {
   // 1. Event Configuration
@@ -114,65 +118,3 @@ JavaScript
     // ... other vj items
   ]
 }
-Authentication Flow
-User accesses the application
-
-Firebase Anonymous Authentication automatically signs in the user.
-
-Edit mode (/) requires no additional authentication.
-
-Live view (/#live) is read-only and can be shared publicly.
-
-Performance Optimizations
-Image Compression: Client-side processing reduces server load.
-
-Lazy Loading: Images are preloaded before live display.
-
-SWC Compilation: Faster build times via Vite.
-
-Environment Setup
-Prerequisites
-Node.js (v20 or higher recommended)
-
-npm
-
-Firebase project with:
-
-Firestore database
-
-Firebase Storage bucket
-
-Anonymous Authentication enabled
-
-Firebase Configuration
-Update src/firebase.js with your Firebase project credentials:
-
-JavaScript
-
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "your-project.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
-};
-Development Workflow
-Install dependencies: npm install
-
-Start dev server: npm run dev
-
-Access at http://localhost:XXXX
-
-Run linting: npm run lint
-
-Build for production: npm run build
-
-Future Enhancements & Known Issues
-See roadmap.md for future enhancements.
-
-Critical Unfixed Issues (for next developer): See the Hand-off Report (dated 2025-11-15) for detailed analysis of the following:
-
-Edit Mode Card Height: DjItem and VjItem components do not align in height in 2-column view due to structural (DOM) differences.
-
-Live Mode VJ Bar: The VjBar component exhibits text jitter, font size inconsistencies, and vertical alignment issues.
