@@ -1,3 +1,4 @@
+# [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-db4819ead3cea781e61d33b885b764c6c79391fb/READMEdev.md]
 Technical Stack & Architecture
 Overview
 DJ Timekeeper Pro is a real-time DJ timetable management application built with React and Firebase. It enables seamless synchronization between an editing interface and a live broadcast view, allowing event organizers to manage DJ schedules with drag-and-drop simplicity while displaying the current and upcoming performers on a big screen.
@@ -15,6 +16,8 @@ Styling: Tailwind CSS 3.4.18
 Dark mode and light mode support via CSS variables
 
 PostCSS integration for autoprefixing
+
+Custom sp: '390px' breakpoint for modern smartphone sizes
 
 Icons: React Icons 5.5.0
 
@@ -70,7 +73,7 @@ Developer Mode: A floating panel (`DevControls.jsx`) provides tools for testing,
 
 Image Processing: `imageProcessor.js` handles client-side image compression and resizing.
 
-Responsive Design: Tailwind CSS utility-first approach ensures mobile and desktop compatibility.
+Responsive Design: Tailwind CSS utility-first approach ensures mobile and desktop compatibility. A custom sp: breakpoint (390px) is used for modern mobile devices.
 
 Dark Mode Support: Theme preference stored in localStorage.
 
@@ -117,4 +120,5 @@ Path: `artifacts/{appId}/public/sharedTimetable` (Where `appId` is defined in `s
     },
     // ... other vj items
   ]
+}
 }

@@ -1,3 +1,4 @@
+// [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-db4819ead3cea781e61d33b885b764c6c79391fb/src/components/TimetableEditor.jsx]
 import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import { useDragAndDrop } from '../hooks/useDragAndDrop';
 import { useTimetable } from '../hooks/useTimetable';
@@ -24,17 +25,21 @@ import {
 } from './common';
 
 
-// (VjItem - 変更なし)
-const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging }) => {
-    // ... (省略) ...
+// ▼▼▼ 【!!! 修正 !!!】 VjItem に isPlaying を追加 ▼▼▼
+const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging, isPlaying }) => {
+
     const draggingClass = isDragging ? 'dragging-item' : '';
+    // ★ 修正: isPlayingに応じたハイライトを追加
+    const ringClass = isPlaying ? 'ring-2 shadow-[0_0_12px_var(--tw-ring-color)]' : 'ring-1 ring-zinc-700';
 
     return (
         <div
-            // ★ 修正: items-stretch (変更なし)
-            className={`bg-surface-container rounded-2xl flex items-stretch gap-4 p-4 ${draggingClass}`}
+            // ★ 修正: ringClass を追加
+            className={`bg-surface-container rounded-2xl flex items-stretch gap-4 p-4 ${draggingClass} ${ringClass}`}
+            // ★ 修正: style を追加 (ハイライト色をブランドカラーに設定)
+            style={{ '--tw-ring-color': isPlaying ? 'rgb(var(--color-brand-primary))' : 'transparent' }}
         >
-            {/* ★ 修正: self-center -> self-stretch flex items-center */}
+            {/* (グリップ - 変更なし) */}
             <div
                 className="cursor-grab touch-none p-3 -m-3 self-stretch flex items-center"
                 onPointerDown={onPointerDown}
@@ -42,10 +47,10 @@ const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging }) => {
                 <GripIcon className="w-6 h-6 text-on-surface-variant shrink-0" />
             </div>
 
-            {/* ★★★ 修正: self-center を追加して高さを DjItem と完全に一致させる ★★★ */}
+            {/* (スペーサー - 変更なし) */}
             <div className="shrink-0 self-center" />
 
-            {/* VJ情報 (グリッドレイアウトは DjItem と統一済み) */}
+            {/* VJ情報 (グリッドレイアウト - 変更なし) */}
             <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                 {/* 1. VJ Name */}
                 <div className="flex flex-col">
@@ -60,7 +65,7 @@ const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging }) => {
                 {/* 3. Time Slot (col-span-2) */}
                 <div className="flex flex-col md:col-span-2">
                     <label className="text-xs text-on-surface-variant mb-1">Time Slot (Auto)</label>
-                    {/* ★★★ 修正: DjItemとHTML構造を完全に一致させる ★★★ */}
+                    {/* (HTML構造 - 変更なし) */}
                     <div className="bg-surface-background/50 p-2 rounded-lg w-full text-center font-semibold text-on-surface-variant font-mono">
                         <span>{vj.startTime}</span>
                         <span className="mx-2">-</span>
@@ -69,7 +74,7 @@ const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging }) => {
                 </div>
             </div>
 
-            {/* ★★★ 修正: 高さを DjItem と揃える (スペーサー2つ + ボタン1つ) ★★★ */}
+            {/* (スペーサー＆削除ボタン - 変更なし) */}
             <div className="flex flex-col gap-2 shrink-0 self-stretch justify-center">
                 {/* DjItemのカラーピッカー(w-9 h-9)用のスペーサー */}
                 <div className="w-9 h-9" />
@@ -81,15 +86,17 @@ const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging }) => {
         </div>
     );
 });
+// ▲▲▲ 【!!! 修正 !!!】 VjItem ここまで ▲▲▲
 
 
-// (VjTimetableManager - 変更なし)
+// (VjTimetableManager)
 const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, eventStartTimeStr, now }) => {
     // ... (省略) ...
     const {
         schedule: vjSchedule,
         eventStartTimeDate: vjEventStartTimeDate,
-        recalculateTimes: recalculateVjTimes
+        recalculateTimes: recalculateVjTimes,
+        currentlyPlayingIndex: currentlyPlayingVjIndex // ▼▼▼ 【!!! 修正 !!!】 VJの再生中インデックスを取得 ▼▼▼
     } = useTimetable(vjTimetable, eventStartDateStr, eventStartTimeStr, now);
 
     const {
@@ -148,6 +155,7 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, ev
                                 onUpdate={(field, value) => handleUpdateVj(index, field, value)}
                                 onRemove={() => handleRemoveVj(index)}
                                 isDragging={vjDraggedIndex === index}
+                                isPlaying={currentlyPlayingVjIndex === index} // ★ 修正: isPlaying を渡す
                             />
                         </div>
                     );
@@ -164,7 +172,7 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, ev
 };
 
 
-// --- ★★★ SettingsModal (★ 開発者モードを削除) ★★★ ---
+// (SettingsModal - 変更なし)
 const SettingsModal = ({
     isOpen,
     onClose,
@@ -306,7 +314,7 @@ const formatDateTime = (date) => {
 };
 
 
-// --- ★★★ TimetableEditor (★ devMode props を削除) ★★★
+// (TimetableEditor - 変更なし)
 export const TimetableEditor = ({
     eventConfig, setEventConfig,
     timetable, setTimetable,
@@ -460,7 +468,7 @@ export const TimetableEditor = ({
                 onConfirm={executeReset}
                 onCancel={() => setIsResetConfirmOpen(false)}
             />
-            {/* ▼▼▼ 【修正】 Modalから devMode props を削除 ▼▼▼ */}
+            {/* (SettingsModal - 変更なし) */}
             <SettingsModal
                 isOpen={isSettingsOpen}
                 onClose={() => setIsSettingsOpen(false)}
@@ -474,7 +482,7 @@ export const TimetableEditor = ({
                 theme={theme}
                 toggleTheme={toggleTheme}
             />
-            {/* ▲▲▲ 【修正】 ここまで ▲▲▲ */}
+            {/* (ImageEditModal - 変更なし) */}
             {editingDjIndex !== null && (
                 <ImageEditModal
                     dj={timetable[editingDjIndex]}
@@ -515,7 +523,7 @@ export const TimetableEditor = ({
                     className="w-full flex items-center justify-center bg-brand-primary hover:opacity-90 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-full transition-opacity duration-200 shadow-lg"
                 >
                     <PlayIcon className="w-5 h-5 mr-2" />
-                    {/* ▼▼▼ 【修正】 テキストも変更 ▼▼▼ */}
+                    {/* (テキスト - 変更なし) */}
                     <span>{imagesLoaded ? 'Liveモード' : '画像読込中...'}</span>
                 </button>
             </div>

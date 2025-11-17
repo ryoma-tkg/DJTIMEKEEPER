@@ -1,3 +1,4 @@
+// [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-db4819ead3cea781e61d33b885b764c6c79391fb/tailwind.config.js]
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: 'class', // 
@@ -7,6 +8,12 @@ export default {
   ],
   theme: {
     extend: {
+      // ▼▼▼ 【!!! 追加 !!!】 ▼▼▼
+      screens: {
+        'sp': '390px',
+        // 既存の sm: 640px, md: 768px... は自動で維持されます
+      },
+      // ▲▲▲ 【!!! 追加 !!!】 ここまで ▲▲▲
       fontFamily: {
         sans: ['Montserrat', '"IBM Plex Sans JP"', 'sans-serif'],
         mono: ['Orbitron', 'Montserrat', 'sans-serif'],
