@@ -44,7 +44,7 @@ export const DevControls = ({
     onCrashApp,
 
     imagesLoaded,
-    onToggleDevMode // ★【追加】
+    onClose // ★【追加】
 }) => {
     // 
     const isLive = mode === 'live';

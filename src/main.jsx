@@ -54,7 +54,7 @@ createRoot(document.getElementById('root')).render(
   // <StrictMode>
   <ErrorBoundary>
     {/* ▼▼▼ 【!!! 修正 !!!】 BrowserRouter に basename を設定 ▼▼▼ */}
-    <BrowserRouter basename="/DJTIMEKEEPER/">
+    <BrowserRouter>
       <App />
     </BrowserRouter>
   </ErrorBoundary>

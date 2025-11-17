@@ -1,4 +1,3 @@
-# [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-db4819ead3cea781e61d33b885b764c6c79391fb/READMEdev.md]
 Technical Stack & Architecture
 Overview
 DJ Timekeeper Pro is a real-time DJ timetable management application built with React and Firebase. It enables seamless synchronization between an editing interface and a live broadcast view, allowing event organizers to manage DJ schedules with drag-and-drop simplicity while displaying the current and upcoming performers on a big screen.

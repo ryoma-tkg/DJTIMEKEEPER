@@ -1,7 +1,7 @@
 // [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-phase3-dev/src/components/EditorPage.jsx]
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { db, storage, auth } from '../firebase'; // storage と auth をインポート
+import { db, storage } from '../firebase'; // auth は user prop 経由なので削除
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 
 // 必要なコンポーネントとフックをインポート
@@ -180,77 +180,73 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
     // pageStatus === 'ready' の場合
     //
 
-    // ▼▼▼ 【!!! 修正 !!!】 mode によって Editor と Live を切り替える ▼▼▼
+    // ▼▼▼ 【!!! 修正 !!!】 本来の return 文はこれです ▼▼▼
     return (
         <>
-            <Routes>
-                {/* --- ルート: / --- */}
-                <Route
-                    path="/"
-                    element={
-                        authStatus === 'authed' ? (
-                            <DashboardPage user={user} onLogout={handleLogout} />
-                        ) : (
-                            <Navigate to="/login" replace />
-                        )
-                    }
+            {mode === 'edit' ? (
+                <TimetableEditor
+                    eventConfig={eventConfig}
+                    setEventConfig={setEventConfig}
+                    timetable={timetable}
+                    setTimetable={setTimetable}
+                    vjTimetable={vjTimetable}
+                    setVjTimetable={setVjTimetable}
+                    setMode={handleSetMode} // 内部の mode トグル用
+                    storage={storageRef.current} // storage の実体を渡す
+                    timeOffset={timeOffset}
+                    theme={theme}
+                    toggleTheme={toggleTheme}
+                    imagesLoaded={imagesLoaded}
                 />
-
-                {/* --- ログインページ: /login --- */}
-                <Route
-                    path="/login"
-                    element={
-                        authStatus === 'authed' ? (
-                            <Navigate to="/" replace />
-                        ) : (
-                            <LoginPage onLoginClick={handleLogin} isLoggingIn={isLoggingIn} />
-                        )
-                    }
+            ) : (
+                <LiveView
+                    timetable={timetable}
+                    vjTimetable={vjTimetable}
+                    eventConfig={eventConfig}
+                    setMode={handleSetMode} // 内部の mode トグル用
+                    loadedUrls={loadedUrls}
+                    timeOffset={timeOffset}
+                    isReadOnly={false} // 編集ページ内のLiveViewは ReadOnly ではない
+                    theme={theme}
+                    toggleTheme={toggleTheme}
                 />
+            )}
 
-                {/* --- 編集ページ: /edit/:eventId --- */}
-                <Route
-                    path="/edit/:eventId"
-                    element={
-                        authStatus === 'authed' ? (
-                            <EditorPage
-                                user={user}
-                                isDevMode={isDevMode}
-                                // onToggleDevMode={toggleDevMode} // ★ 修正: 削除
-                                theme={theme}
-                                toggleTheme={toggleTheme}
-                            />
-                        ) : (
-                            <Navigate to="/login" replace />
-                        )
-                    }
-                />
-
-                {/* --- ライブページ: /live/:eventId --- */}
-                <Route
-                    path="/live/:eventId"
-                    element={
-                        <LivePage
-                            theme={theme}
-                            toggleTheme={toggleTheme}
+            {/* 開発者モード用 */}
+            {isDevMode && (
+                <>
+                    <button
+                        onClick={() => setIsDevPanelOpen(prev => !prev)}
+                        className="fixed bottom-4 left-4 z-[998] w-12 h-12 bg-brand-primary text-white rounded-full shadow-lg grid place-items-center"
+                        title="開発者パネルを開く"
+                    >
+                        <PowerIcon className="w-6 h-6" />
+                    </button>
+                    {isDevPanelOpen && (
+                        <DevControls
+                            mode={mode}
+                            setMode={handleSetMode}
+                            timeOffset={timeOffset}
+                            onTimeJump={handleTimeJump}
+                            onTimeReset={handleTimeReset}
+                            eventConfig={eventConfig}
+                            timetable={timetable}
+                            vjTimetable={vjTimetable}
+                            onToggleVjFeature={handleToggleVjFeature}
+                            onLoadDummyData={() => alert("ダミーデータはダッシュボードで作成してください")}
+                            onSetStartNow={handleSetStartNow}
+                            onFinishEvent={handleFinishEvent}
+                            onCrashApp={() => setCrash(true)}
+                            imagesLoaded={imagesLoaded}
+                            onClose={() => setIsDevPanelOpen(false)} // ★ パネルを閉じる関数を渡す
+                        // onToggleDevMode={onToggleDevMode} // ★ App全体のDevModeトグルは不要
                         />
-                    }
-                />
-
-                {/* --- 404 Not Found (仮) --- */}
-                <Route
-                    path="*"
-                    element={
-                        <div className="p-8">
-                            <h1>404 - ページが見つかりません</h1>
-                            <Link to="/">ダッシュボードに戻る</Link>
-                        </div>
-                    }
-                />
-
-            </Routes>
+                    )}
+                </>
+            )}
         </>
     );
 };
 
-export default App;
+// ★ 修正: export default App; ではなく、export default EditorPage;
+export default EditorPage;
