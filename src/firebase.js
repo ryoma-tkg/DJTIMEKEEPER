@@ -1,9 +1,19 @@
+// [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-phase3-dev/src/firebase.js]
 import { initializeApp } from "firebase/app";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
+// ▼▼▼ 【!!! 修正 !!!】 認証まわりで使う機能を追加インポート ▼▼▼
+import {
+  getAuth,
+  onAuthStateChanged,
+  GoogleAuthProvider, // Google認証プロバイダ
+  signInWithPopup,    // ポップアップでログイン
+  signOut             // ログアウト
+} from "firebase/auth";
+// ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲
+
 import { getFirestore, doc, onSnapshot, setDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
-// index.htmlから firebaseConfig をコピペ
+// (firebaseConfig - 変更なし)
 const firebaseConfig = {
   apiKey: "AIzaSyCDe_GANzGxXP0IRk90is37L1ZGobw1sQ8", // 先輩のキーっすよね！
   authDomain: "djtable-2408d.firebaseapp.com",
@@ -13,25 +23,30 @@ const firebaseConfig = {
   appId: "1:780384107579:web:97fddd203fedff885af01e"
 };
 
-// index.html で window.appId にしてたやつ
-export const appId = 'github-pages-deploy'; 
+// (appId - 変更なし)
+export const appId = 'github-pages-deploy';
 
-// アプリを初期化
+// (app - 変更なし)
 const app = initializeApp(firebaseConfig);
 
-// 各サービスを初期化してエクスポート（App.jsxで使えるようにする）
+// (各サービス - 変更なし)
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
-// 必要な関数も再エクスポート
+// ▼▼▼ 【!!! 追加 !!!】 Google認証で使うプロバイダをエクスポート ▼▼▼
+export const googleProvider = new GoogleAuthProvider();
+
+// ▼▼▼ 【!!! 修正 !!!】 必要な関数を再エクスポート ▼▼▼
 export {
-    signInAnonymously,
-    onAuthStateChanged,
-    doc,
-    onSnapshot,
-    setDoc,
-    ref,
-    uploadBytes,
-    getDownloadURL,
+  // signInAnonymously, // ← 匿名認証はもう使わないので削除
+  onAuthStateChanged,
+  signInWithPopup,    // ← 追加
+  signOut,            // ← 追加
+  doc,
+  onSnapshot,
+  setDoc,
+  ref,
+  uploadBytes,
+  getDownloadURL,
 };
