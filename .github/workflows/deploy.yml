@@ -1,3 +1,4 @@
+# [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-phase3-dev/.github/workflows/deploy.yml]
 # ワークフローの名前
 name: Deploy Vite App to GitHub Pages
 
@@ -6,7 +7,7 @@ on:
   # 'main' ブランチに push されたら実行
   push:
     branches:
-      - main # ご自身のブランチ名が 'master' なら、そっちに変えてください
+      - main 
 
 # 必要な権限を設定
 permissions:
@@ -27,38 +28,42 @@ jobs:
     
     # ジョブのステップ
     steps:
-      # 1. リポジトリのコードをチェックアウト
+      # 1. (変更なし)
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Node.js の環境をセットアップ
+      # 2. (変更なし)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # '18' や '20' など、プロジェクトに合わせる
-          cache: 'npm'       # npmのキャッシュを有効化
+          node-version: '20' 
+          cache: 'npm'       
 
-      # 3. 依存パッケージのインストール
+      # 3. (変更なし)
       - name: Install dependencies
-        run: npm ci # 'npm install' より高速で確実っす
+        run: npm ci 
 
-      # 4. Viteのビルドキャッシュを強制的に削除
+      # 4. (変更なし)
       - name: Clear Vite build cache
         run: rm -rf node_modules/.vite
 
+      # ▼▼▼ 【!!! 修正 !!!】 YAMLの構文エラーを修正 ▼▼▼
+      - name: Update vite.config.js for GitHub Pages
+        run: |
+          sed -i "s|base: '/'|base: '/DJTIMEKEEPER/'|" vite.config.js
+      # ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲
+
       # 5. Viteアプリのビルド
-      # 'package.json' の "build": "vite build" が実行される
       - name: Build Vite app
         run: npm run build
 
-      # 6. GitHub Pages用にビルド結果をアーティファクトとしてアップロード
+      # 6. (変更なし)
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # ★★★ ここがViteの重要ポイントっす！ ★★★
           path: './dist' 
 
-      # 7. GitHub Pages にデプロイ
+      # 7. (変更なし)
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

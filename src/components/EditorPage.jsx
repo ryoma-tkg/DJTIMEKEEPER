@@ -45,6 +45,9 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
 
     const [timeOffset, setTimeOffset] = useState(0);
 
+    // ▼▼▼ 【!!! 追加 !!!】 開発者パネルの「表示/非表示」を管理する state ▼▼▼
+    const [isDevPanelOpen, setIsDevPanelOpen] = useState(false); // デフォルトは非表示
+
     // 画像プリロード
     const imageUrlsToPreload = useMemo(() => timetable.map(dj => dj.imageUrl), [timetable]);
     const { loadedUrls, allLoaded: imagesLoaded } = useImagePreloader(imageUrlsToPreload);
@@ -180,79 +183,74 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
     // ▼▼▼ 【!!! 修正 !!!】 mode によって Editor と Live を切り替える ▼▼▼
     return (
         <>
-            {/* --- 編集モード --- */}
-            <div style={{ display: mode === 'edit' ? 'block' : 'none' }}>
-                <TimetableEditor
-                    eventConfig={eventConfig}
-                    setEventConfig={setEventConfig}
-                    timetable={timetable}
-                    setTimetable={setTimetable}
-                    vjTimetable={vjTimetable}
-                    setVjTimetable={setVjTimetable}
-                    setMode={handleSetMode} // ★ 修正
-                    storage={storageRef.current}
-                    timeOffset={timeOffset}
-                    theme={theme}
-                    toggleTheme={toggleTheme}
-                    imagesLoaded={imagesLoaded}
+            <Routes>
+                {/* --- ルート: / --- */}
+                <Route
+                    path="/"
+                    element={
+                        authStatus === 'authed' ? (
+                            <DashboardPage user={user} onLogout={handleLogout} />
+                        ) : (
+                            <Navigate to="/login" replace />
+                        )
+                    }
                 />
-            </div>
 
-            {/* --- オーナー用Liveモード --- */}
-            <div style={{ display: mode === 'live' ? 'block' : 'none' }}>
-                {mode === 'live' && ( // 
-                    <LiveView
-                        timetable={timetable}
-                        vjTimetable={vjTimetable}
-                        eventConfig={eventConfig}
-                        setMode={handleSetMode} // ★ 修正 
-                        loadedUrls={loadedUrls}
-                        timeOffset={timeOffset}
-                        isReadOnly={false} // ★ 修正: オーナーは ReadOnly ではない
-                        theme={theme}
-                        toggleTheme={toggleTheme}
-                    />
-                )}
-            </div>
-
-            {/* (開発者モード) */}
-            {isDevMode && (
-                <DevControls
-                    mode={mode} // ★ 修正
-                    setMode={handleSetMode}
-                    timeOffset={timeOffset}
-                    onTimeJump={handleTimeJump}
-                    onTimeReset={handleTimeReset}
-                    eventConfig={eventConfig}
-                    timetable={timetable}
-                    vjTimetable={vjTimetable}
-                    onToggleVjFeature={handleToggleVjFeature}
-                    onLoadDummyData={() => alert("ダミーデータはダッシュボードで作成してください")}
-                    onSetStartNow={handleSetStartNow}
-                    onFinishEvent={handleFinishEvent}
-                    onCrashApp={() => setCrash(true)}
-                    imagesLoaded={imagesLoaded}
-                    onToggleDevMode={onToggleDevMode}
+                {/* --- ログインページ: /login --- */}
+                <Route
+                    path="/login"
+                    element={
+                        authStatus === 'authed' ? (
+                            <Navigate to="/" replace />
+                        ) : (
+                            <LoginPage onLoginClick={handleLogin} isLoggingIn={isLoggingIn} />
+                        )
+                    }
                 />
-            )}
-            {/* (開発者モードON/OFFボタン) */}
-            {isDevMode && (
-                <button
-                    onClick={onToggleDevMode}
-                    title="開発者モード切替"
-                    className={`
-                        fixed z-[998] right-4
-                        ${(isDevMode && mode === 'edit') ? 'bottom-[270px]' : 'bottom-4'} 
-                        w-12 h-12 rounded-full 
-                        flex items-center justify-center 
-                        shadow-xl transition-all duration-300
-                        ${isDevMode ? 'bg-brand-primary text-white' : 'bg-surface-container text-on-surface-variant hover:bg-surface-background'}
-                    `}
-                >
-                    <PowerIcon className="w-6 h-6" />
-                </button>
-            )}
-            {/* ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲ */}
+
+                {/* --- 編集ページ: /edit/:eventId --- */}
+                <Route
+                    path="/edit/:eventId"
+                    element={
+                        authStatus === 'authed' ? (
+                            <EditorPage
+                                user={user}
+                                isDevMode={isDevMode}
+                                // onToggleDevMode={toggleDevMode} // ★ 修正: 削除
+                                theme={theme}
+                                toggleTheme={toggleTheme}
+                            />
+                        ) : (
+                            <Navigate to="/login" replace />
+                        )
+                    }
+                />
+
+                {/* --- ライブページ: /live/:eventId --- */}
+                <Route
+                    path="/live/:eventId"
+                    element={
+                        <LivePage
+                            theme={theme}
+                            toggleTheme={toggleTheme}
+                        />
+                    }
+                />
+
+                {/* --- 404 Not Found (仮) --- */}
+                <Route
+                    path="*"
+                    element={
+                        <div className="p-8">
+                            <h1>404 - ページが見つかりません</h1>
+                            <Link to="/">ダッシュボードに戻る</Link>
+                        </div>
+                    }
+                />
+
+            </Routes>
         </>
     );
 };
+
+export default App;

@@ -17,10 +17,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # ▼▼▼ 【!!! 修正 !!!】 YAMLの構文エラーを修正 ▼▼▼
-      - name: Update vite.config.js for Firebase Hosting
-        run: |
-          sed -i "s|base: '/DJTIMEKEEPER/'|base: '/'|" vite.config.js
+# ▼▼▼ 【!!! 修正 !!!】 base: '/' になったので、この書き換えステップを削除 ▼▼▼
+      # - name: Update vite.config.js for Firebase Hosting
+      #   run: |
+      #     sed -i "s|base: '/DJTIMEKEEPER/'|base: '/'|" vite.config.js
       # ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲
 
       - name: Build Vite app
