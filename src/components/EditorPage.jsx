@@ -35,7 +35,7 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
     const storageRef = useRef(storage); // 
 
     // ▼▼▼ 旧 App.jsx のロジックをここにお引越し ▼▼▼
-    const [mode, setMode] = useState('edit'); // EditorPage は 'edit' がデフォルト
+    const [mode, setMode] = useState('edit'); // ★ 修正: EditorPage が mode を持つ
     const [timetable, setTimetable] = useState([]);
     const [vjTimetable, setVjTimetable] = useState([]);
     const [eventConfig, setEventConfig] = useState(getDefaultEventConfig());
@@ -67,7 +67,10 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                 if (data.ownerUid !== user.uid) {
                     // 自分のイベントじゃない！
                     console.warn("アクセス権限がありません (Not the owner)");
-                    setPageStatus('forbidden'); // 
+                    // ▼▼▼ 【!!! 修正 !!!】 エラー表示ではなく、/live/ にリダイレクト ▼▼▼
+                    setPageStatus('forbidden'); // （念のためセット）
+                    navigate(`/live/${eventId}`, { replace: true }); // 
+                    // ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲
                 } else {
                     // 自分のイベントだった
                     setTimetable(data.timetable || []);
@@ -85,9 +88,9 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
         });
 
         return () => unsubscribe();
-    }, [user, eventId, docRef]);
+    }, [user, eventId, docRef, navigate]); // ★ navigate を依存配列に追加
 
-    // ▼ 2. データベースへの自動保存ロジック (旧 App.jsx からお引越し)
+    // ▼ 2. データベースへの自動保存ロジック (変更なし)
     const saveDataToFirestore = useCallback(() => {
         if (pageStatus !== 'ready' || !user) return; // 準備完了＆ログイン中のみ保存
 
@@ -100,7 +103,7 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
         });
     }, [docRef, timetable, vjTimetable, eventConfig, pageStatus, user]);
 
-    // 
+    // (自動保存useEffect - 変更なし)
     useEffect(() => {
         if (pageStatus !== 'ready') return; // 読み込み中や権限なしの時は保存しない
 
@@ -118,14 +121,15 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                 alert("まだ画像の準備中っす！ちょっと待ってからもう一回押してくださいっす！");
                 return;
             }
-            // ★ 修正: '/#live' ではなく、`/live/:eventId` に遷移する
-            navigate(`/live/${eventId}`);
+            // ★ 修正: URL遷移せず、内部の mode を 'live' に変更
+            setMode('live');
         } else {
-            setMode(newMode);
+            // ★ 修正: 'edit' に戻る
+            setMode('edit');
         }
     };
 
-    // ▼ 4. 開発者モード用ロジック (旧 App.jsx からお引越し)
+    // ▼ 4. 開発者モード用ロジック (変更なし)
     const handleTimeJump = (minutes) => {
         const msToAdd = minutes * 60 * 1000;
         setTimeOffset(prevOffset => prevOffset + msToAdd);
@@ -165,17 +169,19 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
     }
 
     if (pageStatus === 'forbidden') {
-        return <div className="p-8"><h1>403 - アクセス権限がありません</h1><Link to="/">ダッシュボードに戻る</Link></div>;
+        // ★ リダイレクトが実行されるまでの間に一瞬表示されるローディング
+        return <LoadingScreen text="閲覧モードにリダイレクト中..." />;
     }
 
     //
     // pageStatus === 'ready' の場合
     //
 
-    // ★ LiveView には 'edit' モードは不要になったので、'edit' なら TimetableEditor を表示
-    if (mode === 'edit') {
-        return (
-            <>
+    // ▼▼▼ 【!!! 修正 !!!】 mode によって Editor と Live を切り替える ▼▼▼
+    return (
+        <>
+            {/* --- 編集モード --- */}
+            <div style={{ display: mode === 'edit' ? 'block' : 'none' }}>
                 <TimetableEditor
                     eventConfig={eventConfig}
                     setEventConfig={setEventConfig}
@@ -183,55 +189,70 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                     setTimetable={setTimetable}
                     vjTimetable={vjTimetable}
                     setVjTimetable={setVjTimetable}
-                    setMode={handleSetMode} // 
+                    setMode={handleSetMode} // ★ 修正
                     storage={storageRef.current}
                     timeOffset={timeOffset}
                     theme={theme}
                     toggleTheme={toggleTheme}
                     imagesLoaded={imagesLoaded}
                 />
+            </div>
 
-                {/* (開発者モード) */}
-                {isDevMode && (
-                    <DevControls
-                        mode={mode}
-                        setMode={handleSetMode}
-                        timeOffset={timeOffset}
-                        onTimeJump={handleTimeJump}
-                        onTimeReset={handleTimeReset}
-                        eventConfig={eventConfig}
+            {/* --- オーナー用Liveモード --- */}
+            <div style={{ display: mode === 'live' ? 'block' : 'none' }}>
+                {mode === 'live' && ( // 
+                    <LiveView
                         timetable={timetable}
                         vjTimetable={vjTimetable}
-                        onToggleVjFeature={handleToggleVjFeature}
-                        onLoadDummyData={() => alert("ダミーデータはダッシュボードで作成してください")}
-                        onSetStartNow={handleSetStartNow}
-                        onFinishEvent={handleFinishEvent}
-                        onCrashApp={() => setCrash(true)}
-                        imagesLoaded={imagesLoaded}
-                        onToggleDevMode={onToggleDevMode}
+                        eventConfig={eventConfig}
+                        setMode={handleSetMode} // ★ 修正 
+                        loadedUrls={loadedUrls}
+                        timeOffset={timeOffset}
+                        isReadOnly={false} // ★ 修正: オーナーは ReadOnly ではない
+                        theme={theme}
+                        toggleTheme={toggleTheme}
                     />
                 )}
-                {/* (開発者モードON/OFFボタン) */}
-                {isDevMode && (
-                    <button
-                        onClick={onToggleDevMode}
-                        title="開発者モード切替"
-                        className={`
-                            fixed z-[998] right-4
-                            ${isDevMode ? 'bottom-[270px]' : 'bottom-4'} 
-                            w-12 h-12 rounded-full 
-                            flex items-center justify-center 
-                            shadow-xl transition-all duration-300
-                            ${isDevMode ? 'bg-brand-primary text-white' : 'bg-surface-container text-on-surface-variant hover:bg-surface-background'}
-                        `}
-                    >
-                        <PowerIcon className="w-6 h-6" />
-                    </button>
-                )}
-            </>
-        );
-    }
+            </div>
 
-    // (LiveViewのロジックは LivePage.jsx に移動したので、ここは null を返す)
-    return null;
+            {/* (開発者モード) */}
+            {isDevMode && (
+                <DevControls
+                    mode={mode} // ★ 修正
+                    setMode={handleSetMode}
+                    timeOffset={timeOffset}
+                    onTimeJump={handleTimeJump}
+                    onTimeReset={handleTimeReset}
+                    eventConfig={eventConfig}
+                    timetable={timetable}
+                    vjTimetable={vjTimetable}
+                    onToggleVjFeature={handleToggleVjFeature}
+                    onLoadDummyData={() => alert("ダミーデータはダッシュボードで作成してください")}
+                    onSetStartNow={handleSetStartNow}
+                    onFinishEvent={handleFinishEvent}
+                    onCrashApp={() => setCrash(true)}
+                    imagesLoaded={imagesLoaded}
+                    onToggleDevMode={onToggleDevMode}
+                />
+            )}
+            {/* (開発者モードON/OFFボタン) */}
+            {isDevMode && (
+                <button
+                    onClick={onToggleDevMode}
+                    title="開発者モード切替"
+                    className={`
+                        fixed z-[998] right-4
+                        ${(isDevMode && mode === 'edit') ? 'bottom-[270px]' : 'bottom-4'} 
+                        w-12 h-12 rounded-full 
+                        flex items-center justify-center 
+                        shadow-xl transition-all duration-300
+                        ${isDevMode ? 'bg-brand-primary text-white' : 'bg-surface-container text-on-surface-variant hover:bg-surface-background'}
+                    `}
+                >
+                    <PowerIcon className="w-6 h-6" />
+                </button>
+            )}
+            {/* ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲ */}
+        </>
+    );
 };
