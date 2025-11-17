@@ -23,6 +23,7 @@ jobs:
       #     sed -i "s|base: '/DJTIMEKEEPER/'|base: '/'|" vite.config.js
       # ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲
 
+# ▼▼▼ 【!!! ココが最重要 !!!】 env: ブロックを追加 ▼▼▼
       - name: Build Vite app
         run: npm run build
         env:
@@ -32,7 +33,7 @@ jobs:
           VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
-      # ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲
+# ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲
       
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0

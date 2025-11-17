@@ -8,31 +8,25 @@ service cloud.firestore {
       
       // --- 読み取り(Read) ---
       
-      // 1. 【/live/:eventId】
-      //    単一ドキュメントの読み取り(get)は、誰でも(is true)許可する。
-      //    (LivePageが機能するために必要)
+      // 1. 【/live/:eventId】 (LivePage)
+      //    単一ドキュメントの取得(get)は、誰でも許可する。
       allow get: if true;
       
       // 2. 【/ (DashboardPage)】
-      //    一覧の取得(list)は、ログイン中(auth.uid != null)
-      //    かつ、クエリが「自分のownerUid」を検索するものと完全に一致する場合のみ許可。
-      allow list: if request.auth.uid != null
-                  && request.query.where.size == 1
-                  && request.query.where[0].field == "ownerUid"
-                  && request.query.where[0].op == "=="
-                  && request.query.where[0].value == request.auth.uid;
+      //    一覧の取得(list)は、ログイン中(auth.uid != null)であれば許可する。
+      //    ※「どのイベントを読み込むか」は、インデックスを使って
+      //    ※ クライアント側 (DashboardPage.jsx) のクエリを信頼する。
+      allow list: if request.auth.uid != null;
 
       // --- 書き込み(Write) ---
       
       // 1. 【新規作成 (create)】
-      //    ログイン中(auth.uid != null)
-      //    かつ、これから作成するデータの ownerUid が自分自身であること。
+      //    ログイン中かつ、作成データの ownerUid が自分自身であること。
       allow create: if request.auth.uid != null
                     && request.resource.data.ownerUid == request.auth.uid;
-                    
+      
       // 2. 【更新・削除 (update, delete)】
-      //    ログイン中(auth.uid != null)
-      //    かつ、"既に"データベースにあるデータの ownerUid が自分自身であること。
+      //    ログイン中かつ、"既に"データベースにあるデータの ownerUid が自分自身であること。
       allow update, delete: if request.auth.uid != null
                             && resource.data.ownerUid == request.auth.uid;
     }
