@@ -296,7 +296,7 @@ const VjDisplay = ({
 // ▲▲▲ VJDisplayコンポーネントここまで ▲▲▲
 
 
-// ★★★ LiveView 本体 ★★★
+// ▼▼▼ 【!!! 修正 !!!】 LiveView の props から forceVjHide を削除 ▼▼▼
 export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedUrls, timeOffset, isReadOnly, theme, toggleTheme }) => {
     const [now, setNow] = useState(new Date(new Date().getTime() + timeOffset));
     const timelineContainerRef = useRef(null);
@@ -588,12 +588,12 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
     const formatDurationHHMMSS = (totalSeconds) => {
         if (totalSeconds < 0) totalSeconds = 0;
         const h = Math.floor(totalSeconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
+        const m = Math.floor((totalSeconds % 3600) / 60);
         const s = Math.floor(totalSeconds % 60);
         return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     };
 
-    // (currentBgColor useMemo - 変更なし、前回の修正(isDjFadingOut)を維持)
+    // (currentBgColor useMemo - 変更なし)
     const currentBgColor = useMemo(() => {
         if (visibleDjContent?.status !== 'ON AIR' || isDjFadingOut) { // ★ 修正: isDjFadingOut
             return null; // ON AIR 中以外は背景色なし
@@ -660,7 +660,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
     };
 
 
-    // (renderDjContent - 変更なし)
+    // (renderDjContent)
     const renderDjContent = (content) => {
         if (!content) return null;
 
@@ -699,7 +699,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                         </p>
                     </main>
 
-                    {/* (DJ/VJスタンバイ コンテナ - 変更なし) */}
+                    {/* ▼▼▼ 【!!! 修正 !!!】 VJスタンバイの表示条件から !forceVjHide を削除 ▼▼▼ */}
                     {(nextDj || (eventConfig.vjFeatureEnabled && nextVj)) && (
                         <div className="w-full max-w-3xl mt-0">
                             <div className="w-full max-w-3xl border-t border-on-surface/10 mb-4" />
@@ -719,7 +719,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                                 )}
 
                                 {/* VJ Standby Line */}
-                                {eventConfig.vjFeatureEnabled && nextVj && (
+                                {eventConfig.vjFeatureEnabled && nextVj && ( // ★ 修正: !forceVjHide を削除
                                     <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
                                         <span className="text-lg sm:text-2xl font-bold text-on-surface-variant/50">VJ STANDBY</span>
                                         <div className="h-6 w-px bg-on-surface/30 hidden sm:block"></div>
@@ -734,7 +734,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                             </div>
                         </div>
                     )}
-                    {/* */}
+                    {/* ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲ */}
                 </div>
             );
         }
@@ -961,11 +961,11 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                 onWakeLockToggle={handleWakeLockToggle}
             />
 
-            {/* (メインコンテント（DJ用） - 変更なし) */}
+            {/* ▼▼▼ 【!!! 修正 !!!】 VJ表示ロジックを !isReadOnly で判定 ▼▼▼ */}
             <div className={`
                 absolute top-28 md:top-24 left-0 right-0 px-4 
                 flex items-center justify-center overflow-hidden
-                ${(eventConfig.vjFeatureEnabled && !isReadOnly && eventStatus === 'ON_AIR_BLOCK')
+                ${(eventConfig.vjFeatureEnabled && !isReadOnly && eventStatus === 'ON_AIR_BLOCK') /* ★ 修正: !isReadOnly を使用 */
                     ? 'bottom-24 md:bottom-56' /* ON AIR中: VJバーのスペースを空ける */
                     : 'bottom-24' /* それ以外: VJバーは無い(or別管理)のでスペースを空けない */
                 }
@@ -988,8 +988,8 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
             </div>
 
 
-            {/* (VJDisplay 呼び出し - 変更なし) */}
-            {eventConfig.vjFeatureEnabled && !isReadOnly && (eventStatus === 'ON_AIR_BLOCK') && (
+            {/* ▼▼▼ 【!!! 修正 !!!】 VJ表示ロジックを !isReadOnly で判定 ▼▼▼ */}
+            {eventConfig.vjFeatureEnabled && !isReadOnly && (eventStatus === 'ON_AIR_BLOCK') && ( // ★ 修正: !isReadOnly を使用
                 <VjDisplay
                     vjTimetable={vjTimetable}
                     eventConfig={eventConfig}
@@ -997,10 +997,10 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                     djEventStatus={eventStatus}
                 />
             )}
-            {/* */}
+            {/* ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲ */}
 
 
-            {/* ▼▼▼ 【!!! 修正 !!!】 1. STANDBY中 は非表示 / 2. UPCOMING中 のハイライト削除 ▼▼▼ */}
+            {/* (Bottom Timeline - 変更なし) */}
             {schedule.length > 0 && eventStatus !== 'STANDBY' && (
                 <div ref={timelineContainerRef} className="absolute bottom-0 left-0 right-0 w-full shrink-0 overflow-hidden mask-gradient z-10 pb-4 hidden md:block h-20 md:h-32">
                     <div
@@ -1014,7 +1014,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                             const isPlaying = currentlyPlayingIndex === index;
                             const borderClass = isPlaying ? 'border border-on-surface dark:border-white' : 'border border-on-surface/30 dark:border-white/30';
 
-                            // ★ 修正: (isPlaying) OR (ON_AIR_BLOCK中かつ再生DJがいない AND 最初のDJ)
+                            // ★ (UPCOMING ハイライト削除 - 変更なし)
                             const isActive = isPlaying || (eventStatus === 'ON_AIR_BLOCK' && currentlyPlayingIndex === -1 && index === 0);
 
                             return (
@@ -1050,7 +1050,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                     </div>
                 </div>
             )}
-            {/* ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲ */}
+            {/* */}
 
             {/* (FullTimelineView - 変更なし) */}
             <FullTimelineView

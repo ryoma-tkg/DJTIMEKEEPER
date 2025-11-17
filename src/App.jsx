@@ -1,3 +1,4 @@
+// [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-db4819ead3cea781e61d33b885b764c6c79391fb/src/App.jsx]
 import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 // 
 import {
@@ -46,6 +47,9 @@ const App = () => {
     const storageRef = useRef(null);
     const [timeOffset, setTimeOffset] = useState(0);
     const [isReadOnly, setIsReadOnly] = useState(false);
+    // ▼▼▼ 【!!! 修正 !!!】 forceVjHide の state を削除 ▼▼▼
+    // const [forceVjHide, setForceVjHide] = useState(false);
+    // ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲
 
     // 
     const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
@@ -115,14 +119,17 @@ const App = () => {
         }
     }, [appStatus, isDevMode]); // 
 
-    // (useEffect auth - 変更なし)
+    // ▼▼▼ 【!!! 修正 !!!】 URLハッシュの判定ロジックを「#live」のみに戻す ▼▼▼
     useEffect(() => {
+        // 
         if (window.location.hash === '#live') {
-            // 
+            // 参加者モード
             console.log("閲覧専用モード (#live) で起動っす！");
             setIsReadOnly(true);
             setMode('live');
+            // setForceVjHide(true); // ★ 削除
         }
+        // else if (window.location.hash === '#staff') { ... } // ★ 削除
 
         const connectionTimeout = setTimeout(() => {
             if (appStatus === 'connecting') {
@@ -153,7 +160,9 @@ const App = () => {
         }
 
         return () => clearTimeout(connectionTimeout);
-    }, []);
+    }, []); // 
+    // ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲
+
 
     // (useEffect onSnapshot - 変更なし)
     useEffect(() => {
@@ -254,7 +263,7 @@ const App = () => {
         }));
     };
 
-    // ▼▼▼ 【修正】 「今スタート」のロジックをローカル日時に修正 ▼▼▼
+    // (handleSetStartNow - 変更なし)
     const handleSetStartNow = () => {
         console.log("[DevMode] Setting event start time to NOW (local)...");
         const now = new Date(); // 
@@ -277,7 +286,7 @@ const App = () => {
         setTimeOffset(0); // 
         console.log(`[DevMode] Event Start Time set to NOW: ${newStartDate} ${newStartTime}`);
     };
-    // ▲▲▲ 【修正】 ここまで ▲▲▲
+    // 
 
     // (handleLoadDummyData - 変更なし)
     const handleLoadDummyData = () => {
@@ -361,7 +370,7 @@ const App = () => {
                         </div>
                     )}
 
-                    {/* (TimetableEditor / LiveView の props - 変更なし) */}
+                    {/* ▼▼▼ 【!!! 修正 !!!】 LiveView から forceVjHide を削除 ▼▼▼ */}
                     {mode === 'edit' && !isReadOnly ?
                         // 
                         <TimetableEditor
@@ -387,12 +396,15 @@ const App = () => {
                             loadedUrls={loadedUrls}
                             timeOffset={timeOffset}
                             isReadOnly={isReadOnly}
+                            // forceVjHide={forceVjHide} // ★【削除】
                             theme={theme} // 
                             toggleTheme={toggleTheme} // 
                         />
                     }
+                    {/* ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲ */}
 
-                    {/* ▼▼▼ 【修正】 DevControls に onToggleDevMode を渡す ▼▼▼ */}
+
+                    {/* (DevControls - 変更なし) */}
                     {isDevMode && !isReadOnly && (
                         <DevControls
                             mode={mode}
@@ -412,7 +424,7 @@ const App = () => {
                             onCrashApp={() => setCrash(true)}
 
                             imagesLoaded={imagesLoaded} // 
-                            onToggleDevMode={toggleDevMode} // ★【追加】
+                            onToggleDevMode={toggleDevMode} // 
                         />
                     )}
 
@@ -433,7 +445,7 @@ const App = () => {
                             <PowerIcon className="w-6 h-6" />
                         </button>
                     )}
-                    {/* ▲▲▲ 【追加】 ここまで ▲▲▲ */}
+                    {/* */}
                 </>
             );
 
