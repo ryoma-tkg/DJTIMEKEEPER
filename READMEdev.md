@@ -1,6 +1,8 @@
 # [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-phase3-dev/READMEdev.md]
 # Technical Stack & Architecture (Phase 3)
 
+**Last Updated: 2025-11-18**
+
 ## 1. Overview
 
 DJ Timekeeper Pro is a real-time DJ timetable management application built with React and Firebase.
@@ -144,9 +146,9 @@ The rules are designed to enforce the multi-tenant architecture.
     * `allow get: if true;`
         * **Purpose:** Allows public, unauthenticated read access for a single document.
         * **Used by:** `<LivePage />` (`/live/:eventId`) to get event data.
-    * `allow list: if request.auth.uid != null && request.query.where[0].field == "ownerUid" && request.query.where[0].value == request.auth.uid;`
-        * **Purpose:** Allows an authenticated user to get a *list* of documents, but *only* if they are querying for their own `ownerUid`.
-        * **Used by:** `<DashboardPage />` (`/`) to safely get "My Events". Prevents listing all events in the database.
+    * `allow list: if request.auth.uid != null;`
+        * **Purpose:** Allows an authenticated user to perform *queries* against the collection.
+        * **Used by:** `<DashboardPage />` (`/`). The client's query (`where("ownerUid", "==", user.uid)`), combined with the Firestore Index, ensures they *only* get their own documents.
     * `allow create: if request.auth.uid != null && request.resource.data.ownerUid == request.auth.uid;`
         * **Purpose:** Allows an authenticated user to create a new document, but only if they set the `ownerUid` field to their own ID.
         * **Used by:** `<DashboardPage />` ("Create New Event").
