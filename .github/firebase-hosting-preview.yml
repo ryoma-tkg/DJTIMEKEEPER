@@ -1,0 +1,30 @@
+# [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-db4819ead3cea781e61d33b885b764c6c79391fb/.github/workflows/firebase-hosting-preview.yml]
+name: Deploy to Firebase Hosting (Preview)
+
+on:
+  # 1. 「phase3-dev」ブランチにプッシュされた時だけ実行する
+  push:
+    branches:
+      - phase3-dev
+
+jobs:
+  build_and_preview:
+    if: '${{ github.repository_owner == 'ryoma-tkg' }}' # 
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm ci
+      # 2. vite.config.js の base を書き換える
+      #    Firebase Hosting は '/' が基準なので、'/DJTIMEKEEPER/' だとエラーになるため
+      - run: sed -i "s|base: '/DJTIMEKEEPER/'|base: '/'|" vite.config.js
+      # 3. ビルド実行
+      - run: npm run build
+      
+      # 4. Firebase Hosting へデプロイする
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DJTABLE_2408D }}'
+          projectId: djtable-2408d
+          channelId: 'preview-${{ github.head_ref || github.ref_name }}' # 'preview-phase3-dev' という名前のチャンネルが作られる
+          expires: 30d # プレビューURLの有効期限 (30日)
