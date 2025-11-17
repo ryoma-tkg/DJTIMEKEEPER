@@ -1,8 +1,11 @@
+// [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-db4819ead3cea781e61d33b885b764c6c79391fb/src/main.jsx]
 import React, { StrictMode } from 'react'; // 'React' をインポート
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App.jsx';
 import './index.css';
+// ▼▼▼ 【!!! 追加 !!!】 react-router-dom からルーターをインポート ▼▼▼
+import { BrowserRouter } from 'react-router-dom';
 
 // --- ErrorBoundary コンポーネントを定義 ---
 class ErrorBoundary extends React.Component {
@@ -32,7 +35,7 @@ class ErrorBoundary extends React.Component {
             <br />
             開発者コンソール（F12）に詳細ログが出力されています。
           </p>
-          <pre style={{ backgroundColor: '#27272a', color: '#f4f4f5', padding: '1rem', borderRadius: '0.5rem', marginTop: '1.5rem', textAlign: 'left', overflow: 'auto', maxWidth: '100%' }}>
+          <pre style={{ backgroundColor: '#2727a', color: '#f4f4f5', padding: '1rem', borderRadius: '0.5rem', marginTop: '1.5rem', textAlign: 'left', overflow: 'auto', maxWidth: '100%' }}>
             {this.state.error && this.state.error.toString()}
           </pre>
           <button
@@ -53,7 +56,10 @@ class ErrorBoundary extends React.Component {
 createRoot(document.getElementById('root')).render(
   // <StrictMode> // StrictModeはD&Dライブラリ等と干渉することがあるため、開発中はコメントアウトのままで良いでしょう
   <ErrorBoundary>
-    <App />
+    {/* ▼▼▼ 【!!! 修正 !!!】 App全体を BrowserRouter で囲む ▼▼▼ */}
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
   </ErrorBoundary>
   // </StrictMode>,
 );
