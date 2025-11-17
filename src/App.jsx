@@ -12,11 +12,11 @@ import {
     signOut
 } from './firebase';
 
-// ▼▼▼ 【!!! 修正 !!!】 DashboardPage をインポート ▼▼▼
+// ▼▼▼ 【!!! 修正 !!!】 ページコンポーネントを3つインポート ▼▼▼
 import { LoginPage } from './components/LoginPage';
 import { DashboardPage } from './components/DashboardPage'; // ★ 追加
-// import { EditorPage } from './components/EditorPage'; // ←これは次回作ります
-// import { LivePage } from './components/LivePage'; // ←これは次回作ります
+import { EditorPage } from './components/EditorPage'; // ★ 追加
+import { LivePage } from './components/LivePage'; // ★ 追加
 // ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲
 
 
@@ -52,12 +52,11 @@ const App = () => {
 
     const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
 
-    // ▼▼▼ 【!!! 修正 !!!】 開発者モードは、ログインしたユーザーIDで判定する ▼▼▼
+    // (開発者モード - 変更なし)
     // ★ ここにあなたの Google ログイン後の UID をコピペしてください ★
-    // (Firebaseコンソールの Authentication > Users タブで確認できます)
     const ADMIN_USER_ID = "YOUR_GOOGLE_UID_HERE"; // 例: "aBcDeFgHiJkLmNoPqRsTuVwXyZ1"
 
-    const [isDevMode, setIsDevMode] = useState(false); // デフォルトはOFF
+    const [isDevMode, setIsDevMode] = useState(false);
 
     // (useEffect theme - 変更なし)
     useEffect(() => {
@@ -75,10 +74,16 @@ const App = () => {
         setTheme(prevTheme => (prevTheme === 'dark' ? 'light' : 'dark'));
     };
 
-    // (toggleDevMode - 削除)
+    // ▼▼▼ 【!!! 追加 !!!】 開発者モードのトグルを EditorPage に渡す用 ▼▼▼
+    const toggleDevMode = () => {
+        if (user && user.uid === ADMIN_USER_ID) {
+            setIsDevMode(prev => !prev);
+        }
+    };
+    // ▲▲▲ 【!!! 追加 !!!】 ここまで ▲▲▲
 
 
-    // ▼▼▼ 【!!! 修正 !!!】 認証ロジックを変更 ▼▼▼
+    // (認証ロジック - 変更なし)
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
             if (firebaseUser) {
@@ -104,8 +109,8 @@ const App = () => {
             }
         });
         return () => unsubscribe();
-    }, []); // navigate を依存配列から削除
-    // ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲
+    }, []); // 
+
 
 
     // (handleLogin - 変更なし)
@@ -128,7 +133,7 @@ const App = () => {
         navigate('/login');
     };
 
-    // (古いロジック - コメントアウトのまま)
+    // (古いロジック - コメントアウト)
     // ...
 
 
@@ -142,8 +147,7 @@ const App = () => {
     // ▼▼▼ 【!!! 修正 !!!】 メインの return を Routes に変更 ▼▼▼
     return (
         <>
-            {/* (オフラインアラート - あとで復活させます) */}
-            {/* {appStatus === 'offline' && ( ... )} */}
+            {/* (オフラインアラートは EditorPage/LivePage に移動) */}
 
             <Routes>
                 {/* --- ルート: / --- */}
@@ -151,7 +155,7 @@ const App = () => {
                     path="/"
                     element={
                         authStatus === 'authed' ? (
-                            // ★ 修正: 仮のダッシュボードを DashboardPage に置き換え
+                            // ★ 修正: DashboardPage に user と onLogout を渡す
                             <DashboardPage user={user} onLogout={handleLogout} />
                         ) : (
                             // ★ 修正: 未ログインなら /login に強制移動
@@ -173,16 +177,55 @@ const App = () => {
                     }
                 />
 
-                {/* --- （次回以降、ここに追加） --- */}
-                {/* <Route path="/edit/:eventId" element={ ... } /> */}
-                {/* <Route path="/live/:eventId" element={ ... } /> */}
-                {/* <Route path="*" element={ <NotFoundPage /> } /> */}
+                {/* --- ▼▼▼ 【!!! 追加 !!!】 /edit と /live のルート ▼▼▼ --- */}
+
+                {/* --- 編集ページ: /edit/:eventId --- */}
+                <Route
+                    path="/edit/:eventId"
+                    element={
+                        authStatus === 'authed' ? (
+                            // ログイン済みなら EditorPage を表示
+                            <EditorPage
+                                user={user}
+                                isDevMode={isDevMode}
+                                onToggleDevMode={toggleDevMode}
+                                theme={theme}
+                                toggleTheme={toggleTheme}
+                            />
+                        ) : (
+                            // 未ログインなら /login に強制移動
+                            <Navigate to="/login" replace />
+                        )
+                    }
+                />
+
+                {/* --- ライブページ: /live/:eventId --- */}
+                <Route
+                    path="/live/:eventId"
+                    element={
+                        // ★ 閲覧専用なので、ログインチェック不要！
+                        <LivePage
+                            theme={theme}
+                            toggleTheme={toggleTheme}
+                        />
+                    }
+                />
+
+                {/* --- 404 Not Found (仮) --- */}
+                <Route
+                    path="*"
+                    element={
+                        <div className="p-8">
+                            <h1>404 - ページが見つかりません</h1>
+                            <Link to="/">ダッシュボードに戻る</Link>
+                        </div>
+                    }
+                />
 
             </Routes>
+            {/* ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲ */}
 
-            {/* (開発者モード - いったんコメントアウト) */}
-            {/* {isDevMode && !isReadOnly && ( ... )} */}
-            {/* {!isReadOnly && ( ... )} */}
+            {/* (開発者モードボタンは EditorPage に移動したので削除) */}
         </>
     );
     // ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲

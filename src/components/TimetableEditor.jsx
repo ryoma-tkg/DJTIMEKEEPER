@@ -429,11 +429,12 @@ export const TimetableEditor = ({
 
     // (handleShare - 変更なし)
     const handleShare = () => {
-        const baseUrl = window.location.href.replace(/#.*$/, '');
-        const url = baseUrl + '#live';
+        // 現在のURL (例: .../edit/aK4xLp...) から、/edit/ を /live/ に置き換える
+        const liveUrl = window.location.href.replace("/edit/", "/live/");
+
         try {
-            navigator.clipboard.writeText(url).then(() => {
-                alert('Liveモード専用URLをクリップボードにコピーしました！');
+            navigator.clipboard.writeText(liveUrl).then(() => {
+                alert('Liveモード専用URLをクリップボードにコピーしました！\n' + liveUrl);
             }, () => {
                 alert('コピーに失敗しました...。');
             });
