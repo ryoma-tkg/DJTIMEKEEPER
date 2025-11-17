@@ -1,4 +1,4 @@
-// [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-db4819ead3cea781e61d33b885b764c6c79391fb/src/components/TimetableEditor.jsx]
+// [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-phase3-dev/src/components/TimetableEditor.jsx]
 import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import { useDragAndDrop } from '../hooks/useDragAndDrop';
 import { useTimetable } from '../hooks/useTimetable';
@@ -25,7 +25,7 @@ import {
 } from './common';
 
 
-// ▼▼▼ 【!!! 修正 !!!】 VjItem に isPlaying を追加 ▼▼▼
+// (VjItem - 変更なし)
 const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging, isPlaying }) => {
 
     const draggingClass = isDragging ? 'dragging-item' : '';
@@ -86,17 +86,16 @@ const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging, isPlay
         </div>
     );
 });
-// ▲▲▲ 【!!! 修正 !!!】 VjItem ここまで ▲▲▲
 
 
-// (VjTimetableManager)
+// (VjTimetableManager - 変更なし)
 const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, eventStartTimeStr, now }) => {
-    // ... (省略) ...
+
     const {
         schedule: vjSchedule,
         eventStartTimeDate: vjEventStartTimeDate,
         recalculateTimes: recalculateVjTimes,
-        currentlyPlayingIndex: currentlyPlayingVjIndex // ▼▼▼ 【!!! 修正 !!!】 VJの再生中インデックスを取得 ▼▼▼
+        currentlyPlayingIndex: currentlyPlayingVjIndex
     } = useTimetable(vjTimetable, eventStartDateStr, eventStartTimeStr, now);
 
     const {
@@ -155,7 +154,7 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, ev
                                 onUpdate={(field, value) => handleUpdateVj(index, field, value)}
                                 onRemove={() => handleRemoveVj(index)}
                                 isDragging={vjDraggedIndex === index}
-                                isPlaying={currentlyPlayingVjIndex === index} // ★ 修正: isPlaying を渡す
+                                isPlaying={currentlyPlayingVjIndex === index}
                             />
                         </div>
                     );
@@ -172,17 +171,16 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, ev
 };
 
 
-// (SettingsModal - 変更なし)
+// (SettingsModal)
 const SettingsModal = ({
     isOpen,
     onClose,
     eventConfig,
     handleEventConfigChange,
-    handleShare,
+    handleShare, // ★ 修正: handleShare を props で受け取る
     onResetClick,
     theme,
     toggleTheme
-    // 
 }) => {
     if (!isOpen) return null;
 
@@ -214,8 +212,6 @@ const SettingsModal = ({
             </button>
         </div>
     );
-
-    // (DevModeToggle - 削除)
 
 
     return (
@@ -274,7 +270,7 @@ const SettingsModal = ({
                         <div className="flex items-center justify-between">
                             <label className="text-base text-on-surface">Liveモード共有</label>
                             <button
-                                onClick={handleShare}
+                                onClick={handleShare} // ★ 修正: propsのhandleShareを使う
                                 className="flex items-center gap-2 bg-surface-background hover:opacity-80 text-on-surface-variant font-semibold py-2 px-4 rounded-full"
                             >
                                 <CopyIcon className="w-5 h-5" /> <span>URLをコピー</span>
@@ -282,8 +278,6 @@ const SettingsModal = ({
                         </div>
                     </div>
                 </div>
-
-                {/* (開発者モードセクション - 削除) */}
 
                 {/* --- 3. 危険ゾーン (変更なし) --- */}
                 <div>
@@ -314,14 +308,13 @@ const formatDateTime = (date) => {
 };
 
 
-// (TimetableEditor - 変更なし)
+// --- ★★★ TimetableEditor (★ 共有ロジックを修正) ★★★
 export const TimetableEditor = ({
     eventConfig, setEventConfig,
     timetable, setTimetable,
     vjTimetable, setVjTimetable,
     setMode, storage, timeOffset,
     theme, toggleTheme, imagesLoaded
-    // 
 }) => {
 
     const [openColorPickerId, setOpenColorPickerId] = useState(null);
@@ -337,7 +330,7 @@ export const TimetableEditor = ({
     }, [timeOffset]);
 
 
-    // (useTimetable, useDragAndDrop, handleEventConfigChange, handleUpdate, addNewDj, executeReset, handleRemoveDj, handleCopyDj, handleShare, useMemo displayTime - すべて変更なし)
+    // (useTimetable, useDragAndDrop, handleEventConfigChange, handleUpdate, addNewDj, executeReset, handleRemoveDj, handleCopyDj - すべて変更なし)
     // ... (中略) ...
 
     // 1. DJ用のロジックフック (変更なし)
@@ -427,13 +420,14 @@ export const TimetableEditor = ({
         });
     };
 
-    // (handleShare - 変更なし)
+    // ▼▼▼ 【!!! 修正 !!!】 共有URLのロジックを変更 ▼▼▼
     const handleShare = () => {
-        const baseUrl = window.location.href.replace(/#.*$/, '');
-        const url = baseUrl + '#live';
+        // 現在のURL (例: .../edit/aK4xLp...) から、/edit/ を /live/ に置き換える
+        const liveUrl = window.location.href.replace("/edit/", "/live/");
+
         try {
-            navigator.clipboard.writeText(url).then(() => {
-                alert('Liveモード専用URLをクリップボードにコピーしました！');
+            navigator.clipboard.writeText(liveUrl).then(() => {
+                alert('Liveモード（閲覧用）のURLをコピーしました！\n' + liveUrl);
             }, () => {
                 alert('コピーに失敗しました...。');
             });
@@ -442,6 +436,8 @@ export const TimetableEditor = ({
             alert('コピーに失敗しました...');
         }
     };
+    // ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲
+
 
     // (インフォメーション表示用 - 変更なし)
     const { displayStartTime, displayEndTime } = useMemo(() => {
@@ -468,13 +464,13 @@ export const TimetableEditor = ({
                 onConfirm={executeReset}
                 onCancel={() => setIsResetConfirmOpen(false)}
             />
-            {/* (SettingsModal - 変更なし) */}
+            {/* ▼▼▼ 【!!! 修正 !!!】 Modalに handleShare を渡す ▼▼▼ */}
             <SettingsModal
                 isOpen={isSettingsOpen}
                 onClose={() => setIsSettingsOpen(false)}
                 eventConfig={eventConfig}
                 handleEventConfigChange={handleEventConfigChange}
-                handleShare={handleShare}
+                handleShare={handleShare} // ★ 修正
                 onResetClick={() => {
                     setIsSettingsOpen(false);
                     setIsResetConfirmOpen(true);
@@ -482,6 +478,8 @@ export const TimetableEditor = ({
                 theme={theme}
                 toggleTheme={toggleTheme}
             />
+            {/* ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲ */}
+
             {/* (ImageEditModal - 変更なし) */}
             {editingDjIndex !== null && (
                 <ImageEditModal
@@ -515,18 +513,18 @@ export const TimetableEditor = ({
             </header>
 
 
-            {/* (Liveモードボタン - 変更なし) */}
+            {/* ▼▼▼ 【!!! 修正 !!!】 Liveモードボタンのロジック変更 ▼▼▼ */}
             <div className="mb-6">
                 <button
-                    onClick={() => timetable.length > 0 && setMode('live')}
-                    disabled={timetable.length === 0 || !imagesLoaded} // ★【修正】
+                    onClick={() => timetable.length > 0 && setMode('live')} // ★ 修正: setMode('live') に変更
+                    disabled={timetable.length === 0 || !imagesLoaded}
                     className="w-full flex items-center justify-center bg-brand-primary hover:opacity-90 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-full transition-opacity duration-200 shadow-lg"
                 >
                     <PlayIcon className="w-5 h-5 mr-2" />
-                    {/* (テキスト - 変更なし) */}
                     <span>{imagesLoaded ? 'Liveモード' : '画像読込中...'}</span>
                 </button>
             </div>
+            {/* ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲ */}
 
 
             {/* (インフォメーション - 変更なし) */}

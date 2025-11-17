@@ -1,10 +1,12 @@
+// [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-phase3-dev/src/main.jsx]
 import React, { StrictMode } from 'react'; // 'React' をインポート
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App.jsx';
 import './index.css';
+import { BrowserRouter } from 'react-router-dom';
 
-// --- ErrorBoundary コンポーネントを定義 ---
+// --- ErrorBoundary コンポーネント (変更なし) ---
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -12,18 +14,16 @@ class ErrorBoundary extends React.Component {
   }
 
   static getDerivedStateFromError(error) {
-    // 次のレンダリングでフォールバックUIを表示するために状態を更新
     return { hasError: true, error: error };
   }
 
   componentDidCatch(error, errorInfo) {
-    // エラーログをコンソールに出力
     console.error("ErrorBoundary caught an error:", error, errorInfo);
   }
 
   render() {
     if (this.state.hasError) {
-      // フォールバックUI
+      // ... (フォールバックUI - 変更なし) ...
       return (
         <div style={{ padding: '2rem', textAlign: 'center', backgroundColor: '#18181b', color: '#f4f4f5', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
           <h1 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#f87171' }}>エラーが発生しました</h1>
@@ -51,9 +51,12 @@ class ErrorBoundary extends React.Component {
 // --- ErrorBoundary ここまで ---
 
 createRoot(document.getElementById('root')).render(
-  // <StrictMode> // StrictModeはD&Dライブラリ等と干渉することがあるため、開発中はコメントアウトのままで良いでしょう
+  // <StrictMode>
   <ErrorBoundary>
-    <App />
+    {/* ▼▼▼ 【!!! 修正 !!!】 BrowserRouter に basename を設定 ▼▼▼ */}
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
   </ErrorBoundary>
   // </StrictMode>,
 );

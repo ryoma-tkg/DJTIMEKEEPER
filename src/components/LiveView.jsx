@@ -1,4 +1,4 @@
-// [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-db4819ead3cea781e61d33b885b764c6c79391fb/src/components/LiveView.jsx]
+// [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-phase3-dev/src/components/LiveView.jsx]
 import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
 import { useTimetable } from '../hooks/useTimetable';
 import {
@@ -699,7 +699,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                         </p>
                     </main>
 
-                    {/* ▼▼▼ 【!!! 修正 !!!】 VJスタンバイの表示条件から !forceVjHide を削除 ▼▼▼ */}
+                    {/* ▼▼▼ 【!!! 修正 !!!】 VJスタンバイの表示条件から !isReadOnly を削除 ▼▼▼ */}
                     {(nextDj || (eventConfig.vjFeatureEnabled && nextVj)) && (
                         <div className="w-full max-w-3xl mt-0">
                             <div className="w-full max-w-3xl border-t border-on-surface/10 mb-4" />
@@ -719,7 +719,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
                                 )}
 
                                 {/* VJ Standby Line */}
-                                {eventConfig.vjFeatureEnabled && nextVj && ( // ★ 修正: !forceVjHide を削除
+                                {eventConfig.vjFeatureEnabled && nextVj && ( // ★ 修正: !isReadOnly を削除
                                     <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
                                         <span className="text-lg sm:text-2xl font-bold text-on-surface-variant/50">VJ STANDBY</span>
                                         <div className="h-6 w-px bg-on-surface/30 hidden sm:block"></div>
@@ -965,7 +965,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
             <div className={`
                 absolute top-28 md:top-24 left-0 right-0 px-4 
                 flex items-center justify-center overflow-hidden
-                ${(eventConfig.vjFeatureEnabled && !isReadOnly && eventStatus === 'ON_AIR_BLOCK') /* ★ 修正: !isReadOnly を使用 */
+                ${(eventConfig.vjFeatureEnabled && eventStatus === 'ON_AIR_BLOCK') // ★ 修正: !isReadOnly を削除
                     ? 'bottom-24 md:bottom-56' /* ON AIR中: VJバーのスペースを空ける */
                     : 'bottom-24' /* それ以外: VJバーは無い(or別管理)のでスペースを空けない */
                 }
@@ -989,7 +989,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, setMode, loadedU
 
 
             {/* ▼▼▼ 【!!! 修正 !!!】 VJ表示ロジックを !isReadOnly で判定 ▼▼▼ */}
-            {eventConfig.vjFeatureEnabled && !isReadOnly && (eventStatus === 'ON_AIR_BLOCK') && ( // ★ 修正: !isReadOnly を使用
+            {eventConfig.vjFeatureEnabled && (eventStatus === 'ON_AIR_BLOCK') && ( // ★ 修正: !isReadOnly を削除
                 <VjDisplay
                     vjTimetable={vjTimetable}
                     eventConfig={eventConfig}

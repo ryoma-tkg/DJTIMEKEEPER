@@ -1,124 +1,179 @@
-# [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-db4819ead3cea781e61d33b885b764c6c79391fb/READMEdev.md]
-Technical Stack & Architecture
-Overview
-DJ Timekeeper Pro is a real-time DJ timetable management application built with React and Firebase. It enables seamless synchronization between an editing interface and a live broadcast view, allowing event organizers to manage DJ schedules with drag-and-drop simplicity while displaying the current and upcoming performers on a big screen.
+# [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-phase3-dev/READMEdev.md]
+# Technical Stack & Architecture (Phase 3)
 
-Technology Stack
-Frontend
-Framework: React 19.2.0
+**Last Updated: 2025-11-18**
 
-Build Tool: Vite 7.2.2
+## 1. Overview
 
-Compiler: SWC (via @vitejs/plugin-react-swc)
+DJ Timekeeper Pro is a real-time DJ timetable management application built with React and Firebase.
 
-Styling: Tailwind CSS 3.4.18
+This document outlines the **Phase 3 architecture**, which marks a fundamental shift from a single-event, anonymous-access application to a **multi-tenant, authenticated web service**. Users can now manage multiple distinct events under their own Google account.
 
-Dark mode and light mode support via CSS variables
+## 2. Technology Stack
 
-PostCSS integration for autoprefixing
+### Frontend
+* **Framework:** React 19.2.0
+* **Routing:** React Router DOM 7.9.6 (for URL-based page navigation)
+* **Build Tool:** Vite 7.2.2
+* **Compiler:** SWC (via `@vitejs/plugin-react-swc`)
+* **Styling:** Tailwind CSS 3.4.18 (with `darkMode: 'class'`)
+* **Icons:** React Icons 5.5.0
 
-Custom sp: '390px' breakpoint for modern smartphone sizes
+### Backend (BaaS)
+* **Service:** Firebase 12.5.0
+* **Authentication:** Google Authentication (via `signInWithPopup`)
+* **Database:** Firestore (for real-time data synchronization)
+* **Storage:** Firebase Storage (for user image uploads)
 
-Icons: React Icons 5.5.0
+---
 
-Package Manager: npm
+## 3. Project Structure (Phase 3)
 
-Backend (BaaS)
-Firebase 12.5.0
+The introduction of `react-router-dom` has reorganized the component structure into a "page"-based architecture.
 
-Authentication: Anonymous Authentication
+src/ ├── App.jsx # Auth Guard & Top-level Routes definition ├── main.jsx # React entry point (contains <BrowserRouter>) ├── firebase.js # Firebase config (loads from import.meta.env) │ ├── components/ │ ├── LoginPage.jsx # Login screen ( /login ) │ ├── DashboardPage.jsx # Event list ( / ) │ ├── EditorPage.jsx # Edit + Live Preview ( /edit/:eventId ) │ ├── LivePage.jsx # Read-only Live view ( /live/:eventId ) │ │ │ ├── TimetableEditor.jsx # Core editing UI (called by EditorPage) │ ├── LiveView.jsx # Core live UI (called by EditorPage/LivePage) │ ├── DevControls.jsx # Developer panel (called by EditorPage) │ └── common.jsx # Shared UI (Icons, Modals, Buttons) │ ├── hooks/ │ ├── useTimetable.js # Core time calculation logic │ ├── useDragAndDrop.js # D&D reordering logic │ ├── useStorageUpload.js # Firebase Storage upload logic │ └── useImagePreloader.js # Image preloading for LiveView │ └── utils/ └── imageProcessor.js # Client-side image compression
 
-Database: Firestore (real-time synchronization)
+---
 
-Storage: Firebase Storage (image upload and management)
+## 4. GitHub Repository & DevOps Setup
 
-Development Tools
-Linting: ESLint 9.39.1 with React plugin support
+The repository is configured with two primary CI/CD pipelines for staging and production, each tied to a specific branch.
 
-PostCSS: 8.5.6 (for Tailwind CSS processing)
+### 4.1. Branching Strategy
 
-Autoprefixer: 10.4.22
+* `main`: This is the **production** branch. A push to `main` triggers the `deploy.yml` workflow, building the app and deploying it to GitHub Pages.
+* `phase3-dev`: This is the **staging** and primary development branch. A push to `phase3-dev` triggers the `firebase-hosting-preview.yml` workflow, deploying the app to a temporary Firebase Hosting preview channel.
 
-Project Structure
-src/
-├── App.jsx               # Main application component (Manages state: mode, devMode, timeOffset)
-├── App.css               # Global styles
-├── index.css             # Base styles
-├── main.jsx              # React entry point (with ErrorBoundary)
-├── firebase.js           # Firebase configuration and initialization
-├── assets/               # Static assets
-├── components/           # React components
-│   ├── common.jsx        # Shared UI components (buttons, icons, modals, etc.)
-│   ├── DevControls.jsx   # Developer Mode panel (time jump, dummy data, etc.)
-│   ├── DjItem.jsx        # Individual DJ entry component
-│   ├── FullTimelineView.jsx    # Full timetable view modal
-│   ├── ImageEditModal.jsx      # Image upload and editing modal
-│   ├── LiveView.jsx            # Live broadcast display (handles DJ animation and VJ logic via `VjDisplay`)
-│   └── TimetableEditor.jsx     # Main editing interface
-├── hooks/                # Custom React hooks
-│   ├── useDragAndDrop.js       # Drag & drop functionality
-│   ├── useImagePreloader.js    # Image preloading optimization
-│   ├── useStorageUpload.js     # Firebase Storage upload handling
-│   └── useTimetable.js         # Timetable logic and calculations
-└── utils/                # Utility functions
-    └── imageProcessor.js       # Image compression and resizing
-Key Features & Implementation
-Real-time Synchronization: Firestore enables bidirectional data synchronization between edit mode and live mode.
+### 4.2. CI/CD Workflows
 
-Independent Animation Logic: `LiveView.jsx` handles DJ animation state, while its internal `VjDisplay` component independently handles VJ animation state. This ensures DJ and VJ transitions are decoupled and do not interfere.
+#### `firebase-hosting-preview.yml` (Staging)
+This workflow handles the deployment of the `phase3-dev` branch to Firebase Hosting.
+* **Trigger:** `push` to `phase3-dev`.
+* **Build Config:** The app is built using `npm run build`. The `vite.config.js` specifies `base: '/'`, which is required for Firebase Hosting's root-level serving.
+* **Environment Secrets:** This is the crucial step. The `Build Vite app` step includes an `env:` block. This block injects GitHub Actions Secrets (e.g., `secrets.VITE_FIREBASE_API_KEY`) into the build process, making them available to `src/firebase.js` via `import.meta.env`.
+* **Deployment:** Uses the `FirebaseExtended/action-hosting-deploy` action. It authenticates using the `FIREBASE_SERVICE_ACCOUNT_...` secret (an Admin SDK key) to gain permission to upload the built files (`/dist`) to a preview channel.
 
-Drag & Drop Management: `useDragAndDrop.js` handles reordering of DJ entries.
+#### `deploy.yml` (Production)
+This workflow handles the deployment of the `main` branch to GitHub Pages.
+* **Trigger:** `push` to `main`.
+* **Build Config:** This workflow *modifies* `vite.config.js` at build time using `sed` to change `base: '/'` to `base: '/DJTIMEKEEPER/'`. This is necessary because the app is served from a subdirectory on GitHub Pages.
+* **Deployment:** Uploads the modified `/dist` folder as a Pages artifact, which is then deployed.
+* **Note:** This workflow *lacks* the `env:` block for Firebase keys. If the `main` branch uses the same `src/firebase.js` logic, its deployment will fail with an `invalid-api-key` error. This must be addressed before merging `phase3-dev` to `main`.
 
-Developer Mode: A floating panel (`DevControls.jsx`) provides tools for testing, including time jumping, dummy data loading, and event state manipulation, managed by `App.jsx`.
+---
 
-Image Processing: `imageProcessor.js` handles client-side image compression and resizing.
+## 5. Application Architecture (Phase 3)
 
-Responsive Design: Tailwind CSS utility-first approach ensures mobile and desktop compatibility. A custom sp: breakpoint (390px) is used for modern mobile devices.
+The app is no longer a single component but a router-controlled multi-page application.
 
-Dark Mode Support: Theme preference stored in localStorage.
+### 5.1. Routing & Page Components
 
-WakeLock API Integration: Prevents device from automatically sleeping during live broadcast.
+The core routing logic is defined in `src/App.jsx`. `src/main.jsx` simply wraps the `<App />` component in `<BrowserRouter>`.
 
-Accurate Time Calculation: `useTimetable.js` uses a specific `startDate` and `startTime` as a single source of truth, eliminating "day-crossing" bugs and supporting events longer than 24 hours.
+* **`src/App.jsx` (Auth Guard & Router):**
+    * This component acts as the application's main "gatekeeper."
+    * It uses `onAuthStateChanged` to track auth state (`loading`, `authed`, `no-auth`).
+    * It renders the `<Routes>` element, directing users based on their auth status.
+    * It also manages app-wide state like `theme` and `isDevMode` (enabled via a hardcoded Admin UID check).
 
-Data Model
-Firestore Document Structure
-The application uses a single-document model for simplicity, ideal for its current "single event" scope. All data for this instance of the app is stored in one document.
+* **Page Routes:**
+    * `/login`: Renders `<LoginPage />`. If the user is already authenticated, they are redirected to `/`.
+    * `/`: Renders `<DashboardPage />` (if authenticated). This is the user's event list. If not authenticated, they are redirected to `/login`.
+    * `/edit/:eventId`: Renders `<EditorPage />` (if authenticated). This is the main workspace for a specific event. It receives the `user` object to perform an internal ownership check.
+    * `/live/:eventId`: Renders `<LivePage />` (publicly accessible). This is the read-only, full-screen live view for an event. It does *not* require authentication.
 
-Path: `artifacts/{appId}/public/sharedTimetable` (Where `appId` is defined in `src/firebase.js`)
+### 5.2. Page Component Logic
 
-```javascript
-// Document content:
-{
-  // 1. Event Configuration
-  "eventConfig": {
-    "title": "DJ Timekeeper Pro",
-    "startDate": "2025-11-15", // YYYY-MM-DD
-    "startTime": "22:00",     // HH:MM
-    "vjFeatureEnabled": true
-  },
+* **`<DashboardPage />`:**
+    * Fetches all documents from the `timetables` collection `where("ownerUid", "==", user.uid)`.
+    * Handles creation of new event documents via `addDoc`.
 
-  // 2. DJ Timetable Array
-  "timetable": [
+* **`<EditorPage />`:**
+    * The most complex page, inheriting all logic from the old `App.jsx`.
+    * It fetches the single document `timetables/{eventId}`.
+    * **Security Check:** It immediately compares `data.ownerUid` with the `user.uid` prop. If they do not match, it redirects the user to `/live/:eventId`.
+    * Manages all event state (`timetable`, `eventConfig`, etc.) and saves changes back to Firestore using `setDoc`.
+    * Manages an internal `mode` state ('edit' or 'live') to toggle between `<TimetableEditor />` and `<LiveView />` (as a preview).
+    * Renders `<DevControls />` if `isDevMode` is true.
+
+* **`<LivePage />`:**
+    * A lightweight, read-only version.
+    * It fetches `timetables/{eventId}` using `onSnapshot` for real-time updates.
+    * It performs **no** ownership check.
+    * It only renders the `<LiveView />` component and passes data to it.
+
+---
+
+## 6. Backend Architecture (Phase 3)
+
+### 6.1. Authentication
+* **Provider:** `GoogleAuthProvider`.
+* **Flow:** The `user.uid` from a successful Google login is the central pillar of the new architecture. It is used as the foreign key (`ownerUid`) in all Firestore documents.
+
+### 6.2. Data Model (Firestore)
+* The old single-document model (`artifacts/{appId}/...`) is **deprecated**.
+* **Collection:** `timetables`.
+* **Document Schema:** `timetables/{eventId}`
+    ```javascript
     {
-      "id": 1731608831234,
-      "name": "DJ 1",
-      "duration": 60,
-      "imageUrl": "https://...",
-      "color": "#F97316",
-      "isBuffer": false
-    },
-    // ... other dj items
-  ],
+      // 1. Metadata (For Ownership & Querying)
+      "ownerUid": "GLGPpy6IlyWbGw15OwBPzRdCPZI2", // (string) The user.uid of the creator
+      "createdAt": Timestamp, // (Timestamp) Server timestamp of creation
 
-  // 3. VJ Timetable Array
-  "vjTimetable": [
-    {
-      "id": 1731608845678,
-      "name": "VJ 1",
-      "duration": 120
-    },
-    // ... other vj items
-  ]
-}
-}
+      // 2. Event Configuration
+      "eventConfig": { // (map)
+        "title": "My New Event",
+        "startDate": "2025-11-18",
+        "startTime": "22:00",
+        "vjFeatureEnabled": false
+      },
+
+      // 3. Timetables (Arrays of maps)
+      "timetable": [
+        { "id": 123, "name": "DJ 1", "duration": 60, "imageUrl": "...", "color": "..." },
+        { "id": 124, "name": "DJ 2", "duration": 60, ... }
+      ],
+      "vjTimetable": [
+        { "id": 901, "name": "VJ A", "duration": 120 }
+      ]
+    }
+    ```
+
+### 6.3. Security Rules (`firestore.rules`)
+The rules are designed to enforce the multi-tenant architecture.
+
+* **`match /timetables/{eventId}`:**
+    * `allow get: if true;`
+        * **Purpose:** Allows public, unauthenticated read access for a single document.
+        * **Used by:** `<LivePage />` (`/live/:eventId`) to get event data.
+    * `allow list: if request.auth.uid != null;`
+        * **Purpose:** Allows an authenticated user to perform *queries* against the collection.
+        * **Used by:** `<DashboardPage />` (`/`). The client's query (`where("ownerUid", "==", user.uid)`), combined with the Firestore Index, ensures they *only* get their own documents.
+    * `allow create: if request.auth.uid != null && request.resource.data.ownerUid == request.auth.uid;`
+        * **Purpose:** Allows an authenticated user to create a new document, but only if they set the `ownerUid` field to their own ID.
+        * **Used by:** `<DashboardPage />` ("Create New Event").
+    * `allow update, delete: if request.auth.uid != null && resource.data.ownerUid == request.auth.uid;`
+        * **Purpose:** Allows an authenticated user to modify or delete an *existing* document, but only if the `ownerUid` *already stored* in the database matches their ID.
+        * **Used by:** `<EditorPage />` (for saving timetable changes).
+
+### 6.4. Storage (Firebase Storage)
+* **Path:** `dj_icons/{timestamp}_{original_name}.webp`.
+* **Client-Side Processing:** Before any file is uploaded, the `useStorageUpload` hook calls `processImageForUpload`. This utility:
+    1.  Resizes the image to a max dimension of 1024px.
+    2.  Converts the image to `image/webp` format.
+    3.  Recursively lowers the WebP quality until the file size is under `100KB` (or hits a minimum quality of `0.5`).
+* **Upload:** The processed `.webp` blob is then uploaded by `uploadBytes`.
+
+---
+
+## 7. Core Logic (Custom Hooks)
+
+* **`useTimetable.js`:** This is the core logic "brain" of the application.
+    * **Input:** `timetable` array, `eventStartDateStr`, `eventStartTimeStr`, and `now` (a ticking Date object).
+    * **Logic:** It first establishes a single, absolute `eventStartTimeDate` object using `parseDateTime`.
+    * It calculates the absolute `startTimeDate` and `endTimeDate` for every item in the `timetable`.
+    * **Output:** It returns the `eventStatus` ('STANDBY', 'UPCOMING', 'ON_AIR_BLOCK', 'FINISHED'), the `currentlyPlayingIndex`, and the full `schedule` array enriched with `Date` objects.
+
+* **`useDragAndDrop.js`:** Manages pointer events (`onPointerDown`, `onPointerMove`, `onPointerUp`) to calculate and apply `translateY` transforms for list reordering, triggering a `recalculateTimes` on drop.
+
+* **`useImagePreloader.js`:** Receives a list of image URLs. It pre-fetches them and stores loaded URLs in a `Set`. This is used by `<LiveView>` to prevent image "pop-in" during DJ transitions.

@@ -1,4 +1,4 @@
-# [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-db4819ead3cea781e61d33b885b764c6c79391fb/roadmap.md]
+# [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-phase3-dev/roadmap.md]
 🚀 リリースに向けたマイルストーン
 フェーズ1: リファクタリング＆バグ修正 (✅ 完了)
 アプリ（シングルイベント版）の完成度を高めるフェーズ。
@@ -59,36 +59,40 @@ LiveモードのSP版表示を、モダンなスマホサイズ（iPhone 15等�
 フェーズ2.9: リファクタリング (✅ 完了)
 コードの可読性と保守性を高めるフェーズ。
 
-👉 (← イマココっす！)
-フェーズ3-0: 開発環境の分離（ブランチ戦略） (🚧 作業スタンバイ)
+フェーズ3-0: 開発環境の分離（ブランチ戦略） (✅ 完了)
 フェーズ3の巨大な改修に備え、本番環境（main）と開発環境（staging）を分離する。
 
-1. ブランチの分離:
-   - `main` ブランチを「本番用」として凍結する。（GitHub Pages デプロイが動く安定版）
-   - `main` から `phase3-dev` ブランチを作成し、今後の作業はすべてここで行う。
-2. ステージング環境の構築:
-   - Firebase Hosting をセットアップし、「プレビューチャンネル」機能を有効にする。
-   - `phase3-dev` ブランチにプッシュするたび、本番とは別のURL（ステージング環境）に自動デプロイされるワークフローを構築する。
+✅ 1. ブランチの分離:
+✅ 2. ステージング環境の構築: (Firebase Hosting プレビューチャンネル)
 
-フェーズ3: Webサービス化（リリースの基盤）
+👉 (← イマココっす！)
+フェーズ3: Webサービス化（リリースの基盤） (🚧 作業中)
 現在の「シングルイベント版」から、複数ユーザー・複数イベントに対応した「マルチテナント」構造に変更するフェーズ。
-現在の `/#live` のセキュリティ問題（URLから `#` を外すと編集画面が見えてしまう）を根本的に解決する。
 
-1. 認証の導入 (Google / Email):
-   - Firebase 匿名認証を廃止し、Google認証（またはEmail認証）を導入する。
+1. 認証の導入 (Google / Email): (✅ 完了)
+   - Firebase 匿名認証を廃止し、Google認証を導入。
+   - `App.jsx` を認証状態（`authed`, `no-auth`）で表示を切り替える「門番」として改修。
+   - `LoginPage.jsx` を新設。
    - 開発者モード（`DevControls`）を、特定の `ownerUid` を持つ管理者アカウントのみが表示・利用できるようにアクセス制御を行う。
 
-2. データ構造の変更 (マルチテナント化):
-   - Firestoreの `artifacts/{appId}/public/sharedTimetable` という単一ドキュメント構造を廃止する。
-   - 新たに `timetables` コレクションを作成する。
-   - 各イベント（タイムテーブル）は、`timetables` コレクション内の個別のドキュメント（例: `timetables/aK4xLp...`）として保存する。
-   - 各ドキュメントには `ownerUid: "作成者のUserID"` を持たせ、データとユーザーを紐付ける。
+2. データ構造の変更 (マルチテナント化): (✅ 完了)
+   - Firestoreの `artifacts/{appId}/public/sharedTimetable` 構造を廃止。
+   - 新たに `timetables` コレクションを作成。
+   - 各ドキュメントに `ownerUid` を持たせ、データとユーザーを紐付け。
 
-3. ルーティングとアクセス制御 (react-router-dom):
+3. ルーティングとアクセス制御 (react-router-dom): (🚧 作業中)
    - `react-router-dom` を導入し、ハッシュ（`#`）ベースのURLを廃止する。
-   - URLを `/edit/:eventId`（編集モード）と `/live/:eventId`（閲覧モード）に完全に分離する。
-   - `/live/:eventId`: 誰でも閲覧可能な「参加者閲覧モード」とする。（`eventId` は `timetables` のドキュメントID）
-   - `/edit/:eventId`: アクセス時、ドキュメントの `ownerUid` と「現在ログイン中のユーザーID」を照合する。一致しない場合は編集画面を表示せず、`/live/...` にリダイレクトするなどのセキュリティ対策を実装する。
+   - `App.jsx` からロジックを分離:
+     - `DashboardPage.jsx` を新設: ログイン後の `/`。イベント一覧の表示と新規作成を行う。
+     - `EditorPage.jsx` を新設: `/edit/:eventId`。旧`App.jsx` が持っていた `TimetableEditor` と関連ロジック（DB読み書き、`useTimetable` 等）をここへ移行。
+     - `LivePage.jsx` を新設: `/live/:eventId`。旧`App.jsx` が持っていた `LiveView` と関連ロジックをここへ移行。
+   - URLを `/edit/:eventId`（編集モード）と `/live/:eventId`（閲覧モード）に完全に分離。
+   - `/edit/:eventId`: アクセス時、`ownerUid` と `user.uid` を照合。一致しない場合は `/live/...` にリダイレクトする。
+   - **【未解決の問題】:**
+     - **ローカル環境でのルーティングエラー:**
+       - **症状:** `http://localhost:5173/` にアクセスすると、`App is not defined` というエラーで画面が真っ白になる。
+       - **原因:** `vite.config.js` の `base` が `'/DJTIMEKEEPER/'` のままになっているため、`main.jsx` の `BrowserRouter`（`base: '/'` 想定）と設定が競合している。
+       - **対策:** `vite.config.js` の `base` を `'/'` に修正し、サーバーを再起動する必要がある。
 
 4. (引き継ぎレポート案) 複数フロア管理機能 (NEW!)
    - 1つのイベント（timetable ドキュメント）が複数のフロア（例: 'Floor A', 'Floor B'）を持てるようにデータ構造を拡張する。

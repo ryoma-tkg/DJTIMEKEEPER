@@ -1,0 +1,45 @@
+# [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-db4819ead3cea781e61d33b885b764c6c79391fb/.github/workflows/firebase-hosting-preview.yml]
+name: Deploy to Firebase Hosting (Preview)
+
+on:
+  # 1. 「phase3-dev」ブランチにプッシュされた時だけ実行する
+  push:
+    branches:
+      - phase3-dev
+
+jobs:
+  build_and_preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ▼▼▼ 【!!! 修正 !!!】 base: '/' になったので、この書き換えステップを削除 ▼▼▼
+      # - name: Update vite.config.js for Firebase Hosting
+      #   run: |
+      #     sed -i "s|base: '/DJTIMEKEEPER/'|base: '/'|" vite.config.js
+      # ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲
+
+# ▼▼▼ 【!!! ココが最重要 !!!】 env: ブロックを追加 ▼▼▼
+      - name: Build Vite app
+        run: npm run build
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+# ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲
+      
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DJTABLE_2408D }}'
+          projectId: djtable-2408d
+          channelId: 'preview-${{ github.head_ref || github.ref_name }}' # 'preview-phase3-dev' という名前のチャンネルが作られる
+          expires: 30d # プレビューURLの有効期限 (30日)

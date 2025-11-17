@@ -44,7 +44,7 @@ export const DevControls = ({
     onCrashApp,
 
     imagesLoaded,
-    onToggleDevMode // ★【追加】
+    onClose // ★【追加】
 }) => {
     // 
     const isLive = mode === 'live';
@@ -72,7 +72,7 @@ export const DevControls = ({
                     <h3 className="font-bold text-sm text-brand-primary">開発者パネル</h3>
                 </div>
                 <button
-                    onClick={onToggleDevMode} // ★【追加】
+                    onClick={onClose} // ★【追加】
                     title="開発者モードを閉じる"
                     className="p-1 -m-1 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface"
                 >
