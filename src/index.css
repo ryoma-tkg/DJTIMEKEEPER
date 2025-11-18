@@ -61,12 +61,17 @@ body {
 
 /* ドラッグ中のアイテム本体のスタイル (リッチ化) */
 .dragging-item {
-  opacity: 0.9;
-  transform: scale(1.03);
-  box-shadow: 0 20px 30px rgba(0, 0, 0, 0.4);
+  @apply ring-2 ring-brand-primary bg-surface-container;
+  /* 青い枠線で「掴んでる感」を強調 */
+  opacity: 0.95;
+  transform: scale(1.05);
+  /* 1.03 -> 1.05 に拡大率アップ */
+  box-shadow: 0 20px 30px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  /* シャドウを調整 */
   border-radius: 1rem;
   cursor: grabbing;
-  z-index: 20;
+  z-index: 50;
+  /* 他の要素より確実に前に出るように */
 }
 
 /* 全てのDJアイテムラッパー（リスト項目） */

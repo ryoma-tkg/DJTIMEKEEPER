@@ -131,34 +131,48 @@ export const CustomTimeInput = ({ value, onChange }) => {
     );
 };
 
+// ▼▼▼ 【修正】 デザイン思想に合わせてリニューアル ▼▼▼
 export const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
     if (!isOpen) return null;
     return (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in">
-            <div className="bg-surface-container rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-modal-in" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-start gap-4">
-                    <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-500/20 sm:mx-0 sm:h-10 sm:w-10">
-                        <AlertTriangleIcon className="h-6 w-6 text-red-400" />
-                    </div>
-                    <div className="mt-0 text-left">
-                        <h3 className="text-lg leading-6 font-bold text-on-surface">{title}</h3>
-                        <div className="mt-2">
-                            <p className="text-sm text-on-surface-variant">{message}</p>
-                        </div>
-                    </div>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in" onClick={onCancel}>
+            <div
+                className="bg-surface-container rounded-3xl p-6 w-full max-w-sm shadow-2xl relative animate-modal-in flex flex-col items-center text-center gap-4"
+                onClick={(e) => e.stopPropagation()}
+            >
+                {/* アイコンを目立たせる */}
+                <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0">
+                    <AlertTriangleIcon className="w-8 h-8 text-red-500" />
                 </div>
-                <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
-                    <button onClick={onConfirm} className="w-full inline-flex justify-center rounded-full border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 sm:w-auto sm:text-sm">
-                        実行
-                    </button>
-                    <button onClick={onCancel} className="mt-3 w-full inline-flex justify-center rounded-full border border-zinc-600 shadow-sm px-4 py-2 bg-surface-background text-base font-medium text-on-surface hover:bg-zinc-700 sm:mt-0 sm:w-auto sm:text-sm">
+
+                {/* テキストもセンター揃えで */}
+                <div>
+                    <h3 className="text-xl font-bold text-on-surface mb-2">{title}</h3>
+                    <p className="text-sm text-on-surface-variant leading-relaxed">
+                        {message}
+                    </p>
+                </div>
+
+                {/* ボタン配置をグリッドに変更し、より押しやすく */}
+                <div className="grid grid-cols-2 gap-3 w-full mt-2">
+                    <button
+                        onClick={onCancel}
+                        className="py-3 px-4 rounded-xl bg-surface-background hover:bg-on-surface/5 text-on-surface font-bold transition-colors"
+                    >
                         キャンセル
+                    </button>
+                    <button
+                        onClick={onConfirm}
+                        className="py-3 px-4 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold shadow-lg shadow-red-500/30 transition-all hover:scale-105 active:scale-95"
+                    >
+                        実行する
                     </button>
                 </div>
             </div>
         </div>
     );
 };
+// ▲▲▲ 修正ここまで ▲▲▲
 
 export const ToastNotification = ({ message, isVisible, className = '' }) => {
     const [internalMessage, setInternalMessage] = useState(message);

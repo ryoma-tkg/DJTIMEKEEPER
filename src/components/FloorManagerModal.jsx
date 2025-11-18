@@ -293,7 +293,7 @@ export const FloorManagerModal = ({ isOpen, onClose, floors, onSaveFloors }) => 
                     {/* リストコンテナ */}
                     <div
                         // ▼▼▼ 【修正】 パディング(p-4)で影の領域を確保し、ネガティブマージン(-mx-4)で幅を広げる ▼▼▼
-                        className="relative z-10 space-y-3 overflow-y-auto flex-grow scrollbar-thin scrollbar-thumb-on-surface-variant/20 p-4 -mx-4"
+                        className="relative z-10 space-y-3 overflow-y-auto flex-grow scrollbar-thin scrollbar-thumb-on-surface-variant/20 -mx-6 px-6 py-4"
                         ref={listContainerRef}
                     >
                         {sortedFloorArray.map((floor, index) => (

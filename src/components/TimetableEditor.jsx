@@ -33,9 +33,15 @@ import {
 const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging, isPlaying }) => {
     const draggingClass = isDragging ? 'dragging-item' : '';
     const ringClass = isPlaying ? 'ring-2 shadow-[0_0_12px_var(--tw-ring-color)]' : 'ring-1 ring-zinc-700';
+
     return (
-        <div className={`bg-surface-container rounded-2xl flex items-stretch gap-4 p-4 ${draggingClass} ${ringClass}`} style={{ '--tw-ring-color': isPlaying ? 'rgb(var(--color-brand-primary))' : 'transparent' }}>
+        <div
+            // ▼▼▼ 【修正】 transition-all duration-200 ease-out を追加 ▼▼▼
+            className={`bg-surface-container rounded-2xl flex items-stretch gap-4 p-4 ${draggingClass} ${ringClass} transition-all duration-200 ease-out`}
+            style={{ '--tw-ring-color': isPlaying ? 'rgb(var(--color-brand-primary))' : 'transparent' }}
+        >
             <div className="cursor-grab touch-none p-3 -m-3 self-stretch flex items-center" onPointerDown={onPointerDown}><GripIcon className="w-6 h-6 text-on-surface-variant shrink-0" /></div>
+            {/* ... (以下変更なし) ... */}
             <div className="shrink-0 self-center" />
             <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                 <div className="flex flex-col"><label className="text-xs text-on-surface-variant mb-1">VJ Name</label><input type="text" value={vj.name} onChange={(e) => onUpdate('name', e.target.value)} className="bg-surface-background text-on-surface p-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary" /></div>
@@ -46,8 +52,7 @@ const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging, isPlay
         </div>
     );
 });
-
-// (VjTimetableManager - レイアウト修正)
+// (VjTimetableManager - リストコンテナに余白調整を適用)
 const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, eventStartTimeStr, now }) => {
     const { schedule: vjSchedule, eventStartTimeDate: vjEventStartTimeDate, recalculateTimes: recalculateVjTimes, currentlyPlayingIndex: currentlyPlayingVjIndex } = useTimetable(vjTimetable, eventStartDateStr, eventStartTimeStr, now);
     const { draggedIndex: vjDraggedIndex, overIndex: vjOverIndex, isDragging: vjIsDragging, listContainerRef: vjListContainerRef, handlePointerDown: handleVjPointerDown, getDragStyles: getVjDragStyles } = useDragAndDrop(vjTimetable, setVjTimetable, (newTable) => recalculateVjTimes(newTable, vjEventStartTimeDate), [eventStartDateStr, eventStartTimeStr]);
@@ -59,14 +64,17 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, ev
     return (
         <div className="w-full space-y-4">
             <h2 className="text-xl font-bold text-on-surface mb-2">VJ タイムテーブル</h2>
-            <div className="space-y-4" ref={vjListContainerRef}>
+            <div
+                // ▼▼▼ 【修正】 VJリストにもネガティブマージンとパディングを適用して、シャドウが見切れないようにする ▼▼▼
+                className="space-y-4 -mx-4 px-4 py-4 relative z-10"
+                ref={vjListContainerRef}
+            >
                 {vjSchedule.map((vj, index) => (
                     <div key={vj.id} className={`dj-list-item ${vjIsDragging && index === vjOverIndex ? 'drop-indicator-before' : ''}`} style={getVjDragStyles(index)}>
                         <VjItem vj={vj} onPointerDown={(e) => handleVjPointerDown(e, index)} onUpdate={(field, value) => handleUpdateVj(index, field, value)} onRemove={() => handleRemoveVj(index)} isDragging={vjDraggedIndex === index} isPlaying={currentlyPlayingVjIndex === index} />
                     </div>
                 ))}
 
-                {/* ▼▼▼ 【修正】 DJ側と同じ pt-2 のラッパーを追加し、高さを完全に揃える ▼▼▼ */}
                 <div className="pt-2">
                     <button
                         onClick={handleAddVj}
@@ -78,7 +86,6 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, ev
                         <span className="font-bold">VJを追加</span>
                     </button>
                 </div>
-                {/* ▲▲▲ 修正ここまで ▲▲▲ */}
             </div>
         </div>
     );
@@ -90,12 +97,13 @@ const SettingsModal = ({ isOpen, onClose, eventConfig, handleEventConfigChange, 
     return (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in" onClick={onClose}>
             <div className="bg-surface-container rounded-2xl p-6 w-full max-w-md shadow-2xl relative animate-modal-in flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-                <div className="flex justify-between items-center mb-6 flex-shrink-0">
+                <div className="flex justify-between items-center mb-2 flex-shrink-0 relative z-20">
                     <h2 className="text-2xl font-bold">設定</h2>
                     <button onClick={onClose} className="p-2 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface"><XIcon className="w-6 h-6" /></button>
                 </div>
 
-                <div className="overflow-y-auto flex-grow pr-2 space-y-6">
+                {/* SettingsModal内の修正は前回の回答ですでに提案済みですが、念のためここにも適用状態を含めておきます */}
+                <div className="overflow-y-auto flex-grow -mx-6 px-6 py-4 space-y-6 relative z-10 scrollbar-thin scrollbar-thumb-on-surface-variant/20">
                     {/* イベント設定セクション */}
                     <section>
                         <h3 className="text-sm font-bold text-on-surface-variant uppercase tracking-wider mb-3">イベント情報</h3>
@@ -104,7 +112,7 @@ const SettingsModal = ({ isOpen, onClose, eventConfig, handleEventConfigChange, 
                                 <label className="text-xs text-on-surface-variant mb-1 block font-semibold">タイトル</label>
                                 <input type="text" value={eventConfig.title || ''} onChange={(e) => handleEventConfigChange('title', e.target.value)} className="bg-surface-background text-on-surface p-3 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-brand-primary font-semibold" placeholder="イベントタイトル" />
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-3">
                                 <div>
                                     <label className="text-xs text-on-surface-variant mb-1 block font-semibold">日付</label>
                                     <div className="relative">
@@ -331,7 +339,11 @@ export const TimetableEditor = ({
             <div className="flex flex-col lg:flex-row gap-8">
                 <div className="w-full lg:flex-1 space-y-4">
                     <h2 className="text-xl font-bold text-on-surface mb-2">DJ タイムテーブル</h2>
-                    <div className="space-y-4" ref={listContainerRef}>
+                    <div
+                        // ▼▼▼ 【修正】 DJリストにもネガティブマージンとパディングを適用して、シャドウが見切れないようにする ▼▼▼
+                        className="space-y-4 -mx-4 px-4 py-4 relative z-10"
+                        ref={listContainerRef}
+                    >
                         {schedule.map((dj, index) => (
                             <div key={dj.id} className={`dj-list-item ${isDragging && index === overIndex ? 'drop-indicator-before' : ''}`} style={getDragStyles(index)}>
                                 <DjItem dj={dj} isPlaying={currentlyPlayingIndex === index} onPointerDown={(e) => handlePointerDown(e, index)} onEditClick={() => setEditingDjIndex(index)} onUpdate={(f, v) => handleUpdate(index, f, v)} onColorPickerToggle={setOpenColorPickerId} onCopy={() => handleCopyDj(index)} onRemove={() => handleRemoveDj(index)} isColorPickerOpen={openColorPickerId === dj.id} openColorPickerId={openColorPickerId} isDragging={draggedIndex === index} />

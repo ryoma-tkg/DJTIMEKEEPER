@@ -31,11 +31,17 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout 
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in" onClick={onClose}>
+            {/* overflow-hidden を削除または緩和し、パディングでシャドウの逃げ場を作る */}
             <div className="bg-surface-container rounded-2xl p-6 w-full max-w-sm shadow-2xl relative animate-modal-in" onClick={(e) => e.stopPropagation()}>
-                <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface"><XIcon className="w-6 h-6" /></button>
-                <h2 className="text-xl font-bold mb-6 text-on-surface">アプリ設定</h2>
-                <div className="space-y-2">
-                    <div className="bg-surface-background/50 rounded-xl p-2">
+
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-bold text-on-surface">アプリ設定</h2>
+                    <button onClick={onClose} className="p-2 -mr-2 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface"><XIcon className="w-6 h-6" /></button>
+                </div>
+
+                {/* ▼▼▼ 【修正】 ここも -mx-4 px-4 py-2 でシャドウが見切れないようにバッファーを設ける ▼▼▼ */}
+                <div className="space-y-2 -mx-4 px-4 py-2">
+                    <div className="bg-surface-background/50 rounded-xl p-2 shadow-sm">
                         <ToggleSwitch
                             checked={theme === 'dark'}
                             onChange={toggleTheme}
@@ -266,70 +272,74 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode })
     if (isLoading) return <LoadingSpinner />;
 
     return (
-        <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto animate-fade-in-up pb-32">
+        // ▼▼▼ 【修正】 フラグメントで囲み、モーダルをアニメーションコンテナの外に出す ▼▼▼
+        <>
+            <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto animate-fade-in-up pb-32">
 
-            {/* ヘッダー */}
-            <header className="flex flex-row justify-between items-center mb-12">
-                <div className="flex items-center gap-4">
-                    {user?.photoURL ? (
-                        <img src={user.photoURL} alt="User" className="w-12 h-12 rounded-full border-2 border-surface-container shadow-md" />
-                    ) : (
-                        <div className="w-12 h-12 rounded-full bg-brand-primary flex items-center justify-center text-white font-bold text-xl shadow-md">
-                            {user?.displayName?.[0] || "U"}
+                {/* ヘッダー */}
+                <header className="flex flex-row justify-between items-center mb-12">
+                    <div className="flex items-center gap-4">
+                        {user?.photoURL ? (
+                            <img src={user.photoURL} alt="User" className="w-12 h-12 rounded-full border-2 border-surface-container shadow-md" />
+                        ) : (
+                            <div className="w-12 h-12 rounded-full bg-brand-primary flex items-center justify-center text-white font-bold text-xl shadow-md">
+                                {user?.displayName?.[0] || "U"}
+                            </div>
+                        )}
+                        <div className="flex flex-col">
+                            <h1 className="text-2xl font-bold leading-tight text-on-surface">My Events</h1>
+                            <p className="text-sm text-on-surface-variant font-medium">
+                                {user?.displayName}
+                            </p>
                         </div>
-                    )}
-                    <div className="flex flex-col">
-                        <h1 className="text-2xl font-bold leading-tight text-on-surface">My Events</h1>
-                        <p className="text-sm text-on-surface-variant font-medium">
-                            {user?.displayName}
+                    </div>
+
+                    <button
+                        onClick={() => setIsSettingsOpen(true)}
+                        className="bg-surface-container hover:bg-surface-container/80 text-on-surface p-3 rounded-full transition-all hover:rotate-90 shadow-sm"
+                        title="設定"
+                    >
+                        <SettingsIcon className="w-6 h-6" />
+                    </button>
+                </header>
+
+                {/* イベント一覧 */}
+                {events.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {events.map(event => (
+                            <EventCard
+                                key={event.id}
+                                event={event}
+                                onDeleteClick={(id, title) => setDeleteTarget({ id, title })}
+                                onClick={() => navigate(`/edit/${event.id}`)}
+                            />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center justify-center py-20 text-center opacity-70">
+                        <div className="w-24 h-24 bg-surface-container rounded-full flex items-center justify-center mb-6">
+                            <LayersIcon className="w-10 h-10 text-on-surface-variant" />
+                        </div>
+                        <p className="text-xl font-bold text-on-surface mb-2">イベントがありません</p>
+                        <p className="text-sm text-on-surface-variant">
+                            右下のボタンから、最初のイベントを作成しましょう！
                         </p>
                     </div>
-                </div>
+                )}
 
+                {/* フローティング作成ボタン */}
                 <button
-                    onClick={() => setIsSettingsOpen(true)}
-                    className="bg-surface-container hover:bg-surface-container/80 text-on-surface p-3 rounded-full transition-all hover:rotate-90 shadow-sm"
-                    title="設定"
+                    onClick={handleCreateNewEvent}
+                    disabled={isCreating}
+                    className="fixed bottom-8 right-8 z-30 flex items-center gap-3 bg-brand-primary hover:bg-brand-primary/90 text-white font-bold py-4 px-6 rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-wait group"
                 >
-                    <SettingsIcon className="w-6 h-6" />
+                    <PlusIcon className="w-6 h-6 transition-transform group-hover:rotate-90" />
+                    <span className="text-lg pr-1 hidden sm:inline">{isCreating ? '作成中...' : '新規イベント'}</span>
                 </button>
-            </header>
 
-            {/* イベント一覧 */}
-            {events.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {events.map(event => (
-                        <EventCard
-                            key={event.id}
-                            event={event}
-                            onDeleteClick={(id, title) => setDeleteTarget({ id, title })}
-                            onClick={() => navigate(`/edit/${event.id}`)}
-                        />
-                    ))}
-                </div>
-            ) : (
-                <div className="flex flex-col items-center justify-center py-20 text-center opacity-70">
-                    <div className="w-24 h-24 bg-surface-container rounded-full flex items-center justify-center mb-6">
-                        <LayersIcon className="w-10 h-10 text-on-surface-variant" />
-                    </div>
-                    <p className="text-xl font-bold text-on-surface mb-2">イベントがありません</p>
-                    <p className="text-sm text-on-surface-variant">
-                        右下のボタンから、最初のイベントを作成しましょう！
-                    </p>
-                </div>
-            )}
+            </div>
 
-            {/* フローティング作成ボタン */}
-            <button
-                onClick={handleCreateNewEvent}
-                disabled={isCreating}
-                className="fixed bottom-8 right-8 z-30 flex items-center gap-3 bg-brand-primary hover:bg-brand-primary/90 text-white font-bold py-4 px-6 rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-wait group"
-            >
-                <PlusIcon className="w-6 h-6 transition-transform group-hover:rotate-90" />
-                <span className="text-lg pr-1 hidden sm:inline">{isCreating ? '作成中...' : '新規イベント'}</span>
-            </button>
-
-            {/* モーダル類 */}
+            {/* ▼▼▼ モーダル類やDevToolsをここ（外側）に移動 ▼▼▼ */}
             <DashboardSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} theme={theme} toggleTheme={toggleTheme} onLogout={onLogout} />
             <ConfirmModal isOpen={!!deleteTarget} title="イベントを削除" message={`イベント「${deleteTarget?.title || '無題'}」を削除します。復元はできません。本当によろしいですか？`} onConfirm={handleDeleteEvent} onCancel={() => setDeleteTarget(null)} />
 
@@ -342,6 +352,7 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode })
                     {isDevPanelOpen && <DevControls location="dashboard" onClose={() => setIsDevPanelOpen(false)} onDeleteAllEvents={handleDevDeleteAll} onCrashApp={() => { throw new Error("Dashboard Crash Test"); }} />}
                 </>
             )}
-        </div>
+            {/* ▲▲▲ 移動ここまで ▲▲▲ */}
+        </>
     );
 };
