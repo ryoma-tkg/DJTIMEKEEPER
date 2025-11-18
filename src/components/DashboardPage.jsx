@@ -14,38 +14,49 @@ import {
     LogOutIcon,
     TrashIcon,
     ConfirmModal,
-    PowerIcon
+    PowerIcon,
+    ToggleSwitch // ★★★ ここに追加しました！ ★★★
 } from './common';
 import { DevControls } from './DevControls';
 
-// (ローディング - 変更なし)
+// (ローディング)
 const LoadingSpinner = () => (
     <div className="flex items-center justify-center h-screen bg-surface-background">
         <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
     </div>
 );
 
-// (設定モーダル - 変更なし)
+// (設定モーダル: ToggleSwitchを使用)
 const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout }) => {
     if (!isOpen) return null;
     return (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in-up" onClick={onClose}>
-            <div className="bg-surface-container rounded-2xl p-6 w-full max-w-sm shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in" onClick={onClose}>
+            <div className="bg-surface-container rounded-2xl p-6 w-full max-w-sm shadow-2xl relative animate-modal-in" onClick={(e) => e.stopPropagation()}>
                 <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface"><XIcon className="w-6 h-6" /></button>
                 <h2 className="text-xl font-bold mb-6 text-on-surface">アプリ設定</h2>
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between p-3 bg-surface-background rounded-xl">
-                        <label className="text-base text-on-surface font-semibold">テーマ</label>
-                        <button onClick={toggleTheme} className="flex items-center gap-2 bg-surface-container hover:opacity-80 text-on-surface-variant font-semibold py-2 px-4 rounded-full transition-colors">{theme === 'dark' ? (<><MoonIcon className="w-5 h-5" /> <span>ダーク</span></>) : (<><SunIcon className="w-5 h-5" /> <span>ライト</span></>)}</button>
+                <div className="space-y-2">
+                    <div className="bg-surface-background/50 rounded-xl p-2">
+                        <ToggleSwitch
+                            checked={theme === 'dark'}
+                            onChange={toggleTheme}
+                            label="ダークモード"
+                            icon={theme === 'dark' ? MoonIcon : SunIcon}
+                        />
                     </div>
-                    <button onClick={onLogout} className="w-full flex items-center justify-between p-3 bg-surface-background hover:bg-red-500/10 text-red-400 rounded-xl transition-colors group"><span className="font-semibold group-hover:text-red-500">ログアウト</span><LogOutIcon className="w-5 h-5 group-hover:text-red-500" /></button>
+
+                    <div className="pt-4">
+                        <button onClick={onLogout} className="w-full flex items-center justify-between p-4 bg-surface-background hover:bg-red-500/10 text-red-400 rounded-xl transition-colors group">
+                            <span className="font-bold group-hover:text-red-500">ログアウト</span>
+                            <LogOutIcon className="w-5 h-5 group-hover:text-red-500" />
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     );
 };
 
-// 日付フォーマット関数 (変更なし)
+// 日付フォーマット関数
 const formatDateForIcon = (dateStr) => {
     if (!dateStr) return { month: '---', day: '--' };
     const date = new Date(dateStr);
@@ -58,7 +69,7 @@ const formatDateForIcon = (dateStr) => {
     };
 };
 
-// イベント開催中判定ロジック (変更なし)
+// イベント開催中判定ロジック
 const isEventActive = (event) => {
     const { startDate, startTime } = event.eventConfig;
     if (!startDate || !startTime) return false;
@@ -70,7 +81,7 @@ const isEventActive = (event) => {
     return now >= start && now < end;
 };
 
-// ▼▼▼ 【洗練化】 EventCard コンポーネント ▼▼▼
+// ▼▼▼ EventCard (シャドウ修正版) ▼▼▼
 const EventCard = ({ event, onDeleteClick, onClick }) => {
     const floorCount = event.floors ? Object.keys(event.floors).length : 0;
     const displayFloors = (floorCount === 0 && event.timetable) ? '1 Floor' : `${floorCount} Floors`;
@@ -82,21 +93,20 @@ const EventCard = ({ event, onDeleteClick, onClick }) => {
     return (
         <div
             onClick={onClick}
-            onMouseEnter={() => setIsHovered(true)} // ★追加
-            onMouseLeave={() => setIsHovered(false)} // ★追加
-            // ★ ここが修正ポイント！ ★
-            // Tailwindのクラスではなく、直接CSSでガツンと光らせます
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+
+            // ★ シャドウのスタイル設定 (ベースの影 + 薄い光)
             style={isActive ? {
                 boxShadow: isHovered
                     ? `
-                        0 20px 30px -5px rgb(var(--color-brand-primary) / 0.2),             /* 影を濃く */
-                        0 0 35px 5px rgb(var(--color-brand-primary) / 0.25) /* 光を強く、広く */
+                        0 20px 30px -5px rgb(0 0 0 / 0.2),
+                        0 0 35px 5px rgb(var(--color-brand-primary) / 0.4)
                       `
                     : `
-0 0 20px 5px rgb(var(--color-brand-primary) / 0.1),
-0 0 40px 10px rgb(var(--color-brand-primary) / 0.1)
+                        0 10px 25px -5px rgb(0 0 0 / 0.1),
+                        0 0 20px 0px rgb(var(--color-brand-primary) / 0.25)
                       `,
-                // 光の変化を滑らかにするためのトランジション
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
             } : undefined}
 
@@ -190,9 +200,8 @@ const EventCard = ({ event, onDeleteClick, onClick }) => {
     );
 };
 
-// ... (DashboardPage コンポーネントは変更なし) ...
+// (DashboardPage 本体)
 export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode }) => {
-    // ... (ここから下は変更ありませんが、EventCardを呼び出す親コンポーネントとして必要です) ...
     const [events, setEvents] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isCreating, setIsCreating] = useState(false);
@@ -201,6 +210,7 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode })
     const [isDevPanelOpen, setIsDevPanelOpen] = useState(false);
     const navigate = useNavigate();
 
+    // 1. イベント一覧取得
     useEffect(() => {
         if (!user) return;
         setIsLoading(true);
@@ -219,6 +229,7 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode })
         return () => unsubscribe();
     }, [user]);
 
+    // 2. イベント作成
     const handleCreateNewEvent = async () => {
         if (isCreating || !user) return;
         setIsCreating(true);
@@ -235,11 +246,13 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode })
         } catch (error) { console.error("作成失敗:", error); alert("イベントの作成に失敗しました。"); setIsCreating(false); }
     };
 
+    // 3. イベント削除
     const handleDeleteEvent = async () => {
         if (!deleteTarget) return;
         try { await deleteDoc(doc(db, "timetables", deleteTarget.id)); setDeleteTarget(null); } catch (error) { console.error("削除失敗:", error); alert("削除に失敗しました。"); }
     };
 
+    // 4. [Dev] 全イベント削除
     const handleDevDeleteAll = async () => {
         if (!window.confirm("【警告】本当に全てのイベントを削除しますか？")) return;
         try {
@@ -254,6 +267,8 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode })
 
     return (
         <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto animate-fade-in-up pb-32">
+
+            {/* ヘッダー */}
             <header className="flex flex-row justify-between items-center mb-12">
                 <div className="flex items-center gap-4">
                     {user?.photoURL ? (
@@ -270,9 +285,17 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode })
                         </p>
                     </div>
                 </div>
-                <button onClick={() => setIsSettingsOpen(true)} className="bg-surface-container hover:bg-surface-container/80 text-on-surface p-3 rounded-full transition-all hover:rotate-90 shadow-sm" title="設定"><SettingsIcon className="w-6 h-6" /></button>
+
+                <button
+                    onClick={() => setIsSettingsOpen(true)}
+                    className="bg-surface-container hover:bg-surface-container/80 text-on-surface p-3 rounded-full transition-all hover:rotate-90 shadow-sm"
+                    title="設定"
+                >
+                    <SettingsIcon className="w-6 h-6" />
+                </button>
             </header>
 
+            {/* イベント一覧 */}
             {events.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {events.map(event => (
@@ -290,17 +313,27 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode })
                         <LayersIcon className="w-10 h-10 text-on-surface-variant" />
                     </div>
                     <p className="text-xl font-bold text-on-surface mb-2">イベントがありません</p>
-                    <p className="text-sm text-on-surface-variant">右下のボタンから、最初のイベントを作成しましょう！</p>
+                    <p className="text-sm text-on-surface-variant">
+                        右下のボタンから、最初のイベントを作成しましょう！
+                    </p>
                 </div>
             )}
 
-            <button onClick={handleCreateNewEvent} disabled={isCreating} className="fixed bottom-8 right-8 z-30 flex items-center gap-3 bg-brand-primary hover:bg-brand-primary/90 text-white font-bold py-4 px-6 rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-wait group">
-                <PlusIcon className="w-6 h-6 transition-transform group-hover:rotate-90" /><span className="text-lg pr-1 hidden sm:inline">{isCreating ? '作成中...' : '新規イベント'}</span>
+            {/* フローティング作成ボタン */}
+            <button
+                onClick={handleCreateNewEvent}
+                disabled={isCreating}
+                className="fixed bottom-8 right-8 z-30 flex items-center gap-3 bg-brand-primary hover:bg-brand-primary/90 text-white font-bold py-4 px-6 rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-wait group"
+            >
+                <PlusIcon className="w-6 h-6 transition-transform group-hover:rotate-90" />
+                <span className="text-lg pr-1 hidden sm:inline">{isCreating ? '作成中...' : '新規イベント'}</span>
             </button>
 
+            {/* モーダル類 */}
             <DashboardSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} theme={theme} toggleTheme={toggleTheme} onLogout={onLogout} />
             <ConfirmModal isOpen={!!deleteTarget} title="イベントを削除" message={`イベント「${deleteTarget?.title || '無題'}」を削除します。復元はできません。本当によろしいですか？`} onConfirm={handleDeleteEvent} onCancel={() => setDeleteTarget(null)} />
 
+            {/* 開発者モード */}
             {isDevMode && (
                 <>
                     <button onClick={() => setIsDevPanelOpen(prev => !prev)} className="fixed bottom-8 left-8 z-[998] w-12 h-12 bg-zinc-800 text-brand-primary border border-brand-primary rounded-full shadow-lg grid place-items-center hover:bg-zinc-700 transition-colors">

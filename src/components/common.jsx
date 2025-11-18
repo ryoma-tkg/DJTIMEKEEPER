@@ -40,6 +40,34 @@ export const PlusCircleIcon = ({ className }) => (<svg xmlns="http://www.w3.org/
 export const LogOutIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>);
 // --- アイコンここまで ---
 
+export const ToggleSwitch = ({ checked, onChange, label, icon: Icon, disabled = false }) => (
+    <div className="flex items-center justify-between py-3">
+        <div className="flex items-center gap-3">
+            {Icon && (
+                <div className="p-2 rounded-full bg-surface-container text-on-surface-variant">
+                    <Icon className="w-5 h-5" />
+                </div>
+            )}
+            <span className="font-bold text-on-surface">{label}</span>
+        </div>
+        <button
+            onClick={() => !disabled && onChange(!checked)}
+            disabled={disabled}
+            className={`
+                relative w-12 h-7 rounded-full transition-colors duration-300 ease-in-out focus:outline-none
+                ${checked ? 'bg-brand-primary' : 'bg-zinc-300 dark:bg-zinc-600'}
+                ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+            `}
+        >
+            <span
+                className={`
+                    absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-300 ease-in-out
+                    ${checked ? 'translate-x-5' : 'translate-x-0'}
+                `}
+            />
+        </button>
+    </div>
+);
 
 // --- 共通コンポーネント ---
 export const LoadingScreen = ({ text = "読み込み中..." }) => (
@@ -106,8 +134,8 @@ export const CustomTimeInput = ({ value, onChange }) => {
 export const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
     if (!isOpen) return null;
     return (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in-up">
-            <div className="bg-surface-container rounded-2xl p-6 w-full max-w-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in">
+            <div className="bg-surface-container rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-modal-in" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-start gap-4">
                     <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-500/20 sm:mx-0 sm:h-10 sm:w-10">
                         <AlertTriangleIcon className="h-6 w-6 text-red-400" />

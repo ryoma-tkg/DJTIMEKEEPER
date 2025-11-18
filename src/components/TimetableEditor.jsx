@@ -24,7 +24,9 @@ import {
     parseDateTime,
     getTodayDateString,
     LogOutIcon,
-    GodModeIcon
+    GodModeIcon,
+    ToggleSwitch,
+    VideoIcon,
 } from './common';
 
 // (VjItem - 変更なし)
@@ -86,29 +88,74 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, ev
 const SettingsModal = ({ isOpen, onClose, eventConfig, handleEventConfigChange, handleShare, onResetClick, theme, toggleTheme }) => {
     if (!isOpen) return null;
     return (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in-up" onClick={onClose}>
-            <div className="bg-surface-container rounded-2xl p-6 w-full max-w-md shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
-                <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface"><XIcon className="w-6 h-6" /></button>
-                <h2 className="text-2xl font-bold mb-6">設定</h2>
-                <div className="pb-6 mb-6 border-b border-surface-background dark:border-zinc-700/50">
-                    <h3 className="text-lg font-bold text-on-surface mb-4">イベント設定</h3>
-                    <div className="space-y-4">
-                        <div><label className="text-xs text-on-surface-variant mb-1 block">イベントタイトル</label><input type="text" value={eventConfig.title || ''} onChange={(e) => handleEventConfigChange('title', e.target.value)} className="bg-surface-background text-on-surface p-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary" placeholder="イベントタイトル" /></div>
-                        <div><label className="text-xs text-on-surface-variant mb-1 block">イベント開始日</label><div className="relative"><input type="date" value={eventConfig.startDate || ''} onChange={(e) => handleEventConfigChange('startDate', e.target.value)} className="bg-surface-background text-on-surface p-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary font-mono font-bold text-base appearance-none pr-10" /><CalendarIcon className="w-5 h-5 text-on-surface-variant absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" /></div></div>
-                        <div><label className="text-xs text-on-surface-variant mb-1 block">イベント開始時間</label><CustomTimeInput value={eventConfig.startTime} onChange={(v) => handleEventConfigChange('startTime', v)} /></div>
-                        <div className="flex items-center justify-between"><label className="text-base text-on-surface">VJタイムテーブル機能</label><button onClick={() => handleEventConfigChange('vjFeatureEnabled', !eventConfig.vjFeatureEnabled)} className={`w-14 h-8 rounded-full flex items-center p-1 transition-colors ${eventConfig.vjFeatureEnabled ? 'bg-brand-primary justify-end' : 'bg-surface-background justify-start'}`}><span className="w-6 h-6 rounded-full bg-white shadow-md block" /></button></div>
-                    </div>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in" onClick={onClose}>
+            <div className="bg-surface-container rounded-2xl p-6 w-full max-w-md shadow-2xl relative animate-modal-in flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-6 flex-shrink-0">
+                    <h2 className="text-2xl font-bold">設定</h2>
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface"><XIcon className="w-6 h-6" /></button>
                 </div>
-                <div className="pb-6 mb-6 border-b border-surface-background dark:border-zinc-700/50">
-                    <h3 className="text-lg font-bold text-on-surface mb-4">アプリ設定</h3>
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between"><label className="text-base text-on-surface">テーマ</label><button onClick={toggleTheme} className="flex items-center gap-2 bg-surface-background hover:opacity-80 text-on-surface-variant font-semibold py-2 px-4 rounded-full">{theme === 'dark' ? (<><MoonIcon className="w-5 h-5" /> <span>ダーク</span></>) : (<><SunIcon className="w-5 h-5" /> <span>ライト</span></>)}</button></div>
-                        <div className="flex items-center justify-between"><label className="text-base text-on-surface">Liveモード共有</label><button onClick={handleShare} className="flex items-center gap-2 bg-surface-background hover:opacity-80 text-on-surface-variant font-semibold py-2 px-4 rounded-full"><CopyIcon className="w-5 h-5" /> <span>URLをコピー</span></button></div>
-                    </div>
-                </div>
-                <div>
-                    <h3 className="text-lg font-bold text-red-400 mb-4">危険ゾーン</h3>
-                    <button onClick={onResetClick} className="w-full flex items-center justify-center gap-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 font-semibold py-3 px-4 rounded-lg transition-colors duration-200"><ResetIcon className="w-5 h-5" /><span>タイムテーブルをリセット</span></button>
+
+                <div className="overflow-y-auto flex-grow pr-2 space-y-6">
+                    {/* イベント設定セクション */}
+                    <section>
+                        <h3 className="text-sm font-bold text-on-surface-variant uppercase tracking-wider mb-3">イベント情報</h3>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="text-xs text-on-surface-variant mb-1 block font-semibold">タイトル</label>
+                                <input type="text" value={eventConfig.title || ''} onChange={(e) => handleEventConfigChange('title', e.target.value)} className="bg-surface-background text-on-surface p-3 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-brand-primary font-semibold" placeholder="イベントタイトル" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-xs text-on-surface-variant mb-1 block font-semibold">日付</label>
+                                    <div className="relative">
+                                        <input type="date" value={eventConfig.startDate || ''} onChange={(e) => handleEventConfigChange('startDate', e.target.value)} className="bg-surface-background text-on-surface p-3 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-brand-primary font-mono font-bold text-sm appearance-none" />
+                                        <CalendarIcon className="w-4 h-4 text-on-surface-variant absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-on-surface-variant mb-1 block font-semibold">開始時間</label>
+                                    <CustomTimeInput value={eventConfig.startTime} onChange={(v) => handleEventConfigChange('startTime', v)} />
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <hr className="border-surface-background" />
+
+                    {/* 機能設定セクション */}
+                    <section>
+                        <h3 className="text-sm font-bold text-on-surface-variant uppercase tracking-wider mb-3">機能 & 表示</h3>
+                        <div className="bg-surface-background/50 rounded-xl px-4 py-1 space-y-1">
+                            <ToggleSwitch
+                                checked={eventConfig.vjFeatureEnabled}
+                                onChange={() => handleEventConfigChange('vjFeatureEnabled', !eventConfig.vjFeatureEnabled)}
+                                label="VJタイムテーブル機能"
+                                icon={VideoIcon} // importが必要
+                            />
+                            <div className="border-t border-surface-container"></div>
+                            <ToggleSwitch
+                                checked={theme === 'dark'}
+                                onChange={toggleTheme}
+                                label="ダークモード"
+                                icon={theme === 'dark' ? MoonIcon : SunIcon}
+                            />
+                        </div>
+                    </section>
+
+                    <hr className="border-surface-background" />
+
+                    {/* アクションセクション */}
+                    <section>
+                        <h3 className="text-sm font-bold text-on-surface-variant uppercase tracking-wider mb-3">アクション</h3>
+                        <div className="space-y-3">
+                            <button onClick={handleShare} className="w-full flex items-center justify-center gap-2 bg-surface-background hover:bg-surface-background/80 text-on-surface font-bold py-3 px-4 rounded-xl transition-colors">
+                                <CopyIcon className="w-5 h-5" /> <span>LiveモードのURLをコピー</span>
+                            </button>
+                            <button onClick={onResetClick} className="w-full flex items-center justify-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold py-3 px-4 rounded-xl transition-colors">
+                                <ResetIcon className="w-5 h-5" /><span>タイムテーブルをリセット</span>
+                            </button>
+                        </div>
+                    </section>
                 </div>
             </div>
         </div>
