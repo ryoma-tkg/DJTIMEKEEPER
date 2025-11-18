@@ -4,6 +4,7 @@ import { useDragAndDrop } from '../hooks/useDragAndDrop';
 import { useTimetable } from '../hooks/useTimetable';
 import { ImageEditModal } from './ImageEditModal';
 import { DjItem } from './DjItem';
+import { FloorManagerModal } from './FloorManagerModal';
 import {
     CustomTimeInput,
     ConfirmModal,
@@ -21,7 +22,8 @@ import {
     VIVID_COLORS,
     CalendarIcon,
     parseDateTime,
-    getTodayDateString
+    getTodayDateString,
+    LayersIcon
 } from './common';
 
 
@@ -177,10 +179,12 @@ const SettingsModal = ({
     onClose,
     eventConfig,
     handleEventConfigChange,
-    handleShare, // ★ 修正: handleShare を props で受け取る
+    handleShare,
     onResetClick,
     theme,
-    toggleTheme
+    toggleTheme,
+    onOpenFloorManager,
+    hasMultipleFloors
 }) => {
     if (!isOpen) return null;
 
@@ -267,6 +271,19 @@ const SettingsModal = ({
                     <h3 className="text-lg font-bold text-on-surface mb-4">アプリ設定</h3>
                     <div className="space-y-4">
                         <ThemeToggle />
+                        {/* ▼▼▼ 【!!! 追加 !!!】 フロア管理ボタン ▼▼▼ */}
+                        {/* (hasMultipleFloors は、旧データでない場合のみ表示) */}
+                        {hasMultipleFloors && (
+                            <div className="flex items-center justify-between">
+                                <label className="text-base text-on-surface">フロア管理</label>
+                                <button
+                                    onClick={onOpenFloorManager} // ★
+                                    className="flex items-center gap-2 bg-surface-background hover:opacity-80 text-on-surface-variant font-semibold py-2 px-4 rounded-full"
+                                >
+                                    <LayersIcon className="w-5 h-5" /> <span>編集</span>
+                                </button>
+                            </div>
+                        )}
                         <div className="flex items-center justify-between">
                             <label className="text-base text-on-surface">Liveモード共有</label>
                             <button
@@ -314,7 +331,8 @@ export const TimetableEditor = ({
     timetable, setTimetable,
     vjTimetable, setVjTimetable,
     setMode, storage, timeOffset,
-    theme, toggleTheme, imagesLoaded
+    theme, toggleTheme, imagesLoaded, floors,
+    onFloorsUpdate
 }) => {
 
     const [openColorPickerId, setOpenColorPickerId] = useState(null);
@@ -322,6 +340,7 @@ export const TimetableEditor = ({
     const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
     const [now, setNow] = useState(new Date(new Date().getTime() + timeOffset));
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isFloorManagerOpen, setIsFloorManagerOpen] = useState(false);
 
     // (useEffect now - 変更なし)
     useEffect(() => {
@@ -453,6 +472,7 @@ export const TimetableEditor = ({
         };
     }, [schedule, eventStartTimeDate]);
 
+    const isOldData = !floors || Object.keys(floors).length === 0;
 
     return (
         <div className="p-4 md:p-8 max-w-7xl mx-auto">
@@ -470,15 +490,31 @@ export const TimetableEditor = ({
                 onClose={() => setIsSettingsOpen(false)}
                 eventConfig={eventConfig}
                 handleEventConfigChange={handleEventConfigChange}
-                handleShare={handleShare} // ★ 修正
+                handleShare={handleShare}
                 onResetClick={() => {
                     setIsSettingsOpen(false);
                     setIsResetConfirmOpen(true);
                 }}
                 theme={theme}
                 toggleTheme={toggleTheme}
+
+                // ★ 追加
+                onOpenFloorManager={() => {
+                    setIsSettingsOpen(false); // 
+                    setIsFloorManagerOpen(true); // 
+                }}
+                hasMultipleFloors={!isOldData} // ★ 旧データではフロア管理ボタンを非表示
             />
             {/* ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲ */}
+
+            {!isOldData && (
+                <FloorManagerModal
+                    isOpen={isFloorManagerOpen}
+                    onClose={() => setIsFloorManagerOpen(false)}
+                    floors={floors}
+                    onSaveFloors={onFloorsUpdate}
+                />
+            )}
 
             {/* (ImageEditModal - 変更なし) */}
             {editingDjIndex !== null && (
