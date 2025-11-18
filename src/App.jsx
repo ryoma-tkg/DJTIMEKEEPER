@@ -211,7 +211,16 @@ const App = () => {
                     path="/"
                     element={
                         authStatus === 'authed' ? (
-                            <DashboardPage user={user} onLogout={handleLogout} />
+                            <DashboardPage
+                                user={user}
+                                onLogout={handleLogout}
+                                // ▼▼▼ 追加 ▼▼▼
+                                theme={theme}
+                                toggleTheme={toggleTheme}
+                                isDevMode={isDevMode}
+                                onToggleDevMode={toggleDevMode}
+                            // ▲▲▲ ここまで ▲▲▲
+                            />
                         ) : (
                             <Navigate to="/login" replace />
                         )

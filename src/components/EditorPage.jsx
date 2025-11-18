@@ -326,6 +326,9 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                         setTimetable={setTimetable}
                         vjTimetable={vjTimetable}
                         setVjTimetable={setVjTimetable}
+                        // ★★★ 【!!! 追加 !!!】 フロア管理用の props ★★★
+                        floors={floors}
+                        onFloorsUpdate={handleFloorsUpdate}
                         // (その他 - 変更なし)
                         setMode={handleSetMode}
                         storage={storageRef.current}
