@@ -1,5 +1,6 @@
 // [src/components/LiveView.jsx]
-import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Link } from 'react-router-dom'; // ★追加
 import { useTimetable } from '../hooks/useTimetable';
 import {
     SimpleImage,
@@ -11,7 +12,8 @@ import {
     SettingsIcon,
     MoonIcon,
     SunIcon,
-    LayersIcon
+    LayersIcon,
+    LogOutIcon // 戻るボタン用アイコンとして利用（または適当なもの）
 } from './common';
 import { FullTimelineView } from './FullTimelineView';
 
@@ -201,7 +203,7 @@ const VjDisplay = ({ vjTimetable, eventConfig, now, djEventStatus }) => {
 
 
 // --- Main LiveView Component ---
-export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentFloorId, setMode, onSelectFloor, loadedUrls, timeOffset, isReadOnly, theme, toggleTheme }) => {
+export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentFloorId, setMode, onSelectFloor, loadedUrls, timeOffset, isReadOnly, theme, toggleTheme, eventId }) => {
     const [now, setNow] = useState(new Date(new Date().getTime() + timeOffset));
     const timelineContainerRef = useRef(null);
     const [containerWidth, setContainerWidth] = useState(0);
@@ -227,20 +229,72 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
     const [bg2Style, setBg2Style] = useState({ opacity: 0, transition: 'opacity 1.0s ease-in-out' });
     const isBg1ActiveRef = useRef(true);
 
-    const { schedule, eventStartTimeDate, eventEndTimeDate, eventStatus, currentlyPlayingIndex, eventRemainingSeconds, eventElapsedSeconds } = useTimetable(timetable, eventConfig.startDate, eventConfig.startTime, now);
-    const { schedule: vjSchedule, eventStatus: vjEventStatus } = useTimetable(vjTimetable, eventConfig.startDate, eventConfig.startTime, now);
+    // ★ヘッダーの自動非表示用
+    const [isControlsVisible, setIsControlsVisible] = useState(true);
+    const controlsTimeoutRef = useRef(null);
 
-    // ★★★ 修正: VJデータが存在するかどうかのチェックを追加 ★★★
-    // これにより、VJテーブルが空の場合はVJ機能がオフと同様に扱われる
-    const hasVjData = vjTimetable && vjTimetable.length > 0;
+    // ★フェード切り替え用
+    const [displayFloorId, setDisplayFloorId] = useState(currentFloorId);
+    const [mainOpacity, setMainOpacity] = useState(1);
 
-    // フロアソート（空の場合は空配列を返す）
+    // データ取得ロジック (props.timetable ではなく、visualData を使う形に変える手もあるが、
+    // React state の更新サイクルを利用してフェードアウト→State更新→フェードインを実現する)
+    // ここでは、表示用の timetable を保持するステートを作るアプローチが確実。
+    const [visualTimetable, setVisualTimetable] = useState(timetable);
+    const [visualVjTimetable, setVisualVjTimetable] = useState(vjTimetable);
+
+    useEffect(() => {
+        if (currentFloorId !== displayFloorId) {
+            // フロア切り替え: フェードアウト開始
+            setMainOpacity(0);
+            const timer = setTimeout(() => {
+                setDisplayFloorId(currentFloorId);
+                setVisualTimetable(timetable);
+                setVisualVjTimetable(vjTimetable);
+                setMainOpacity(1);
+            }, 300); // 300ms待ってデータ更新＆フェードイン
+            return () => clearTimeout(timer);
+        } else {
+            // 同一フロア内でのデータ更新: 即時反映
+            setVisualTimetable(timetable);
+            setVisualVjTimetable(vjTimetable);
+        }
+    }, [currentFloorId, timetable, vjTimetable, displayFloorId]);
+
+
+    // タイムテーブル計算（表示用データを使用）
+    const { schedule, eventStartTimeDate, eventEndTimeDate, eventStatus, currentlyPlayingIndex, eventRemainingSeconds, eventElapsedSeconds } = useTimetable(visualTimetable, eventConfig.startDate, eventConfig.startTime, now);
+    const { schedule: vjSchedule, eventStatus: vjEventStatus } = useTimetable(visualVjTimetable, eventConfig.startDate, eventConfig.startTime, now);
+
+    const hasVjData = visualVjTimetable && visualVjTimetable.length > 0;
+
     const sortedFloors = useMemo(() => {
         if (!floors) return [];
         return Object.entries(floors)
             .map(([id, data]) => ({ id, ...data }))
             .sort((a, b) => (a.order || 0) - (b.order || 0));
     }, [floors]);
+
+    // ヘッダー自動非表示ロジック
+    useEffect(() => {
+        const showControls = () => {
+            setIsControlsVisible(true);
+            if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+            controlsTimeoutRef.current = setTimeout(() => {
+                setIsControlsVisible(false);
+            }, 3000); // 3秒操作がなければ消える
+        };
+
+        window.addEventListener('mousemove', showControls);
+        window.addEventListener('touchstart', showControls);
+        showControls(); // 初期表示
+
+        return () => {
+            window.removeEventListener('mousemove', showControls);
+            window.removeEventListener('touchstart', showControls);
+            if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+        };
+    }, []);
 
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date(new Date().getTime() + timeOffset)), 1000);
@@ -272,6 +326,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
                         const remainingSeconds = Math.ceil(remainingMs / 1000);
                         newDjData = { ...upcomingDj, status: 'UPCOMING', timeLeft: remainingSeconds, progress: 0, nextDj: upcomingDj, animationKey: `upcoming-${upcomingDj.id}` };
                     } else {
+                        // ★ 修正: フロア終了時の表示
                         newDjData = { id: 'finished', status: 'FINISHED', animationKey: 'finished' };
                     }
                 }
@@ -398,6 +453,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
     const renderDjContent = (content) => {
         if (!content) return null;
         if (content.status === 'UPCOMING') {
+            // ... (変更なし) ...
             const dj = content;
             const eventStartTimeStr = eventStartTimeDate.toTimeString().slice(0, 5);
             const eventEndTimeStr = eventEndTimeDate.toTimeString().slice(0, 5);
@@ -455,7 +511,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
                 </main>
             );
         }
-        if (content.status === 'FINISHED') return (<div className="text-center"><h1 className="text-4xl sm:text-5xl md:text-7xl font-bold">EVENT FINISHED</h1></div>);
+        if (content.status === 'FINISHED') return (<div className="text-center"><h1 className="text-4xl sm:text-5xl md:text-7xl font-bold">FLOOR FINISHED</h1></div>); // ★ FINISHED文言修正
         if (content.status === 'STANDBY') {
             const eventTitle = eventConfig.title || "DJ Timekeeper Pro";
             return (<div className="text-center"><h2 className="text-xl sm:text-2xl md:text-3xl text-on-surface-variant font-bold tracking-widest mb-4">STANDBY</h2><h1 className="text-4xl sp:text-5xl sm:text-6xl md:text-7xl font-bold break-words leading-tight">{eventTitle}</h1></div>);
@@ -472,11 +528,20 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
             <div className="absolute inset-0 will-change-[opacity]" style={bg2Style} />
             <ToastNotification message={toast.message} isVisible={toast.visible} className="top-32 md:top-24" />
 
-            {/* ヘッダー */}
-            <header className="absolute top-0 left-0 right-0 p-4 md:p-8 z-20 flex flex-col gap-2">
+            {/* ヘッダー (自動非表示 & トランジション) */}
+            <header
+                className={`absolute top-0 left-0 right-0 p-4 md:p-8 z-20 flex flex-col gap-2 transition-opacity duration-500 ${isControlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+            >
                 <div className="flex flex-wrap justify-between items-center gap-y-0 md:gap-y-2">
-                    <div className="w-auto md:flex-1 flex flex-col justify-start order-1">
-                        <h1 className="text-sm font-bold text-on-surface-variant tracking-wider truncate max-w-[calc(100vw-120px)] md:max-w-xs opacity-70">
+                    <div className="w-auto md:flex-1 flex flex-row items-center gap-4 order-1">
+                        {/* ★ 戻るボタン (編集権限がある場合のみ) */}
+                        {!isReadOnly && eventId && (
+                            <Link to={`/edit/${eventId}/${currentFloorId}`} className="flex-shrink-0 flex items-center justify-center w-10 h-10 bg-surface-container/50 backdrop-blur-sm hover:bg-surface-container text-on-surface font-semibold rounded-full transition-colors duration-200">
+                                <LogOutIcon className="w-5 h-5 rotate-180" /> {/* 暫定アイコン */}
+                            </Link>
+                        )}
+                        {/* ★ イベント名サイズアップ */}
+                        <h1 className="text-xl md:text-2xl font-bold text-on-surface-variant tracking-wider truncate max-w-[calc(100vw-120px)] md:max-w-xs opacity-70">
                             {eventConfig.title}
                         </h1>
                     </div>
@@ -495,9 +560,9 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
                     </div>
                 </div>
 
-                {/* ★★★ フロア切り替えタブ (常に表示) ★★★ */}
-                {sortedFloors.length > 0 && (
-                    <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar justify-center md:justify-start">
+                {/* ★★★ フロア切り替えタブ (中央寄せ、マージン増、ハイライト色変更) ★★★ */}
+                {sortedFloors.length > 1 && ( // ★ フロアが1つなら非表示
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar justify-center mt-4">
                         {/* シングルビューへの切り替え */}
                         {sortedFloors.map(floor => (
                             <button
@@ -505,8 +570,8 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
                                 onClick={() => { onSelectFloor(floor.id); setViewMode('single'); }}
                                 className={`
                                     px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap transition-colors flex items-center gap-2
-                                    ${(viewMode === 'single' && floor.id === currentFloorId)
-                                        ? 'bg-brand-primary text-white shadow-md'
+                                    ${(viewMode === 'single' && floor.id === displayFloorId) // ★ displayFloorIdで判定
+                                        ? 'bg-on-surface-variant text-surface-background shadow-md' // ★ ハイライト色変更
                                         : 'bg-surface-container/50 hover:bg-surface-container text-on-surface-variant hover:text-on-surface backdrop-blur-sm'
                                     }
                                 `}
@@ -523,7 +588,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
                                 className={`
                                     px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap transition-colors flex items-center gap-2
                                     ${viewMode === 'multi'
-                                        ? 'bg-brand-primary text-white shadow-md'
+                                        ? 'bg-on-surface-variant text-surface-background shadow-md' // ★ ハイライト色変更
                                         : 'bg-surface-container/50 hover:bg-surface-container text-on-surface-variant hover:text-on-surface backdrop-blur-sm'
                                     }
                                 `}
@@ -554,15 +619,16 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
             {/* ▼ メインコンテンツ切り替え ▼ */}
             {viewMode === 'single' ? (
                 // --- シングルビュー ---
-                <>
+                // ★ 全体をトランジション用の opacity で囲む
+                <div className="w-full h-full transition-opacity duration-300" style={{ opacity: mainOpacity }}>
                     {/* コンテンツ表示エリア */}
                     <div className={`absolute top-36 md:top-40 left-0 right-0 px-4 flex items-center justify-center overflow-hidden ${(eventConfig.vjFeatureEnabled && hasVjData && eventStatus === 'ON_AIR_BLOCK') ? 'bottom-24 md:bottom-56' : 'bottom-24'}`}>
                         <div className="w-full h-full overflow-y-auto flex items-center justify-center relative">
                             {visibleDjContent && (<div key={visibleDjContent.animationKey} className={`w-full absolute inset-0 p-4 flex items-center justify-center will-change-[transform,opacity] ${isDjFadingOut ? 'animate-fade-out-down' : 'animate-fade-in-up'}`}>{renderDjContent(visibleDjContent)}</div>)}
                         </div>
                     </div>
-                    {/* ★★★ 修正: VJデータがある場合のみ VjDisplay を表示する ★★★ */}
-                    {eventConfig.vjFeatureEnabled && hasVjData && (eventStatus === 'ON_AIR_BLOCK') && (<VjDisplay vjTimetable={vjTimetable} eventConfig={eventConfig} now={now} djEventStatus={eventStatus} />)}
+
+                    {eventConfig.vjFeatureEnabled && hasVjData && (eventStatus === 'ON_AIR_BLOCK') && (<VjDisplay vjTimetable={visualVjTimetable} eventConfig={eventConfig} now={now} djEventStatus={eventStatus} />)}
 
                     {schedule.length > 0 && eventStatus !== 'STANDBY' && (
                         <div ref={timelineContainerRef} className="absolute bottom-0 left-0 right-0 w-full shrink-0 overflow-hidden mask-gradient z-10 pb-4 hidden md:block h-20 md:h-32">
@@ -581,7 +647,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
                             </div>
                         </div>
                     )}
-                </>
+                </div>
             ) : (
                 // --- マルチビュー ---
                 <div className="absolute top-36 bottom-0 left-0 right-0 p-4 overflow-y-auto">

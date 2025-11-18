@@ -1,6 +1,6 @@
 // [src/components/TimetableEditor.jsx]
 import React, { useState, useEffect, useMemo, memo } from 'react';
-import { Link } from 'react-router-dom'; // ★追加: 戻るボタン用
+import { Link } from 'react-router-dom';
 import { useDragAndDrop } from '../hooks/useDragAndDrop';
 import { useTimetable } from '../hooks/useTimetable';
 import { ImageEditModal } from './ImageEditModal';
@@ -23,7 +23,7 @@ import {
     CalendarIcon,
     parseDateTime,
     getTodayDateString,
-    MenuIcon // ★追加: 戻るボタンのアイコンとして利用
+    MenuIcon
 } from './common';
 
 // (VjItem - 変更なし)
@@ -68,7 +68,7 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, ev
     );
 };
 
-// (SettingsModal - 変更あり: 「フロア管理」ボタンを削除)
+// (SettingsModal - 変更なし)
 const SettingsModal = ({ isOpen, onClose, eventConfig, handleEventConfigChange, handleShare, onResetClick, theme, toggleTheme }) => {
     if (!isOpen) return null;
     return (
@@ -107,7 +107,7 @@ const formatDateTime = (date) => {
     return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 };
 
-// ▼▼▼ 新設: フロアタブ（＋ボタン付き） ▼▼▼
+// (IntegratedFloorTabs - 変更なし)
 const IntegratedFloorTabs = ({ floors, currentFloorId, onSelectFloor, onAddClick }) => {
     const sortedFloors = useMemo(() => {
         return Object.entries(floors)
@@ -135,7 +135,6 @@ const IntegratedFloorTabs = ({ floors, currentFloorId, onSelectFloor, onAddClick
                     </button>
                 );
             })}
-            {/* ★ ＋ボタン: これでフロア管理モーダルを開く */}
             <button
                 onClick={onAddClick}
                 className="p-2 rounded-full bg-surface-container hover:bg-brand-primary/20 text-on-surface-variant hover:text-brand-primary transition-colors flex-shrink-0"
@@ -152,7 +151,7 @@ export const TimetableEditor = ({
     eventConfig, setEventConfig,
     timetable, setTimetable,
     vjTimetable, setVjTimetable,
-    floors, currentFloorId, onSelectFloor, onFloorsUpdate, // ★追加: フロア関連のデータを受け取る
+    floors, currentFloorId, onSelectFloor, onFloorsUpdate,
     setMode, storage, timeOffset,
     theme, toggleTheme, imagesLoaded
 }) => {
@@ -224,14 +223,9 @@ export const TimetableEditor = ({
             <ConfirmModal isOpen={isResetConfirmOpen} title="リセット" message="元に戻せません。よろしいですか？" onConfirm={executeReset} onCancel={() => setIsResetConfirmOpen(false)} />
             <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} eventConfig={eventConfig} handleEventConfigChange={handleEventConfigChange} handleShare={handleShare} onResetClick={() => { setIsSettingsOpen(false); setIsResetConfirmOpen(true); }} theme={theme} toggleTheme={toggleTheme} />
 
-            {/* フロア管理モーダル */}
             {!isOldData && <FloorManagerModal isOpen={isFloorManagerOpen} onClose={() => setIsFloorManagerOpen(false)} floors={floors} onSaveFloors={onFloorsUpdate} />}
-
             {editingDjIndex !== null && <ImageEditModal dj={timetable[editingDjIndex]} onUpdate={(f, v) => handleUpdate(editingDjIndex, f, v)} onClose={() => setEditingDjIndex(null)} storage={storage} />}
 
-            {/* --- レイアウト順序を変更 --- */}
-
-            {/* 1. ヘッダー (B) */}
             <header className="flex flex-row justify-between items-center mb-6 gap-4">
                 {/* ★ダッシュボードに戻るボタン */}
                 <Link to="/" className="bg-surface-container hover:bg-zinc-700 text-on-surface p-3 rounded-full transition-colors" title="ダッシュボードへ戻る">
@@ -246,7 +240,6 @@ export const TimetableEditor = ({
                 </button>
             </header>
 
-            {/* 2. LIVEボタン & 情報 (C) */}
             <div className="flex flex-col sm:flex-row gap-4 mb-8">
                 <button onClick={() => timetable.length > 0 && setMode('live')} disabled={timetable.length === 0 || !imagesLoaded} className="flex-1 flex items-center justify-center bg-brand-primary hover:opacity-90 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-xl transition-opacity duration-200 shadow-lg">
                     <PlayIcon className="w-5 h-5 mr-2" /><span>{imagesLoaded ? 'Liveモード' : '画像読込中...'}</span>
@@ -266,19 +259,19 @@ export const TimetableEditor = ({
                 </div>
             </div>
 
-            {/* 3. フロアタブ (A) - ここに配置し、IntegratedFloorTabsを使用 */}
             {!isOldData && (
                 <IntegratedFloorTabs
                     floors={floors}
                     currentFloorId={currentFloorId}
                     onSelectFloor={onSelectFloor}
-                    onAddClick={() => setIsFloorManagerOpen(true)} // ★＋ボタンでモーダルを開く
+                    onAddClick={() => setIsFloorManagerOpen(true)}
                 />
             )}
 
-            {/* 4. エディタエリア (D) */}
             <div className="flex flex-col lg:flex-row gap-8">
                 <div className="w-full lg:flex-1 space-y-4">
+                    {/* ★ 追加: DJタイムテーブルヘッダー */}
+                    <h2 className="text-xl font-bold text-on-surface mb-2">DJ タイムテーブル</h2>
                     <div className="space-y-4" ref={listContainerRef}>
                         {schedule.map((dj, index) => (
                             <div key={dj.id} className={`dj-list-item ${isDragging && index === overIndex ? 'drop-indicator-before' : ''}`} style={getDragStyles(index)}>

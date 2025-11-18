@@ -70,15 +70,19 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                 }
                 // 新データ
                 else if (data.floors) {
+                    // ★ ゴーストフロア対策: 現在のURLのfloorIdが実際に存在するかチェック
                     if (data.floors[currentFloorId]) {
                         setTimetable(data.floors[currentFloorId].timetable || []);
                         setVjTimetable(data.floors[currentFloorId].vjTimetable || []);
                     } else {
+                        // 存在しない場合（削除直後など）、存在する最初のフロアへリダイレクト
                         const firstFloorId = Object.keys(data.floors).sort(
                             (a, b) => (data.floors[a].order || 0) - (data.floors[b].order || 0)
                         )[0];
                         if (firstFloorId) {
                             navigate(`/edit/${eventId}/${firstFloorId}`, { replace: true });
+                            // ここでreturnして、staleなデータでのレンダリングを防ぐ
+                            return;
                         }
                     }
                 }
@@ -108,6 +112,9 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
     // 保存ロジック
     const saveDataToFirestore = useCallback(() => {
         if (pageStatus !== 'ready' || !user || !currentFloorId) return;
+        // ★ ゴースト書き込み対策
+        if (eventData && eventData.floors && !eventData.floors[currentFloorId]) return;
+
         if (eventData && !eventData.floors && eventData.timetable) {
             setDoc(docRef, { eventConfig, timetable, vjTimetable }, { merge: true });
         } else if (eventData && eventData.floors) {
@@ -165,8 +172,12 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
     if (pageStatus === 'offline') return <div className="p-8">接続エラー</div>;
     if (pageStatus === 'not-found') return <div className="p-8">404 - Not Found<Link to="/">Dashboard</Link></div>;
 
+    // ★ ガード: データ不整合時はレンダリングしない
+    if (eventData && eventData.floors && !eventData.floors[currentFloorId]) return <LoadingScreen text="フロアデータを同期中..." />;
+
     return (
-        <>
+        // ★ アニメーション追加
+        <div className="animate-fade-in-up">
             {mode === 'edit' ? (
                 <TimetableEditor
                     eventConfig={eventConfig}
@@ -194,17 +205,16 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                     timetable={timetable}
                     vjTimetable={vjTimetable}
                     eventConfig={eventConfig}
-                    // ▼▼▼ 【修正】 ここにフロア情報を追加しました！ ▼▼▼
                     floors={floors}
                     currentFloorId={currentFloorId}
                     onSelectFloor={handleSelectFloor}
-                    // ▲▲▲ 修正ここまで ▲▲▲
                     setMode={handleSetMode}
                     loadedUrls={loadedUrls}
                     timeOffset={timeOffset}
                     isReadOnly={false}
                     theme={theme}
                     toggleTheme={toggleTheme}
+                    eventId={eventId}
                 />
             )}
 
@@ -234,7 +244,7 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                     )}
                 </>
             )}
-        </>
+        </div>
     );
 };
 

@@ -20,9 +20,10 @@ export const LivePage = ({ theme, toggleTheme }) => {
     const navigate = useNavigate();
     const dbRef = useRef(db);
 
+    // state
     const [eventData, setEventData] = useState(null);
     const [eventConfig, setEventConfig] = useState(getDefaultEventConfig());
-    const [floors, setFloors] = useState({}); // ★重要: ここがデータを受け取る
+    const [floors, setFloors] = useState({});
 
     const [timetable, setTimetable] = useState([]);
     const [vjTimetable, setVjTimetable] = useState([]);
@@ -33,28 +34,23 @@ export const LivePage = ({ theme, toggleTheme }) => {
     const { loadedUrls, allLoaded: imagesLoaded } = useImagePreloader(imageUrlsToPreload);
     const docRef = useMemo(() => doc(dbRef.current, 'timetables', eventId), [eventId]);
 
+    // 1. データ読み込み
     useEffect(() => {
         if (!eventId || !floorId) return;
 
-        setPageStatus('loading');
+        // ★ 修正: 既にデータがある場合はローディング画面を出さない（スムーズな切り替えのため）
+        // setPageStatus('loading'); 
+
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
 
-                // ★★★ 診断ログ 1: Firestoreの生データ ★★★
-                console.log("📊 [LivePage] Firestore Raw Data:", data);
-                console.log("📊 [LivePage] data.floors:", data.floors);
-
                 setEventData(data);
                 setEventConfig(prev => ({ ...prev, ...(data.eventConfig || {}) }));
+                setFloors(data.floors || {});
 
-                // データをセット
-                const newFloors = data.floors || {};
-                setFloors(newFloors);
-
-                // 旧データ互換処理
+                // 旧データ互換
                 if (!data.floors && data.timetable) {
-                    console.log("⚠️ [LivePage] Detected Legacy Data format");
                     if (floorId === 'default') {
                         setTimetable(data.timetable || []);
                         setVjTimetable(data.vjTimetable || []);
@@ -64,35 +60,30 @@ export const LivePage = ({ theme, toggleTheme }) => {
                         navigate(`/live/${eventId}/default`, { replace: true });
                     }
                 }
-                // 新データ処理
+                // 新データ (複数フロア)
                 else if (data.floors) {
-                    console.log("✅ [LivePage] Detected Multi-Floor Data format");
                     if (data.floors[floorId]) {
                         setTimetable(data.floors[floorId].timetable || []);
                         setVjTimetable(data.floors[floorId].vjTimetable || []);
                         setPageStatus('ready');
                     } else {
-                        // 存在しないIDなら先頭へ
                         const firstFloorId = Object.keys(data.floors).sort(
                             (a, b) => (data.floors[a].order || 0) - (data.floors[b].order || 0)
                         )[0];
                         if (firstFloorId) {
-                            console.log(`🔄 [LivePage] Redirecting to first floor: ${firstFloorId}`);
                             navigate(`/live/${eventId}/${firstFloorId}`, { replace: true });
                         } else {
                             setPageStatus('not-found');
                         }
                     }
                 } else {
-                    console.error("❌ [LivePage] No valid data found (No floors, No legacy timetable)");
                     setPageStatus('not-found');
                 }
             } else {
-                console.error("❌ [LivePage] Document does not exist");
                 setPageStatus('not-found');
             }
         }, (error) => {
-            console.error("❌ [LivePage] Error:", error);
+            console.error(error);
             setPageStatus('offline');
         });
 
@@ -111,21 +102,25 @@ export const LivePage = ({ theme, toggleTheme }) => {
         }
     };
 
-    if (pageStatus === 'loading' || (pageStatus === 'ready' && !imagesLoaded)) {
+    // 初回のみローディングを表示
+    if (pageStatus === 'loading') {
         return <LoadingScreen text="読み込み中..." />;
     }
+    // ※ 画像読み込み待機中もLiveView側でフェード処理するため、ここではLoadingScreenを出さないようにしても良いが
+    // 一旦、画像読み込み中のブロッキングは維持します（allLoaded）。
+    if (pageStatus === 'ready' && !imagesLoaded) {
+        return <LoadingScreen text="読み込み中..." />;
+    }
+
     if (pageStatus === 'not-found') return <div className="p-8">404 - Not Found</div>;
     if (pageStatus === 'offline') return <div className="p-8">接続エラー</div>;
-
-    // ★★★ 診断ログ 2: LiveViewに渡す直前のfloors ★★★
-    // console.log("🚀 [LivePage] Passing floors to LiveView:", floors);
 
     return (
         <LiveView
             timetable={timetable}
             vjTimetable={vjTimetable}
             eventConfig={eventConfig}
-            floors={floors}           // ★ここが空だとタブが出ない
+            floors={floors}
             currentFloorId={floorId}
             setMode={handleSetMode}
             onSelectFloor={handleSelectFloor}
@@ -134,6 +129,8 @@ export const LivePage = ({ theme, toggleTheme }) => {
             isReadOnly={true}
             theme={theme}
             toggleTheme={toggleTheme}
+            // ★ イベントIDを渡す（編集画面へ戻るリンク用）
+            eventId={eventId}
         />
     );
 };
