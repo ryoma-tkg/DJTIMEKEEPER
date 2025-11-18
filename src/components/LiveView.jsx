@@ -230,6 +230,10 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
     const { schedule, eventStartTimeDate, eventEndTimeDate, eventStatus, currentlyPlayingIndex, eventRemainingSeconds, eventElapsedSeconds } = useTimetable(timetable, eventConfig.startDate, eventConfig.startTime, now);
     const { schedule: vjSchedule, eventStatus: vjEventStatus } = useTimetable(vjTimetable, eventConfig.startDate, eventConfig.startTime, now);
 
+    // ★★★ 修正: VJデータが存在するかどうかのチェックを追加 ★★★
+    // これにより、VJテーブルが空の場合はVJ機能がオフと同様に扱われる
+    const hasVjData = vjTimetable && vjTimetable.length > 0;
+
     // フロアソート（空の場合は空配列を返す）
     const sortedFloors = useMemo(() => {
         if (!floors) return [];
@@ -412,12 +416,12 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
                         {schedule.length > 0 && (<p className="text-lg sm:text-2xl md:text-3xl font-semibold tracking-wider font-mono mt-4" style={{ color: displayColor }}>{eventStartTimeStr} - {eventEndTimeStr}</p>)}
                         <p className="flex flex-col items-center justify-center text-5xl sp:text-6xl sm:text-7xl md:text-8xl text-on-surface my-8"><span className="text-lg sp:text-2xl sm:text-3xl md:text-4xl text-on-surface-variant font-sans font-bold mb-2">開始まで</span><span className="font-mono inline-block text-center w-[5ch]">{formatTime(dj.timeLeft)}</span></p>
                     </main>
-                    {(nextDj || (eventConfig.vjFeatureEnabled && nextVj)) && (
+                    {(nextDj || (eventConfig.vjFeatureEnabled && hasVjData && nextVj)) && (
                         <div className="w-full max-w-3xl mt-0">
                             <div className="w-full max-w-3xl border-t border-on-surface/10 mb-4" />
                             <div className="flex flex-col items-center justify-center gap-4">
                                 {nextDj && (<div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4"><span className="text-lg sm:text-2xl font-bold text-on-surface-variant/50">DJ STANDBY</span><div className="h-6 w-px bg-on-surface/30 hidden sm:block"></div><div className="flex items-center gap-3"><span className="text-base sm:text-lg text-on-surface-variant uppercase font-bold tracking-widest">NEXT DJ</span><span className="text-base sm:text-lg font-semibold truncate max-w-[150px] sm:max-w-xs">{nextDj.name}</span><span className="text-base sm:text-lg text-on-surface-variant font-mono whitespace-nowrap">{nextDjStartTimeStr}~</span></div></div>)}
-                                {eventConfig.vjFeatureEnabled && nextVj && (<div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4"><span className="text-lg sm:text-2xl font-bold text-on-surface-variant/50">VJ STANDBY</span><div className="h-6 w-px bg-on-surface/30 hidden sm:block"></div><div className="flex items-center gap-3"><span className="text-base sm:text-lg text-on-surface-variant uppercase font-bold tracking-widest">NEXT VJ</span><span className="text-base sm:text-lg font-semibold truncate max-w-[150px] sm:max-w-xs">{nextVj.name}</span><span className="text-base sm:text-lg text-on-surface-variant font-mono whitespace-nowrap">{nextVjStartTimeStr}~</span></div></div>)}
+                                {eventConfig.vjFeatureEnabled && hasVjData && nextVj && (<div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4"><span className="text-lg sm:text-2xl font-bold text-on-surface-variant/50">VJ STANDBY</span><div className="h-6 w-px bg-on-surface/30 hidden sm:block"></div><div className="flex items-center gap-3"><span className="text-base sm:text-lg text-on-surface-variant uppercase font-bold tracking-widest">NEXT VJ</span><span className="text-base sm:text-lg font-semibold truncate max-w-[150px] sm:max-w-xs">{nextVj.name}</span><span className="text-base sm:text-lg text-on-surface-variant font-mono whitespace-nowrap">{nextVjStartTimeStr}~</span></div></div>)}
                             </div>
                         </div>
                     )}
@@ -551,13 +555,15 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
             {viewMode === 'single' ? (
                 // --- シングルビュー ---
                 <>
-                    {/* コンテンツ表示エリア（トップのマージンを増やしてヘッダーと重ならないように調整） */}
-                    <div className={`absolute top-36 md:top-40 left-0 right-0 px-4 flex items-center justify-center overflow-hidden ${(eventConfig.vjFeatureEnabled && eventStatus === 'ON_AIR_BLOCK') ? 'bottom-24 md:bottom-56' : 'bottom-24'}`}>
+                    {/* コンテンツ表示エリア */}
+                    <div className={`absolute top-36 md:top-40 left-0 right-0 px-4 flex items-center justify-center overflow-hidden ${(eventConfig.vjFeatureEnabled && hasVjData && eventStatus === 'ON_AIR_BLOCK') ? 'bottom-24 md:bottom-56' : 'bottom-24'}`}>
                         <div className="w-full h-full overflow-y-auto flex items-center justify-center relative">
                             {visibleDjContent && (<div key={visibleDjContent.animationKey} className={`w-full absolute inset-0 p-4 flex items-center justify-center will-change-[transform,opacity] ${isDjFadingOut ? 'animate-fade-out-down' : 'animate-fade-in-up'}`}>{renderDjContent(visibleDjContent)}</div>)}
                         </div>
                     </div>
-                    {eventConfig.vjFeatureEnabled && (eventStatus === 'ON_AIR_BLOCK') && (<VjDisplay vjTimetable={vjTimetable} eventConfig={eventConfig} now={now} djEventStatus={eventStatus} />)}
+                    {/* ★★★ 修正: VJデータがある場合のみ VjDisplay を表示する ★★★ */}
+                    {eventConfig.vjFeatureEnabled && hasVjData && (eventStatus === 'ON_AIR_BLOCK') && (<VjDisplay vjTimetable={vjTimetable} eventConfig={eventConfig} now={now} djEventStatus={eventStatus} />)}
+
                     {schedule.length > 0 && eventStatus !== 'STANDBY' && (
                         <div ref={timelineContainerRef} className="absolute bottom-0 left-0 right-0 w-full shrink-0 overflow-hidden mask-gradient z-10 pb-4 hidden md:block h-20 md:h-32">
                             <div className="flex h-full items-center space-x-4 md:space-x-6 px-4 py-2 will-change-transform" style={{ transform: timelineTransform, transition: 'transform 0.4s ease-in-out' }}>

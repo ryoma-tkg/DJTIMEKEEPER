@@ -194,6 +194,11 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                     timetable={timetable}
                     vjTimetable={vjTimetable}
                     eventConfig={eventConfig}
+                    // ▼▼▼ 【修正】 ここにフロア情報を追加しました！ ▼▼▼
+                    floors={floors}
+                    currentFloorId={currentFloorId}
+                    onSelectFloor={handleSelectFloor}
+                    // ▲▲▲ 修正ここまで ▲▲▲
                     setMode={handleSetMode}
                     loadedUrls={loadedUrls}
                     timeOffset={timeOffset}

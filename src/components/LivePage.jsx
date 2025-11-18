@@ -20,12 +20,9 @@ export const LivePage = ({ theme, toggleTheme }) => {
     const navigate = useNavigate();
     const dbRef = useRef(db);
 
-    // state
     const [eventData, setEventData] = useState(null);
     const [eventConfig, setEventConfig] = useState(getDefaultEventConfig());
-
-    // ★★★ ここが重要: floors stateを追加 ★★★
-    const [floors, setFloors] = useState({});
+    const [floors, setFloors] = useState({}); // ★重要: ここがデータを受け取る
 
     const [timetable, setTimetable] = useState([]);
     const [vjTimetable, setVjTimetable] = useState([]);
@@ -36,7 +33,6 @@ export const LivePage = ({ theme, toggleTheme }) => {
     const { loadedUrls, allLoaded: imagesLoaded } = useImagePreloader(imageUrlsToPreload);
     const docRef = useMemo(() => doc(dbRef.current, 'timetables', eventId), [eventId]);
 
-    // 1. データ読み込み
     useEffect(() => {
         if (!eventId || !floorId) return;
 
@@ -45,14 +41,20 @@ export const LivePage = ({ theme, toggleTheme }) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
 
+                // ★★★ 診断ログ 1: Firestoreの生データ ★★★
+                console.log("📊 [LivePage] Firestore Raw Data:", data);
+                console.log("📊 [LivePage] data.floors:", data.floors);
+
                 setEventData(data);
                 setEventConfig(prev => ({ ...prev, ...(data.eventConfig || {}) }));
 
-                // ★★★ Firestoreから取得した floors をセット ★★★
-                setFloors(data.floors || {});
+                // データをセット
+                const newFloors = data.floors || {};
+                setFloors(newFloors);
 
-                // 旧データ互換
+                // 旧データ互換処理
                 if (!data.floors && data.timetable) {
+                    console.log("⚠️ [LivePage] Detected Legacy Data format");
                     if (floorId === 'default') {
                         setTimetable(data.timetable || []);
                         setVjTimetable(data.vjTimetable || []);
@@ -62,30 +64,35 @@ export const LivePage = ({ theme, toggleTheme }) => {
                         navigate(`/live/${eventId}/default`, { replace: true });
                     }
                 }
-                // 新データ (複数フロア)
+                // 新データ処理
                 else if (data.floors) {
+                    console.log("✅ [LivePage] Detected Multi-Floor Data format");
                     if (data.floors[floorId]) {
                         setTimetable(data.floors[floorId].timetable || []);
                         setVjTimetable(data.floors[floorId].vjTimetable || []);
                         setPageStatus('ready');
                     } else {
+                        // 存在しないIDなら先頭へ
                         const firstFloorId = Object.keys(data.floors).sort(
                             (a, b) => (data.floors[a].order || 0) - (data.floors[b].order || 0)
                         )[0];
                         if (firstFloorId) {
+                            console.log(`🔄 [LivePage] Redirecting to first floor: ${firstFloorId}`);
                             navigate(`/live/${eventId}/${firstFloorId}`, { replace: true });
                         } else {
                             setPageStatus('not-found');
                         }
                     }
                 } else {
+                    console.error("❌ [LivePage] No valid data found (No floors, No legacy timetable)");
                     setPageStatus('not-found');
                 }
             } else {
+                console.error("❌ [LivePage] Document does not exist");
                 setPageStatus('not-found');
             }
         }, (error) => {
-            console.error(error);
+            console.error("❌ [LivePage] Error:", error);
             setPageStatus('offline');
         });
 
@@ -110,15 +117,16 @@ export const LivePage = ({ theme, toggleTheme }) => {
     if (pageStatus === 'not-found') return <div className="p-8">404 - Not Found</div>;
     if (pageStatus === 'offline') return <div className="p-8">接続エラー</div>;
 
+    // ★★★ 診断ログ 2: LiveViewに渡す直前のfloors ★★★
+    // console.log("🚀 [LivePage] Passing floors to LiveView:", floors);
+
     return (
         <LiveView
             timetable={timetable}
             vjTimetable={vjTimetable}
             eventConfig={eventConfig}
-            // ★★★ ここでデータを渡さないとLiveViewは表示できません ★★★
-            floors={floors}
+            floors={floors}           // ★ここが空だとタブが出ない
             currentFloorId={floorId}
-            // ★★★
             setMode={handleSetMode}
             onSelectFloor={handleSelectFloor}
             loadedUrls={loadedUrls}
