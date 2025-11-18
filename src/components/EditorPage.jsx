@@ -70,19 +70,15 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                 }
                 // 新データ
                 else if (data.floors) {
-                    // ★ ゴーストフロア対策: 現在のURLのfloorIdが実際に存在するかチェック
                     if (data.floors[currentFloorId]) {
                         setTimetable(data.floors[currentFloorId].timetable || []);
                         setVjTimetable(data.floors[currentFloorId].vjTimetable || []);
                     } else {
-                        // 存在しない場合（削除直後など）、存在する最初のフロアへリダイレクト
                         const firstFloorId = Object.keys(data.floors).sort(
                             (a, b) => (data.floors[a].order || 0) - (data.floors[b].order || 0)
                         )[0];
                         if (firstFloorId) {
                             navigate(`/edit/${eventId}/${firstFloorId}`, { replace: true });
-                            // ここでreturnして、staleなデータでのレンダリングを防ぐ
-                            return;
                         }
                     }
                 }
@@ -97,7 +93,7 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
         return () => unsubscribe();
     }, [user, eventId, docRef, navigate]); // currentFloorIdは除外
 
-    // URL同期
+    // URL同期 & データ更新
     useEffect(() => {
         setCurrentFloorId(floorId);
         if (eventData && eventData.floors && eventData.floors[floorId]) {
@@ -112,9 +108,6 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
     // 保存ロジック
     const saveDataToFirestore = useCallback(() => {
         if (pageStatus !== 'ready' || !user || !currentFloorId) return;
-        // ★ ゴースト書き込み対策
-        if (eventData && eventData.floors && !eventData.floors[currentFloorId]) return;
-
         if (eventData && !eventData.floors && eventData.timetable) {
             setDoc(docRef, { eventConfig, timetable, vjTimetable }, { merge: true });
         } else if (eventData && eventData.floors) {
@@ -172,12 +165,8 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
     if (pageStatus === 'offline') return <div className="p-8">接続エラー</div>;
     if (pageStatus === 'not-found') return <div className="p-8">404 - Not Found<Link to="/">Dashboard</Link></div>;
 
-    // ★ ガード: データ不整合時はレンダリングしない
-    if (eventData && eventData.floors && !eventData.floors[currentFloorId]) return <LoadingScreen text="フロアデータを同期中..." />;
-
     return (
-        // ★ アニメーション追加
-        <div className="animate-fade-in-up">
+        <>
             {mode === 'edit' ? (
                 <TimetableEditor
                     eventConfig={eventConfig}
@@ -205,46 +194,51 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                     timetable={timetable}
                     vjTimetable={vjTimetable}
                     eventConfig={eventConfig}
+                    // ▼▼▼ 【修正】 ここにフロア情報を追加しました！ ▼▼▼
                     floors={floors}
                     currentFloorId={currentFloorId}
                     onSelectFloor={handleSelectFloor}
+                    // ▲▲▲ 修正ここまで ▲▲▲
                     setMode={handleSetMode}
                     loadedUrls={loadedUrls}
                     timeOffset={timeOffset}
                     isReadOnly={false}
                     theme={theme}
                     toggleTheme={toggleTheme}
-                    eventId={eventId}
                 />
             )}
 
             {isDevMode && (
                 <>
-                    <button onClick={() => setIsDevPanelOpen(p => !p)} className="fixed bottom-4 left-4 z-[998] w-12 h-12 bg-brand-primary text-white rounded-full shadow-lg grid place-items-center">
+                    {/* ★★★ Z-Indexを極端に上げて、LiveViewの上に確実に表示させる ★★★ */}
+                    <button onClick={() => setIsDevPanelOpen(p => !p)} className="fixed bottom-4 left-4 z-[9999] w-12 h-12 bg-brand-primary text-white rounded-full shadow-lg grid place-items-center hover:bg-brand-primary/80 transition-colors">
                         <PowerIcon className="w-6 h-6" />
                     </button>
                     {isDevPanelOpen && (
-                        <DevControls
-                            mode={mode}
-                            setMode={handleSetMode}
-                            timeOffset={timeOffset}
-                            onTimeJump={handleTimeJump}
-                            onTimeReset={handleTimeReset}
-                            eventConfig={eventConfig}
-                            timetable={timetable}
-                            vjTimetable={vjTimetable}
-                            onToggleVjFeature={handleToggleVj}
-                            onLoadDummyData={() => { }}
-                            onSetStartNow={handleSetStartNow}
-                            onFinishEvent={() => handleTimeJump(1440)}
-                            onCrashApp={() => { throw new Error('Test'); }}
-                            imagesLoaded={imagesLoaded}
-                            onClose={() => setIsDevPanelOpen(false)}
-                        />
+                        <div className="z-[9999] relative">
+                            <DevControls
+                                location="editor"
+                                mode={mode}
+                                setMode={handleSetMode}
+                                timeOffset={timeOffset}
+                                onTimeJump={handleTimeJump}
+                                onTimeReset={handleTimeReset}
+                                eventConfig={eventConfig}
+                                timetable={timetable}
+                                vjTimetable={vjTimetable}
+                                onToggleVjFeature={handleToggleVj}
+                                onLoadDummyData={() => { }}
+                                onSetStartNow={handleSetStartNow}
+                                onFinishEvent={() => handleTimeJump(1440)}
+                                onCrashApp={() => { throw new Error('Test'); }}
+                                imagesLoaded={imagesLoaded}
+                                onClose={() => setIsDevPanelOpen(false)}
+                            />
+                        </div>
                     )}
                 </>
             )}
-        </div>
+        </>
     );
 };
 
