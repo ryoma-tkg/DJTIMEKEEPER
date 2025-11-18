@@ -38,8 +38,10 @@ export const LivePage = ({ theme, toggleTheme }) => {
     useEffect(() => {
         if (!eventId || !floorId) return;
 
-        // ★ 修正: 既にデータがある場合はローディング画面を出さない（スムーズな切り替えのため）
-        // setPageStatus('loading'); 
+        // ★ 既にデータがある場合はLoadingにしない (LiveView側でフェード処理するため)
+        if (!eventData) {
+            setPageStatus('loading');
+        }
 
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
@@ -102,13 +104,7 @@ export const LivePage = ({ theme, toggleTheme }) => {
         }
     };
 
-    // 初回のみローディングを表示
     if (pageStatus === 'loading') {
-        return <LoadingScreen text="読み込み中..." />;
-    }
-    // ※ 画像読み込み待機中もLiveView側でフェード処理するため、ここではLoadingScreenを出さないようにしても良いが
-    // 一旦、画像読み込み中のブロッキングは維持します（allLoaded）。
-    if (pageStatus === 'ready' && !imagesLoaded) {
         return <LoadingScreen text="読み込み中..." />;
     }
 
@@ -129,7 +125,6 @@ export const LivePage = ({ theme, toggleTheme }) => {
             isReadOnly={true}
             theme={theme}
             toggleTheme={toggleTheme}
-            // ★ イベントIDを渡す（編集画面へ戻るリンク用）
             eventId={eventId}
         />
     );

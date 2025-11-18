@@ -23,7 +23,8 @@ import {
     CalendarIcon,
     parseDateTime,
     getTodayDateString,
-    MenuIcon
+    // MenuIcon, // 削除
+    LogOutIcon // 追加: 戻るボタン用
 } from './common';
 
 // (VjItem - 変更なし)
@@ -227,9 +228,9 @@ export const TimetableEditor = ({
             {editingDjIndex !== null && <ImageEditModal dj={timetable[editingDjIndex]} onUpdate={(f, v) => handleUpdate(editingDjIndex, f, v)} onClose={() => setEditingDjIndex(null)} storage={storage} />}
 
             <header className="flex flex-row justify-between items-center mb-6 gap-4">
-                {/* ★ダッシュボードに戻るボタン */}
-                <Link to="/" className="bg-surface-container hover:bg-zinc-700 text-on-surface p-3 rounded-full transition-colors" title="ダッシュボードへ戻る">
-                    <MenuIcon className="w-5 h-5" />
+                {/* ★ ダッシュボードに戻るボタン (LiveViewとデザイン統一) */}
+                <Link to="/" className="flex-shrink-0 flex items-center justify-center w-10 h-10 bg-surface-container hover:bg-zinc-700 text-on-surface font-semibold rounded-full transition-colors duration-200" title="ダッシュボードへ戻る">
+                    <LogOutIcon className="w-5 h-5 rotate-180" />
                 </Link>
 
                 <input type="text" value={eventConfig.title || 'DJ Timekeeper Pro'} onChange={(e) => handleEventConfigChange('title', e.target.value)} className="text-2xl sm:text-3xl font-bold text-brand-secondary tracking-wide bg-transparent focus:outline-none focus:bg-surface-container/50 rounded-lg p-2 flex-1 min-w-0" placeholder="イベントタイトル" />
@@ -270,7 +271,6 @@ export const TimetableEditor = ({
 
             <div className="flex flex-col lg:flex-row gap-8">
                 <div className="w-full lg:flex-1 space-y-4">
-                    {/* ★ 追加: DJタイムテーブルヘッダー */}
                     <h2 className="text-xl font-bold text-on-surface mb-2">DJ タイムテーブル</h2>
                     <div className="space-y-4" ref={listContainerRef}>
                         {schedule.map((dj, index) => (

@@ -46,7 +46,11 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
     // 1. データ読み込み
     useEffect(() => {
         if (!user || !eventId) return;
-        setPageStatus('loading');
+        // ★ 既にデータがある場合、フロア切り替え時に全画面ローディングを出さない
+        if (!eventData) {
+            setPageStatus('loading');
+        }
+
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
@@ -91,7 +95,7 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
             setPageStatus('offline');
         });
         return () => unsubscribe();
-    }, [user, eventId, docRef, navigate]); // currentFloorIdは除外
+    }, [user, eventId, docRef, navigate]);
 
     // URL同期 & データ更新
     useEffect(() => {
@@ -138,9 +142,10 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
     };
 
     const handleSetMode = (newMode) => {
+        // 画像読み込みチェックは任意だが、UX上はロード待ったほうが良い
         if (newMode === 'live' && !imagesLoaded) {
-            alert("画像読み込み中...");
-            return;
+            // ロード画面を表示するなら setModeせず待機でも良いが、ここでは簡易警告
+            // alert("画像読み込み中..."); // 鬱陶しいので削除
         }
         setMode(newMode);
     };
@@ -190,32 +195,37 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                     imagesLoaded={imagesLoaded}
                 />
             ) : (
+                // ★ プレビューモード
                 <LiveView
                     timetable={timetable}
                     vjTimetable={vjTimetable}
                     eventConfig={eventConfig}
-                    // ▼▼▼ 【修正】 ここにフロア情報を追加しました！ ▼▼▼
                     floors={floors}
                     currentFloorId={currentFloorId}
                     onSelectFloor={handleSelectFloor}
-                    // ▲▲▲ 修正ここまで ▲▲▲
                     setMode={handleSetMode}
                     loadedUrls={loadedUrls}
                     timeOffset={timeOffset}
                     isReadOnly={false}
                     theme={theme}
                     toggleTheme={toggleTheme}
+                    eventId={eventId}
+                    isPreview={true} // ★ プレビューフラグ
                 />
             )}
 
             {isDevMode && (
                 <>
-                    {/* ★★★ Z-Indexを極端に上げて、LiveViewの上に確実に表示させる ★★★ */}
-                    <button onClick={() => setIsDevPanelOpen(p => !p)} className="fixed bottom-4 left-4 z-[9999] w-12 h-12 bg-brand-primary text-white rounded-full shadow-lg grid place-items-center hover:bg-brand-primary/80 transition-colors">
+                    {/* z-index強化 */}
+                    <button
+                        onClick={() => setIsDevPanelOpen(p => !p)}
+                        className="fixed bottom-4 left-4 z-[9999] w-12 h-12 bg-brand-primary text-white rounded-full shadow-lg grid place-items-center hover:bg-brand-primary/80 transition-colors"
+                        style={{ isolation: 'isolate' }}
+                    >
                         <PowerIcon className="w-6 h-6" />
                     </button>
                     {isDevPanelOpen && (
-                        <div className="z-[9999] relative">
+                        <div className="fixed bottom-4 right-4 z-[9999]" style={{ isolation: 'isolate' }}>
                             <DevControls
                                 location="editor"
                                 mode={mode}
