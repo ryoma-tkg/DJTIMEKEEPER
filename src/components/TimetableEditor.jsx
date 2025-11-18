@@ -23,8 +23,8 @@ import {
     CalendarIcon,
     parseDateTime,
     getTodayDateString,
-    // MenuIcon, // 削除
-    LogOutIcon // 追加: 戻るボタン用
+    LogOutIcon,
+    GodModeIcon
 } from './common';
 
 // (VjItem - 変更なし)
@@ -45,7 +45,7 @@ const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging, isPlay
     );
 });
 
-// (VjTimetableManager - 変更なし)
+// (VjTimetableManager - レイアウト修正)
 const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, eventStartTimeStr, now }) => {
     const { schedule: vjSchedule, eventStartTimeDate: vjEventStartTimeDate, recalculateTimes: recalculateVjTimes, currentlyPlayingIndex: currentlyPlayingVjIndex } = useTimetable(vjTimetable, eventStartDateStr, eventStartTimeStr, now);
     const { draggedIndex: vjDraggedIndex, overIndex: vjOverIndex, isDragging: vjIsDragging, listContainerRef: vjListContainerRef, handlePointerDown: handleVjPointerDown, getDragStyles: getVjDragStyles } = useDragAndDrop(vjTimetable, setVjTimetable, (newTable) => recalculateVjTimes(newTable, vjEventStartTimeDate), [eventStartDateStr, eventStartTimeStr]);
@@ -63,8 +63,21 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, ev
                         <VjItem vj={vj} onPointerDown={(e) => handleVjPointerDown(e, index)} onUpdate={(field, value) => handleUpdateVj(index, field, value)} onRemove={() => handleRemoveVj(index)} isDragging={vjDraggedIndex === index} isPlaying={currentlyPlayingVjIndex === index} />
                     </div>
                 ))}
+
+                {/* ▼▼▼ 【修正】 DJ側と同じ pt-2 のラッパーを追加し、高さを完全に揃える ▼▼▼ */}
+                <div className="pt-2">
+                    <button
+                        onClick={handleAddVj}
+                        className="w-full h-24 rounded-2xl border-2 border-dashed border-surface-container hover:border-brand-primary hover:bg-brand-primary/5 text-on-surface-variant hover:text-brand-primary transition-all duration-200 flex items-center justify-center gap-2 group"
+                    >
+                        <div className="w-10 h-10 rounded-full bg-surface-container group-hover:bg-brand-primary group-hover:text-white flex items-center justify-center transition-colors">
+                            <PlusIcon className="w-6 h-6" />
+                        </div>
+                        <span className="font-bold">VJを追加</span>
+                    </button>
+                </div>
+                {/* ▲▲▲ 修正ここまで ▲▲▲ */}
             </div>
-            <button onClick={handleAddVj} className="w-full flex items-center justify-center bg-surface-container hover:opacity-90 text-on-surface-variant font-bold py-3 px-4 rounded-full transition-opacity duration-200"><PlusIcon className="w-5 h-5 mr-2" /><span>VJを追加</span></button>
         </div>
     );
 };
@@ -228,7 +241,6 @@ export const TimetableEditor = ({
             {editingDjIndex !== null && <ImageEditModal dj={timetable[editingDjIndex]} onUpdate={(f, v) => handleUpdate(editingDjIndex, f, v)} onClose={() => setEditingDjIndex(null)} storage={storage} />}
 
             <header className="flex flex-row justify-between items-center mb-6 gap-4">
-                {/* ★ ダッシュボードに戻るボタン (LiveViewとデザイン統一) */}
                 <Link to="/" className="flex-shrink-0 flex items-center justify-center w-10 h-10 bg-surface-container hover:bg-zinc-700 text-on-surface font-semibold rounded-full transition-colors duration-200" title="ダッシュボードへ戻る">
                     <LogOutIcon className="w-5 h-5 rotate-180" />
                 </Link>
@@ -278,10 +290,29 @@ export const TimetableEditor = ({
                                 <DjItem dj={dj} isPlaying={currentlyPlayingIndex === index} onPointerDown={(e) => handlePointerDown(e, index)} onEditClick={() => setEditingDjIndex(index)} onUpdate={(f, v) => handleUpdate(index, f, v)} onColorPickerToggle={setOpenColorPickerId} onCopy={() => handleCopyDj(index)} onRemove={() => handleRemoveDj(index)} isColorPickerOpen={openColorPickerId === dj.id} openColorPickerId={openColorPickerId} isDragging={draggedIndex === index} />
                             </div>
                         ))}
-                    </div>
-                    <div className="mt-6 flex flex-col sm:flex-row gap-4">
-                        <button onClick={() => addNewDj(false)} className="w-full flex items-center justify-center bg-brand-primary hover:opacity-90 text-white font-bold py-3 px-4 rounded-full transition-opacity duration-200"><PlusIcon className="w-5 h-5 mr-2" /><span>DJを追加</span></button>
-                        <button onClick={() => addNewDj(true)} className="w-full flex items-center justify-center bg-surface-container hover:opacity-90 text-on-surface-variant font-bold py-3 px-4 rounded-full transition-opacity duration-200"><PlusIcon className="w-5 h-5 mr-2" /><span>バッファーを追加</span></button>
+
+                        {/* 追加ボタンエリア（プレースホルダー風） */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                            <button
+                                onClick={() => addNewDj(false)}
+                                className="w-full h-24 rounded-2xl border-2 border-dashed border-surface-container hover:border-brand-primary hover:bg-brand-primary/5 text-on-surface-variant hover:text-brand-primary transition-all duration-200 flex items-center justify-center gap-2 group"
+                            >
+                                <div className="w-10 h-10 rounded-full bg-surface-container group-hover:bg-brand-primary group-hover:text-white flex items-center justify-center transition-colors">
+                                    <PlusIcon className="w-6 h-6" />
+                                </div>
+                                <span className="font-bold">DJを追加</span>
+                            </button>
+
+                            <button
+                                onClick={() => addNewDj(true)}
+                                className="w-full h-24 rounded-2xl border-2 border-dashed border-surface-container hover:border-on-surface-variant hover:bg-on-surface-variant/5 text-on-surface-variant hover:text-on-surface transition-all duration-200 flex items-center justify-center gap-2 group"
+                            >
+                                <div className="w-10 h-10 rounded-full bg-surface-container group-hover:bg-on-surface-variant group-hover:text-surface-background flex items-center justify-center transition-colors">
+                                    <GodModeIcon className="w-5 h-5" />
+                                </div>
+                                <span className="font-bold">バッファーを追加</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 {eventConfig.vjFeatureEnabled && <div className="w-full lg:w-1/3 lg:max-w-md space-y-4"><VjTimetableManager vjTimetable={vjTimetable} setVjTimetable={setVjTimetable} eventStartDateStr={eventConfig.startDate} eventStartTimeStr={eventConfig.startTime} now={now} /></div>}
