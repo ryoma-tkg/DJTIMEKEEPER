@@ -1,5 +1,5 @@
 // [src/components/DevControls.jsx]
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
     SettingsIcon,
     ResetIcon,
@@ -51,6 +51,7 @@ export const DevControls = ({
 
     const isDashboard = location === 'dashboard';
 
+    // ★ propsを使わず、個別の値を使ってログを出す
     const handleLogState = () => {
         console.log("--- [DevMode] State Log ---");
         if (isDashboard) {
@@ -64,6 +65,11 @@ export const DevControls = ({
         }
         console.log("---------------------------");
     };
+
+    // デバッグ用: マウント時に一度だけ場所をログ出力
+    useEffect(() => {
+        console.log(`[DevControls] Mounted in ${location}`);
+    }, [location]);
 
     return (
         <div className="fixed bottom-4 right-4 z-[999] bg-surface-container/80 backdrop-blur-md border border-on-surface/10 rounded-xl shadow-2xl p-3 text-on-surface text-left w-[280px] animate-fade-in-up">
@@ -123,8 +129,8 @@ export const DevControls = ({
                             <SparklesIcon className="w-4 h-4" /> ダミー読込
                         </DevButton>
 
-                        {/* eventConfig が存在し、かつ vjFeatureEnabled が true の時だけ色を変える */}
-                        <DevButton onClick={onToggleVjFeature} className={(eventConfig && eventConfig.vjFeatureEnabled) ? 'text-brand-primary' : ''}>
+                        {/* eventConfig?.vjFeatureEnabled で安全にアクセス */}
+                        <DevButton onClick={onToggleVjFeature} className={eventConfig?.vjFeatureEnabled ? 'text-brand-primary' : ''}>
                             <VideoIcon className="w-4 h-4" /> VJ
                         </DevButton>
 
