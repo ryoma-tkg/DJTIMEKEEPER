@@ -1,6 +1,6 @@
 // [src/components/ui/Input.jsx]
 import React from 'react';
-import { AlertTriangleIcon } from '../common'; // アイコンが必要ならインポート
+import { AlertTriangleIcon } from '../common';
 
 export const Input = ({
     type = "text",
@@ -14,15 +14,16 @@ export const Input = ({
     step,
     min,
     max,
-    error = null, // ▼▼▼ 変更: booleanではなくエラーメッセージ(文字列)またはnullを受け取る ▼▼▼
+    error = null,
+    isError = false, // ▼▼▼ propsから取り出し、DOMへ渡さないようにする ▼▼▼
     ...props
 }) => {
-    // エラーがあるかどうか
-    const hasError = !!error;
+    // エラー判定
+    const hasError = !!error || isError;
 
-    // エラー時のスタイル定義
+    // エラー時のスタイル
     const errorStyle = "border-red-500/50 bg-red-500/10 focus:ring-red-500 focus:border-red-500 text-red-500 placeholder-red-500/50";
-    // 通常時のスタイル定義
+    // 通常時のスタイル
     const normalStyle = "border-transparent focus:border-brand-primary/20";
 
     return (
@@ -39,7 +40,7 @@ export const Input = ({
                 step={step}
                 min={min}
                 max={max}
-                {...props}
+                {...props} // isError はここに含まれないため、DOMに渡りません
                 className={`
                     bg-surface-background text-on-surface 
                     py-3 ${Icon ? 'pl-10' : 'pl-4'} pr-4 
@@ -53,9 +54,8 @@ export const Input = ({
                 `}
             />
 
-            {/* ▼▼▼ エラーメッセージ (絶対配置で浮かせる) ▼▼▼ */}
-            {/* heightに影響を与えず、入力欄の下にフワッと出す */}
-            {hasError && (
+            {/* エラーメッセージ */}
+            {error && (
                 <div className="absolute top-full left-0 mt-1 z-10 pointer-events-none animate-fade-in">
                     <div className="flex items-center gap-1 text-red-500 bg-surface-container/90 backdrop-blur-sm px-2 py-1 rounded-lg shadow-lg border border-red-500/20">
                         <AlertTriangleIcon className="w-3 h-3" />
