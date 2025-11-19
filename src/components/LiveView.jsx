@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useTimetable } from '../hooks/useTimetable';
+import { BaseModal } from './ui/BaseModal';
 import {
     SimpleImage,
     UserIcon,
@@ -91,37 +92,36 @@ const MiniFloorCard = ({ floorId, floorData, eventConfig, now, onClick }) => {
 
 // --- サブコンポーネント: 設定モーダル (変更なし) ---
 const LiveSettingsModal = ({ isOpen, onClose, theme, toggleTheme, isWakeLockEnabled, onWakeLockToggle }) => {
-    if (!isOpen) return null;
     return (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in" onClick={onClose}>
-            <div className="bg-surface-container rounded-2xl p-6 w-full max-w-md shadow-2xl relative animate-modal-in" onClick={(e) => e.stopPropagation()}>
-                <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface"><XIcon className="w-6 h-6" /></button>
-                <h2 className="text-2xl font-bold mb-6">設定</h2>
-
-                <div className="space-y-6">
-                    <section>
-                        <div className="bg-surface-background/50 rounded-xl px-4 py-1 space-y-1">
-                            <ToggleSwitch
-                                checked={theme === 'dark'}
-                                onChange={toggleTheme}
-                                label="ダークモード"
-                                icon={theme === 'dark' ? MoonIcon : SunIcon}
-                            />
-                            <div className="border-t border-surface-container"></div>
-                            <ToggleSwitch
-                                checked={isWakeLockEnabled}
-                                onChange={onWakeLockToggle}
-                                label="画面のスリープ防止"
-                                icon={isWakeLockEnabled ? SunIcon : MoonIcon} // 適切なアイコンがあれば変える。とりあえずこれ
-                            />
-                        </div>
-                        <p className="text-xs text-on-surface-variant mt-2 px-2">
-                            ※ スリープ防止機能は、ブラウザや端末の設定によっては動作しない場合があります。
-                        </p>
-                    </section>
-                </div>
+        <BaseModal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="設定"
+            maxWidthClass="max-w-md"
+        >
+            <div className="space-y-6">
+                <section>
+                    <div className="bg-surface-background/50 rounded-xl px-4 py-1 space-y-1">
+                        <ToggleSwitch
+                            checked={theme === 'dark'}
+                            onChange={toggleTheme}
+                            label="ダークモード"
+                            icon={theme === 'dark' ? MoonIcon : SunIcon}
+                        />
+                        <div className="border-t border-surface-container"></div>
+                        <ToggleSwitch
+                            checked={isWakeLockEnabled}
+                            onChange={onWakeLockToggle}
+                            label="画面のスリープ防止"
+                            icon={isWakeLockEnabled ? SunIcon : MoonIcon}
+                        />
+                    </div>
+                    <p className="text-xs text-on-surface-variant mt-2 px-2">
+                        ※ スリープ防止機能は、ブラウザや端末の設定によっては動作しない場合があります。
+                    </p>
+                </section>
             </div>
-        </div>
+        </BaseModal>
     );
 };
 

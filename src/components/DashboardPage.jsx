@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { db } from '../firebase';
 import { collection, addDoc, deleteDoc, doc, query, where, onSnapshot, Timestamp, writeBatch } from 'firebase/firestore';
+import { BaseModal } from './ui/BaseModal';
 import {
     getTodayDateString,
     PlusIcon,
@@ -19,7 +20,8 @@ import {
     // ▼▼▼ 追加インポート ▼▼▼
     CustomTimeInput,
     CalendarIcon,
-    VideoIcon
+    VideoIcon,
+    Button, Input,
 } from './common';
 import { DevControls } from './DevControls';
 
@@ -32,38 +34,36 @@ const LoadingSpinner = () => (
 
 // (設定モーダル - 変更なし)
 const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout }) => {
-    if (!isOpen) return null;
     return (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in" onClick={onClose}>
-            <div className="bg-surface-container rounded-2xl p-6 w-full max-w-sm shadow-2xl relative animate-modal-in" onClick={(e) => e.stopPropagation()}>
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-bold text-on-surface">アプリ設定</h2>
-                    <button onClick={onClose} className="p-2 -mr-2 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface"><XIcon className="w-6 h-6" /></button>
+        <BaseModal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="アプリ設定"
+            maxWidthClass="max-w-sm"
+        >
+            <div className="space-y-2">
+                <div className="bg-surface-background/50 rounded-xl p-2 shadow-sm">
+                    <ToggleSwitch
+                        checked={theme === 'dark'}
+                        onChange={toggleTheme}
+                        label="ダークモード"
+                        icon={theme === 'dark' ? MoonIcon : SunIcon}
+                    />
                 </div>
-                <div className="space-y-2 -mx-4 px-4 py-2">
-                    <div className="bg-surface-background/50 rounded-xl p-2 shadow-sm">
-                        <ToggleSwitch
-                            checked={theme === 'dark'}
-                            onChange={toggleTheme}
-                            label="ダークモード"
-                            icon={theme === 'dark' ? MoonIcon : SunIcon}
-                        />
-                    </div>
-                    <div className="pt-4">
-                        <button onClick={onLogout} className="w-full flex items-center justify-between p-4 bg-surface-background hover:bg-red-500/10 text-red-400 rounded-xl transition-colors group">
-                            <span className="font-bold group-hover:text-red-500">ログアウト</span>
-                            <LogOutIcon className="w-5 h-5 group-hover:text-red-500" />
-                        </button>
-                    </div>
+                <div className="pt-4">
+                    <button onClick={onLogout} className="w-full flex items-center justify-between p-4 bg-surface-background hover:bg-red-500/10 text-red-400 rounded-xl transition-colors group">
+                        <span className="font-bold group-hover:text-red-500">ログアウト</span>
+                        <LogOutIcon className="w-5 h-5 group-hover:text-red-500" />
+                    </button>
                 </div>
             </div>
-        </div>
+        </BaseModal>
     );
 };
 
 // ▼▼▼ 【新設】 新規イベント作成設定モーダル ▼▼▼
 const EventSetupModal = ({ isOpen, onClose, onCreate }) => {
-    // 初期ステート
+    // 1. State定義
     const [config, setConfig] = useState({
         title: '',
         startDate: getTodayDateString(),
@@ -72,7 +72,7 @@ const EventSetupModal = ({ isOpen, onClose, onCreate }) => {
         isMultiFloor: false
     });
 
-    // モーダルが開くたびにリセット
+    // 2. useEffect
     useEffect(() => {
         if (isOpen) {
             setConfig({
@@ -85,10 +85,8 @@ const EventSetupModal = ({ isOpen, onClose, onCreate }) => {
         }
     }, [isOpen]);
 
-    if (!isOpen) return null;
-
+    // 3. ハンドラ関数の定義 (★ここを footerContent より先に書く必要があります！)
     const handleSubmit = () => {
-        // タイトルが空ならデフォルトを入れる
         const finalConfig = {
             ...config,
             title: config.title.trim() || 'New Event'
@@ -96,96 +94,85 @@ const EventSetupModal = ({ isOpen, onClose, onCreate }) => {
         onCreate(finalConfig);
     };
 
+    // 4. フッターの定義 (★ハンドラ定義の後)
+    const footerContent = (
+        <div className="flex justify-end gap-3">
+            <Button onClick={onClose} variant="ghost">キャンセル</Button>
+            <Button onClick={handleSubmit} variant="primary">作成する</Button>
+        </div>
+    );
+
     return (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in" onClick={onClose}>
-            <div className="bg-surface-container rounded-2xl p-6 w-full max-w-md shadow-2xl relative animate-modal-in flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+        <BaseModal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="新規イベント作成"
+            footer={footerContent}
+            isScrollable={true}
+            maxWidthClass="max-w-md"
+        >
+            {/* コンテンツ */}
+            <div className="space-y-6">
 
-                {/* ヘッダー */}
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-on-surface">新規イベント作成</h2>
-                    <button onClick={onClose} className="p-2 -mr-2 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface"><XIcon className="w-6 h-6" /></button>
-                </div>
+                {/* 基本情報 */}
+                <div className="space-y-4">
+                    <div>
+                        <label className="text-xs text-on-surface-variant mb-1 block font-bold">イベント名</label>
+                        <Input
+                            value={config.title}
+                            onChange={(e) => setConfig({ ...config, title: e.target.value })}
+                            placeholder="イベント名を入力..."
+                            autoFocus
+                        />
+                    </div>
 
-                {/* コンテンツ (スクロール対応) */}
-                <div className="flex-grow overflow-y-auto -mx-6 px-6 py-2 space-y-6 scrollbar-thin scrollbar-thumb-on-surface-variant/20">
-
-                    {/* 基本情報 */}
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                         <div>
-                            <label className="text-xs text-on-surface-variant mb-1 block font-bold">イベント名</label>
-                            <input
-                                type="text"
-                                value={config.title}
-                                onChange={(e) => setConfig({ ...config, title: e.target.value })}
-                                className="bg-surface-background text-on-surface p-3 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-brand-primary font-bold text-lg placeholder-on-surface-variant/30"
-                                placeholder="イベント名を入力..."
-                                autoFocus
+                            <label className="text-xs text-on-surface-variant mb-1 block font-bold">開催日</label>
+                            <Input
+                                type="date"
+                                value={config.startDate}
+                                onChange={(e) => setConfig({ ...config, startDate: e.target.value })}
+                                icon={CalendarIcon}
+                                className="font-mono text-sm"
                             />
                         </div>
-
-                        <div className="space-y-3">
-                            <div>
-                                <label className="text-xs text-on-surface-variant mb-1 block font-bold">開催日</label>
-                                <div className="relative">
-                                    <input
-                                        type="date"
-                                        value={config.startDate}
-                                        onChange={(e) => setConfig({ ...config, startDate: e.target.value })}
-                                        className="bg-surface-background text-on-surface p-3 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-brand-primary font-mono font-bold text-sm appearance-none cursor-pointer"
-                                    />
-                                    <CalendarIcon className="w-5 h-5 text-on-surface-variant absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="text-xs text-on-surface-variant mb-1 block font-bold">開始時間</label>
-                                <CustomTimeInput
-                                    value={config.startTime}
-                                    onChange={(v) => setConfig({ ...config, startTime: v })}
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <hr className="border-on-surface/10" />
-
-                    {/* 機能設定 */}
-                    <div className="space-y-2">
-                        <label className="text-xs text-on-surface-variant mb-1 block font-bold">オプション設定</label>
-                        <div className="bg-surface-background/50 rounded-xl px-4 py-2 space-y-2">
-                            <ToggleSwitch
-                                checked={config.vjEnabled}
-                                onChange={(val) => setConfig({ ...config, vjEnabled: val })}
-                                label="VJタイムテーブル機能"
-                                icon={VideoIcon}
-                            />
-                            <div className="border-t border-on-surface/5"></div>
-                            <ToggleSwitch
-                                checked={config.isMultiFloor}
-                                onChange={(val) => setConfig({ ...config, isMultiFloor: val })}
-                                label="複数フロアを使用"
-                                icon={LayersIcon}
+                        <div>
+                            <label className="text-xs text-on-surface-variant mb-1 block font-bold">開始時間</label>
+                            <CustomTimeInput
+                                value={config.startTime}
+                                onChange={(v) => setConfig({ ...config, startTime: v })}
                             />
                         </div>
-                        <p className="text-xs text-on-surface-variant/60 px-2">
-                            ※ 複数フロアをONにすると、初期状態で2つのフロアが作成されます。
-                        </p>
                     </div>
                 </div>
 
-                {/* フッター */}
-                <div className="mt-6 pt-4 flex justify-end gap-3 border-t border-on-surface/10">
-                    <button onClick={onClose} className="py-3 px-6 rounded-xl bg-surface-background hover:bg-on-surface/5 text-on-surface font-bold transition-colors">
-                        キャンセル
-                    </button>
-                    <button
-                        onClick={handleSubmit}
-                        className="py-3 px-8 rounded-xl bg-brand-primary hover:opacity-90 text-white font-bold shadow-lg shadow-brand-primary/30 transition-all hover:scale-105 active:scale-95"
-                    >
-                        作成する
-                    </button>
+                <hr className="border-on-surface/10" />
+
+                {/* 機能設定 */}
+                <div className="space-y-2">
+                    <label className="text-xs text-on-surface-variant mb-1 block font-bold">オプション設定</label>
+                    <div className="bg-surface-background/50 rounded-xl px-4 py-2 space-y-2">
+                        <ToggleSwitch
+                            checked={config.vjEnabled}
+                            onChange={(val) => setConfig({ ...config, vjEnabled: val })}
+                            label="VJタイムテーブル機能"
+                            icon={VideoIcon}
+                        />
+                        <div className="border-t border-on-surface/5"></div>
+                        <ToggleSwitch
+                            checked={config.isMultiFloor}
+                            onChange={(val) => setConfig({ ...config, isMultiFloor: val })}
+                            label="複数フロアを使用"
+                            icon={LayersIcon}
+                        />
+                    </div>
+                    <p className="text-xs text-on-surface-variant/60 px-2">
+                        ※ 複数フロアをONにすると、初期状態で2つのフロアが作成されます。
+                    </p>
                 </div>
             </div>
-        </div>
+        </BaseModal>
     );
 };
 // ▲▲▲ 新設ここまで ▲▲▲

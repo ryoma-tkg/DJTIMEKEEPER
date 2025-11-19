@@ -24,8 +24,8 @@ export const useTimetable = (timetable, eventStartDateStr, eventStartTimeStr, no
             return sum + (parseFloat(dj.duration) || 0) * 60 * 1000;
         }, 0);
 
-        if (totalMs === 0) {
-            // タイムテーブルが空の場合
+        if (timetable.length === 0) {
+            // タイムテーブルが本当に空の場合
             const nowTime = new Date(now).getTime();
             const startTimeMs = eventStartTimeDate.getTime();
             const upcomingBufferMs = 3 * 60 * 60 * 1000; // 3時間

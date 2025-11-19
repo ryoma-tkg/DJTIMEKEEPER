@@ -3,14 +3,15 @@ import React, { memo, useEffect, useRef } from 'react';
 import {
     VIVID_COLORS,
     SimpleImage,
-    TrashIcon,
-    GripIcon,
     UserIcon,
-    CopyIcon,
 } from './common';
+// ▼▼▼ 追加: 共通カードコンポーネント ▼▼▼
+import { SortableListCard } from './ui/SortableListCard';
 
 export const DjItem = memo(({ dj, isPlaying, onPointerDown, onEditClick, onUpdate, onColorPickerToggle, onCopy, onRemove, isColorPickerOpen, openColorPickerId, isDragging }) => {
     const colorPickerRef = useRef(null);
+
+    // カラーピッカーの外側クリック検知
     useEffect(() => {
         const handleClickOutside = (event) => {
             const target = event.target;
@@ -22,68 +23,63 @@ export const DjItem = memo(({ dj, isPlaying, onPointerDown, onEditClick, onUpdat
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [isColorPickerOpen, dj.id, onColorPickerToggle]);
 
-    const ringClass = isPlaying ? 'ring-2 shadow-[0_0_12px_var(--tw-ring-color)]' : 'ring-1 ring-zinc-700';
-    const draggingClass = isDragging ? 'dragging-item' : '';
+    // アイコンノード (画像 or プレースホルダー)
+    const iconNode = (
+        <button
+            onClick={() => onEditClick()}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="w-16 h-16 rounded-full bg-surface-background flex items-center justify-center overflow-hidden shrink-0 ring-2 ring-surface-background hover:ring-brand-primary transition-all shadow-sm group"
+            title="画像を変更"
+        >
+            {dj.imageUrl ? (
+                <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+            ) : !dj.isBuffer ? (
+                <UserIcon className="w-8 h-8 text-on-surface-variant group-hover:text-brand-primary transition-colors" />
+            ) : (
+                <span className="text-xs font-bold text-on-surface-variant">Buffer</span>
+            )}
+        </button>
+    );
+
+    // アクションノード (カラーピッカー)
+    const actionNode = (
+        <div className="relative flex justify-center" ref={colorPickerRef}>
+            <button
+                type="button"
+                data-color-picker-trigger={dj.id}
+                onClick={() => onColorPickerToggle(dj.id === openColorPickerId ? null : dj.id)}
+                className="w-9 h-9 rounded-full ring-2 ring-surface-background hover:ring-on-surface-variant transition-all shadow-sm"
+                style={{ backgroundColor: dj.color }}
+                title="カラー変更"
+            />
+            {isColorPickerOpen && (
+                <div className="absolute w-40 bottom-full mb-2 right-0 bg-surface-background p-2 rounded-xl shadow-2xl grid grid-cols-4 gap-2 z-50 border border-on-surface/10 animate-fade-in">
+                    {VIVID_COLORS.map(color => (
+                        <button
+                            key={color}
+                            type="button"
+                            onClick={() => { onUpdate('color', color); onColorPickerToggle(null); }}
+                            className="w-8 h-8 rounded-full transition-transform hover:scale-110 focus:outline-none ring-1 ring-black/10"
+                            style={{ backgroundColor: color }}
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
+    );
 
     return (
-        <div
-            // ▼▼▼ 【修正】 transition-all duration-200 ease-out を追加 ▼▼▼
-            // これにより、ドラッグ終了時に Scale や Shadow が「ぬるっと」元に戻ります
-            className={`bg-surface-container rounded-2xl flex items-stretch gap-4 p-4 ${ringClass} ${draggingClass} transition-all duration-200 ease-out`}
-            style={{ '--tw-ring-color': isPlaying ? dj.color : 'transparent' }}
-        >
-            <div
-                className="cursor-grab touch-none p-3 -m-3 flex items-center self-stretch"
-                onPointerDown={onPointerDown}
-            >
-                <GripIcon className="w-6 h-6 text-on-surface-variant shrink-0" />
-            </div>
-
-            <button
-                onClick={() => onEditClick()}
-                onPointerDown={(e) => e.stopPropagation()}
-                className="w-16 h-16 rounded-full bg-surface-background flex items-center justify-center overflow-hidden shrink-0 ring-2 ring-surface-background hover:ring-brand-primary transition-all self-center"
-            >
-                {dj.imageUrl ? (
-                    <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" />
-                ) : !dj.isBuffer ? (
-                    <UserIcon className="w-8 h-8 text-on-surface-variant" />
-                ) : null}
-            </button>
-
-            <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                <div className="flex flex-col">
-                    <label className="text-xs text-on-surface-variant mb-1">{dj.isBuffer ? 'Title' : 'DJ Name'}</label>
-                    <input type="text" value={dj.name} onChange={(e) => onUpdate('name', e.target.value)} className="bg-surface-background text-on-surface p-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary" />
-                </div>
-
-                <div className="flex flex-col">
-                    <label className="text-xs text-on-surface-variant mb-1">Duration (min)</label>
-                    <input type="number" value={dj.duration} step="0.1" onChange={(e) => onUpdate('duration', parseFloat(e.target.value) || 0)} className="bg-surface-background text-on-surface p-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary font-bold text-base" />
-                </div>
-
-                <div className="flex flex-col md:col-span-2">
-                    <label className="text-xs text-on-surface-variant mb-1">Time Slot</label>
-                    <div className="bg-surface-background/50 p-2 rounded-lg w-full text-center font-semibold text-on-surface-variant font-mono">
-                        <span>{dj.startTime}</span>
-                        <span className="mx-2">-</span>
-                        <span>{dj.endTime}</span>
-                    </div>
-                </div>
-            </div>
-
-            <div className="flex flex-col gap-2 shrink-0 self-stretch justify-center">
-                <div className="relative" ref={colorPickerRef}>
-                    <button type="button" data-color-picker-trigger={dj.id} onClick={() => onColorPickerToggle(dj.id === openColorPickerId ? null : dj.id)} className="w-9 h-9 rounded-full ring-2 ring-on-surface-variant" style={{ backgroundColor: dj.color }} />
-                    {isColorPickerOpen && (
-                        <div className="absolute w-40 bottom-full mb-2 right-0 bg-surface-background p-2 rounded-lg shadow-2xl grid grid-cols-4 gap-2 z-10">
-                            {VIVID_COLORS.map(color => (<button key={color} type="button" onClick={() => { onUpdate('color', color); onColorPickerToggle(null); }} className="w-8 h-8 rounded-full transition-transform hover:scale-110 focus:outline-none ring-1 ring-black/20" style={{ backgroundColor: color }} />))}
-                        </div>
-                    )}
-                </div>
-                <button onClick={onCopy} className="text-on-surface-variant hover:text-brand-primary p-2 rounded-full transition-colors"><CopyIcon className="w-5 h-5" /></button>
-                <button onClick={onRemove} className="text-on-surface-variant hover:text-red-500 p-2 rounded-full transition-colors"><TrashIcon className="w-5 h-5" /></button>
-            </div>
-        </div>
+        <SortableListCard
+            item={dj}
+            isPlaying={isPlaying}
+            isDragging={isDragging}
+            onPointerDown={onPointerDown}
+            onUpdate={onUpdate}
+            onRemove={onRemove}
+            onCopy={onCopy}
+            iconNode={iconNode}
+            actionNode={actionNode}
+            labelName={dj.isBuffer ? "Title" : "DJ Name"}
+        />
     );
 });
