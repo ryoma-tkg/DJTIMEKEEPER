@@ -64,14 +64,24 @@ Immediate Feedback: Visual updates happen instantly on pointerUp.
 
 Commit Freeze: During the Firestore data commit (200ms), all CSS transitions are forcibly disabled (transition: none). This prevents the browser from interpolating between the old DOM position and the new DOM position, eliminating the "jump" effect.
 
-4.2. Seamless Floor Switching (LiveView.jsx)
-To achieve TV-broadcast quality transitions between floors:
+### 4.2. Users Collection (`users/{uid}`) (Phase 5 New)
+Stores user profile and application preferences.
 
-Fade Out: The main container opacity drops to 0.
-
-Data Swap: Data is swapped while invisible. suppressEntryAnimation flag is set to true.
-
-Fade In: The container fades back in. The flag prevents individual items from triggering their "entry" animations, ensuring a stable frame.
+```json
+{
+  "uid": "string (Auth UID)",
+  "email": "string",
+  "displayName": "string",
+  "photoURL": "string",
+  "createdAt": "timestamp",
+  "lastLoginAt": "timestamp",
+  "preferences": {
+    "defaultStartTime": "string (e.g. '19:00')",
+    "defaultVjEnabled": "boolean",
+    "defaultMultiFloor": "boolean",
+    "theme": "string" 
+  }
+}
 
 4.3. Multi-Floor Data Model
 Firestore Path: timetables/{eventId}

@@ -1,5 +1,5 @@
 // [src/App.jsx]
-import React, { useState, useEffect, Suspense, lazy } from 'react'; // ★ Suspense, lazy を追加
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { Routes, Route, useNavigate, Navigate, Link, useParams } from 'react-router-dom';
 
 import {
@@ -10,18 +10,17 @@ import {
     signInWithPopup,
     signOut
 } from './firebase';
-import { doc, getDoc } from 'firebase/firestore';
-import { LoadingScreen } from './components/common'; // ★ LoadingScreenをインポート
+// ▼▼▼ 【追加】 setDoc, updateDoc, serverTimestamp をインポート ▼▼▼
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { LoadingScreen } from './components/common';
 
-// ▼▼▼ 【修正】 遅延ロード (Lazy Loading) に変更 ▼▼▼
-// export default ではなく export const で定義されているコンポーネントに対応するための書き方です
+// 遅延ロード (Lazy Loading)
 const LoginPage = lazy(() => import('./components/LoginPage').then(module => ({ default: module.LoginPage })));
 const DashboardPage = lazy(() => import('./components/DashboardPage').then(module => ({ default: module.DashboardPage })));
-const EditorPage = lazy(() => import('./components/EditorPage').then(module => ({ default: module.EditorPage }))); // EditorPageはexport defaultもあるかもですが、統一のためこの書き方でOK
+const EditorPage = lazy(() => import('./components/EditorPage').then(module => ({ default: module.EditorPage })));
 const LivePage = lazy(() => import('./components/LivePage').then(module => ({ default: module.LivePage })));
-// ▲▲▲ 修正ここまで ▲▲▲
 
-// (リダイレクト用コンポーネントは軽量なのでそのまま定義でOK)
+// (Redirectorコンポーネントは変更なし)
 const EditorRedirector = () => {
     const { eventId } = useParams();
     const [targetFloorId, setTargetFloorId] = useState(null);
@@ -123,17 +122,60 @@ const App = () => {
         }
     };
 
+    // ▼▼▼ ログイン検知 & ユーザーデータ同期ロジック ▼▼▼
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
                 setUser(firebaseUser);
                 setAuthStatus('authed');
+
                 if (firebaseUser.uid === ADMIN_USER_ID) {
                     console.warn("管理者モードで起動しました。");
                     setIsDevMode(true);
                 } else {
                     setIsDevMode(false);
                 }
+
+                // --- Firestore 同期処理 ---
+                try {
+                    const userDocRef = doc(db, "users", firebaseUser.uid);
+                    const userSnap = await getDoc(userDocRef);
+
+                    if (!userSnap.exists()) {
+                        // 新規ユーザー: ドキュメントを作成
+                        await setDoc(userDocRef, {
+                            uid: firebaseUser.uid,
+                            email: firebaseUser.email,
+                            displayName: firebaseUser.displayName,
+                            photoURL: firebaseUser.photoURL,
+                            role: 'free', // 初期ロール
+                            createdAt: serverTimestamp(),
+                            lastLoginAt: serverTimestamp(),
+                            preferences: {
+                                // 初期設定 (localStorageがあればそれを引き継ぐ)
+                                theme: localStorage.getItem('theme') || 'dark',
+                                defaultStartTime: '22:00',
+                                defaultVjEnabled: false,
+                                defaultMultiFloor: false,
+                            }
+                        });
+                        console.log("[Auth] User profile created.");
+                    } else {
+                        // 既存ユーザー: 情報を最新化
+                        await updateDoc(userDocRef, {
+                            email: firebaseUser.email,
+                            displayName: firebaseUser.displayName,
+                            photoURL: firebaseUser.photoURL,
+                            lastLoginAt: serverTimestamp()
+                        });
+                        console.log("[Auth] User profile synced.");
+                    }
+                } catch (error) {
+                    console.error("[Auth] User sync failed:", error);
+                    // 同期に失敗してもアプリの利用自体は止めない
+                }
+                // ---------------------------
+
             } else {
                 setUser(null);
                 setAuthStatus('no-auth');
@@ -167,7 +209,6 @@ const App = () => {
 
     return (
         <>
-            {/* ▼▼▼ 【修正】 Suspense でラップして、ロード中の表示を指定 ▼▼▼ */}
             <Suspense fallback={<LoadingScreen text="読み込み中..." />}>
                 <Routes>
                     <Route
@@ -187,7 +228,7 @@ const App = () => {
                             )
                         }
                     />
-
+                    {/* ... (以下ルート定義は変更なし) ... */}
                     <Route
                         path="/login"
                         element={
@@ -255,7 +296,6 @@ const App = () => {
                     />
                 </Routes>
             </Suspense>
-            {/* ▲▲▲ 修正ここまで ▲▲▲ */}
         </>
     );
 };

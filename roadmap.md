@@ -91,24 +91,23 @@ Comprehensive design update focusing on "Tactile Feel" and "Modern Professional"
 
 ---
 
-### Phase 5: UX Refinement & Pro Features (🚧 Current Focus)
-**"Professional Tooling" - 継続利用のための機能拡充**
+### Phase 5: User Management & Personalization (🚧 Current Focus)
+**"Identity & Preferences" - ユーザー体験の個別化と基盤強化**
 
-1.  **User Preferences (Defaults):**
-    * 新規イベント作成時のデフォルト値（開始時間、VJ ON/OFFなど）を保存・適用する機能。
-2.  **Account Management:**
-    * アカウント削除（退会）機能の実装。全データのクリーンアップ処理。
-3.  **Application Info:**
-    * バージョン情報表示、ヘルプ/GitHubへのリンク。
-4.  **Pro Features (Export/Import):**
-    * **Image Export:** タイムテーブルをSNS用画像として書き出し (`html2canvas`)。
-    * **CSV Management:** 一括インポート・エクスポート。
+1.  **User Database Architecture:**
+    * Firestore `users` コレクションの設計とセキュリティルールの実装。
+2.  **Authentication Flow Upgrade:**
+    * ログイン時に自動でユーザーデータ（`users/{uid}`）を作成・同期するロジックの実装。
+3.  **Enhanced Settings Modal:**
+    * **Preferences:** 新規イベント作成時のデフォルト値（開始時間、VJ、フロア構成）をDBに保存・適用。
+    * **Account Management:** アカウント削除（退会）機能。全データのクリーンアップ。
+    * **App Info:** バージョン情報の表示 (`package.json`参照)。
 
 ---
 
 ### Phase 6: Release & Monetization (Future)
 **Public Launch**
 
-1.  **Public Real-time Page:** `/public/:timetableId` (View-only, no auth required).
-2.  **Monetization:** Stripe integration for "Pro" plan.
-3.  **Marketing:** LP creation & SNS promotion.
+1.  **Public Real-time Page:** `/public/:timetableId` (View-only).
+2.  **Pro Features:** Image Export, CSV Import/Export.
+3.  **Monetization:** Stripe integration.

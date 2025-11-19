@@ -6,10 +6,13 @@ export { BaseModal } from './ui/BaseModal';
 export { ToggleSwitch } from './ui/Toggle';
 export { CustomTimeInput } from './ui/TimeInput';
 export { LoadingScreen } from './ui/Loading';
-export { Button } from './ui/Button'; // 新しく追加
-export { SortableListCard } from './ui/SortableListCard'; // Step 2で追加済み
+export { Button } from './ui/Button';
+export { SortableListCard } from './ui/SortableListCard';
 export { Input } from './ui/Input';
 export { Label } from './ui/Label';
+
+// ▼▼▼ 【追加】 アプリケーションのバージョン定数 ▼▼▼
+export const APP_VERSION = 'v2.1.0';
 
 // カラーパレット (変更なし)
 export const VIVID_COLORS = [
@@ -19,7 +22,7 @@ export const VIVID_COLORS = [
     '#8B5CF6', '#A855F7', '#D946EF', '#EC4899'
 ];
 
-// --- アイコン定義 (変更なし - そのまま残す) ---
+// --- アイコン定義 (変更なし) ---
 export const PlayIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>);
 export const PlusIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>);
 export const TrashIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>);
@@ -53,8 +56,6 @@ export const LogOutIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000
 
 // --- 共通コンポーネント ---
 
-// ※ LoadingScreen, ToggleSwitch, CustomTimeInput は uiフォルダに移動したため削除
-
 export const SimpleImage = memo(({ src, className, alt = "" }) => {
     if (!src) return null;
     return <img src={src} alt={alt} className={className} />;
@@ -84,7 +85,6 @@ export const parseDateTime = (dateStr, timeStr) => {
     }
 };
 
-// parseTimeは TimeInput.jsx でも使っていますが、他でも使うかもしれないので残す（あるいはutilsに移動が理想）
 export const parseTime = (timeStr) => {
     const date = new Date();
     if (!timeStr) return date;
@@ -93,7 +93,6 @@ export const parseTime = (timeStr) => {
     return date;
 };
 
-// ▼▼▼ BaseModal を利用した ConfirmModal (Step 1で作成済み、そのまま維持) ▼▼▼
 import { BaseModal } from './ui/BaseModal'; // ファイル内で使うため再インポート(exportとは別)
 
 export const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
@@ -134,7 +133,6 @@ export const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) =>
     );
 };
 
-// (ToastNotification - 変更なし)
 export const ToastNotification = ({ message, isVisible, className = '' }) => {
     const [internalMessage, setInternalMessage] = useState(message);
     const [animationClass, setAnimationClass] = useState('');

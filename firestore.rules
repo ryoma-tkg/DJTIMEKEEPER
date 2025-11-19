@@ -3,74 +3,68 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- 共通関数: バリデーションロジック ---
-    
-    // ログインしているか
+    // --- 共通関数 ---
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // 自分のデータか (ownerUidが自分のuidと一致するか)
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
-    // 新規作成時のデータ検証
+    // --- Timetables バリデーション ---
     function isValidNewEvent() {
       let data = request.resource.data;
-      return 
-        // 必須フィールドの存在チェック
-        data.keys().hasAll(['ownerUid', 'createdAt', 'eventConfig']) &&
-        // オーナーIDの偽装防止
-        data.ownerUid == request.auth.uid &&
-        // タイトルの文字数制限 (空文字不可、100文字以内)
-        data.eventConfig.title is string &&
-        data.eventConfig.title.size() > 0 &&
-        data.eventConfig.title.size() <= 100 &&
-        // 日付フォーマットチェック (簡易)
-        data.eventConfig.startDate is string &&
-        data.eventConfig.startTime is string;
+      return data.keys().hasAll(['ownerUid', 'createdAt', 'eventConfig']) &&
+             data.ownerUid == request.auth.uid &&
+             data.eventConfig.title is string &&
+             data.eventConfig.title.size() > 0 &&
+             data.eventConfig.title.size() <= 100 &&
+             data.eventConfig.startDate is string &&
+             data.eventConfig.startTime is string;
     }
 
-    // 更新時のデータ検証
     function isValidUpdate() {
       let data = request.resource.data;
-      // オーナーIDは変更不可
       return data.ownerUid == resource.data.ownerUid;
+    }
+
+    // --- Users バリデーション (Phase 5 新規) ---
+    function isValidUserUpdate() {
+      let data = request.resource.data;
+      return 
+        // 自分のUID以外のデータを書き込もうとしていないかチェック
+        data.uid == request.auth.uid;
+        // 必要に応じてフィールドの型チェックなどを追加
     }
 
 
     // --- コレクションルール ---
 
+    // 1. Timetables (既存)
     match /timetables/{eventId} {
-      
-      // 1. 読み取り (Read)
-      
-      // [単一取得 get]: Liveページ用。誰でもアクセス可能 (Public)
       allow get: if true;
-
-      // [一覧取得 list]: ダッシュボード用。
-      // ★セキュリティ強化: 「自分のownerUidでフィルタリングしているクエリ」のみ許可する
+      
+      // リスト取得制限: 自分のデータのみ
       allow list: if isSignedIn()
                   && request.query.filters.ownerUid == request.auth.uid
-                  && request.query.limit <= 300; // 一度の取得件数も制限 (DoS対策)
+                  && request.query.limit <= 300;
+                  
+      allow create: if isSignedIn() && isValidNewEvent();
+      allow update: if isSignedIn() && isOwner(resource.data.ownerUid) && isValidUpdate();
+      allow delete: if isSignedIn() && isOwner(resource.data.ownerUid);
+    }
 
-      // 2. 書き込み (Write)
-
-      // [新規作成 create]:
-      allow create: if isSignedIn()
-                    && isValidNewEvent(); // バリデーション関数を適用
-
-      // [更新 update]:
-      // 既存データのownerUidと一致する場合のみ許可
-      allow update: if isSignedIn()
-                    && isOwner(resource.data.ownerUid)
-                    && isValidUpdate(); // バリデーション関数を適用
-
-      // [削除 delete]:
-      // 既存データのownerUidと一致する場合のみ許可
-      allow delete: if isSignedIn()
-                    && isOwner(resource.data.ownerUid);
+    // 2. Users (Phase 5 新規)
+    // ドキュメントIDは必ず Auth UID と一致させる (/users/{uid})
+    match /users/{userId} {
+      // 自分のデータのみ読み書き可能
+      allow get: if isSignedIn() && isOwner(userId);
+      
+      // 作成・更新
+      allow write: if isSignedIn() 
+                   && isOwner(userId)
+                   && isValidUserUpdate();
     }
   }
 }

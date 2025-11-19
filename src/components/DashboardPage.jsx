@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { db } from '../firebase';
-import { collection, addDoc, deleteDoc, doc, query, where, onSnapshot, Timestamp, writeBatch, orderBy, limit } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, doc, query, where, onSnapshot, Timestamp, writeBatch, orderBy, limit, updateDoc } from 'firebase/firestore';
+import { updateProfile } from 'firebase/auth'; // Authのプロフィール更新用
 import {
     getTodayDateString,
     PlusIcon,
@@ -23,59 +24,239 @@ import {
     Button,
     Input,
     Label,
-    AlertTriangleIcon
+    AlertTriangleIcon,
+    UserIcon, // 追加
+    LoadingScreen as LoadingSpinner // リネームして使用
 } from './common';
 import { DevControls } from './DevControls';
 
-// LoadingSpinner等は変更なし
-const LoadingSpinner = () => (
-    <div className="flex items-center justify-center h-screen bg-surface-background">
-        <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
-    </div>
-);
+// ▼▼▼ 【改修】 高機能版 設定モーダル ▼▼▼
+const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout, user, userProfile }) => {
+    const [displayName, setDisplayName] = useState(user?.displayName || '');
+    const [preferences, setPreferences] = useState({
+        defaultStartTime: '22:00',
+        defaultVjEnabled: false,
+        defaultMultiFloor: false,
+        ...userProfile?.preferences // DBの値があれば上書き
+    });
+    const [isSaving, setIsSaving] = useState(false);
 
-const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout }) => {
+    // モーダルが開くたびに初期値をセット
+    useEffect(() => {
+        if (isOpen) {
+            setDisplayName(user?.displayName || '');
+            setPreferences({
+                defaultStartTime: '22:00',
+                defaultVjEnabled: false,
+                defaultMultiFloor: false,
+                ...userProfile?.preferences
+            });
+        }
+    }, [isOpen, user, userProfile]);
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            // 1. Firebase Authの表示名更新
+            if (user && displayName !== user.displayName) {
+                await updateProfile(user, { displayName: displayName });
+            }
+
+            // 2. Firestore (usersコレクション) の更新
+            if (user) {
+                const userRef = doc(db, "users", user.uid);
+                await updateDoc(userRef, {
+                    displayName: displayName,
+                    preferences: preferences
+                });
+            }
+            onClose();
+        } catch (error) {
+            console.error("設定保存エラー:", error);
+            alert("設定の保存に失敗しました。");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const footerContent = (
+        <div className="flex justify-end gap-3">
+            <Button onClick={onClose} variant="ghost">キャンセル</Button>
+            <Button onClick={handleSave} variant="primary" disabled={isSaving}>
+                {isSaving ? '保存中...' : '設定を保存'}
+            </Button>
+        </div>
+    );
+
     return (
-        <BaseModal isOpen={isOpen} onClose={onClose} title="アプリ設定" maxWidthClass="max-w-sm">
-            <div className="space-y-2">
-                <div className="bg-surface-background/50 rounded-xl p-2 shadow-sm">
-                    <ToggleSwitch checked={theme === 'dark'} onChange={toggleTheme} label="ダークモード" icon={theme === 'dark' ? MoonIcon : SunIcon} />
-                </div>
-                <div className="pt-4">
+        <BaseModal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="アカウント・アプリ設定"
+            footer={footerContent}
+            maxWidthClass="max-w-md"
+            isScrollable={true}
+        >
+            <div className="space-y-6">
+                {/* プロフィール設定 */}
+                <section className="space-y-4">
+                    <h3 className="text-sm font-bold text-on-surface-variant uppercase tracking-wider border-b border-on-surface/10 pb-2">プロフィール</h3>
+                    <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 rounded-full bg-surface-background border-2 border-surface-container shadow-md overflow-hidden flex items-center justify-center">
+                            {user?.photoURL ? (
+                                <img src={user.photoURL} alt="User" className="w-full h-full object-cover" />
+                            ) : (
+                                <UserIcon className="w-8 h-8 text-on-surface-variant" />
+                            )}
+                        </div>
+                        <div className="flex-grow">
+                            <Label>表示名 (ニックネーム)</Label>
+                            <Input
+                                value={displayName}
+                                onChange={(e) => setDisplayName(e.target.value)}
+                                placeholder="DJ Name"
+                            />
+                        </div>
+                    </div>
+                </section>
+
+                {/* イベントデフォルト設定 */}
+                <section className="space-y-4">
+                    <h3 className="text-sm font-bold text-on-surface-variant uppercase tracking-wider border-b border-on-surface/10 pb-2">イベント作成の初期値</h3>
+                    <p className="text-xs text-on-surface-variant">新規イベント作成時に入力されるデフォルト値を設定します。</p>
+
+                    <div>
+                        <Label>デフォルト開始時間</Label>
+                        <CustomTimeInput
+                            value={preferences.defaultStartTime}
+                            onChange={(v) => setPreferences(p => ({ ...p, defaultStartTime: v }))}
+                        />
+                    </div>
+
+                    <div className="bg-surface-background/50 rounded-xl px-4 py-2 space-y-2">
+                        <ToggleSwitch
+                            checked={preferences.defaultVjEnabled}
+                            onChange={(val) => setPreferences(p => ({ ...p, defaultVjEnabled: val }))}
+                            label="VJタイムテーブル機能"
+                            icon={VideoIcon}
+                        />
+                        <div className="border-t border-on-surface/5"></div>
+                        <ToggleSwitch
+                            checked={preferences.defaultMultiFloor}
+                            onChange={(val) => setPreferences(p => ({ ...p, defaultMultiFloor: val }))}
+                            label="複数フロアを使用"
+                            icon={LayersIcon}
+                        />
+                    </div>
+                </section>
+
+                {/* アプリ設定 */}
+                <section className="space-y-4">
+                    <h3 className="text-sm font-bold text-on-surface-variant uppercase tracking-wider border-b border-on-surface/10 pb-2">アプリ設定</h3>
+                    <div className="bg-surface-background/50 rounded-xl px-4 py-2 shadow-sm">
+                        <ToggleSwitch
+                            checked={theme === 'dark'}
+                            onChange={toggleTheme}
+                            label="ダークモード"
+                            icon={theme === 'dark' ? MoonIcon : SunIcon}
+                        />
+                    </div>
+                </section>
+
+                <div className="pt-2">
                     <button onClick={onLogout} className="w-full flex items-center justify-between p-4 bg-surface-background hover:bg-red-500/10 text-red-400 rounded-xl transition-colors group">
                         <span className="font-bold group-hover:text-red-500">ログアウト</span>
                         <LogOutIcon className="w-5 h-5 group-hover:text-red-500" />
                     </button>
+                </div>
+
+                <div className="text-center pt-4">
+                    <p className="text-[10px] text-on-surface-variant/50 font-mono">v0.0.0 (Dev)</p>
                 </div>
             </div>
         </BaseModal>
     );
 };
 
-const EventSetupModal = ({ isOpen, onClose, onCreate }) => {
-    const [config, setConfig] = useState({ title: '', startDate: getTodayDateString(), startTime: '22:00', vjEnabled: false, isMultiFloor: false });
+// ▼▼▼ 【改修】 EventSetupModal: デフォルト値を適用 ▼▼▼
+const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences }) => {
+    // 初期値: DBの設定があればそれを使う
+    const [config, setConfig] = useState({
+        title: '',
+        startDate: getTodayDateString(),
+        startTime: '22:00',
+        vjEnabled: false,
+        isMultiFloor: false
+    });
+
     const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
-    useEffect(() => { if (isOpen) { setConfig({ title: '', startDate: getTodayDateString(), startTime: '22:00', vjEnabled: false, isMultiFloor: false }); setHasAttemptedSubmit(false); } }, [isOpen]);
+
+    useEffect(() => {
+        if (isOpen) {
+            setConfig({
+                title: '',
+                startDate: getTodayDateString(),
+                // ★ DB設定を反映、なければデフォルト
+                startTime: defaultPreferences?.defaultStartTime || '22:00',
+                vjEnabled: defaultPreferences?.defaultVjEnabled || false,
+                isMultiFloor: defaultPreferences?.defaultMultiFloor || false
+            });
+            setHasAttemptedSubmit(false);
+        }
+    }, [isOpen, defaultPreferences]); // defaultPreferencesが変わったら反映
+
     const isTitleError = !config.title || config.title.trim() === '';
-    const handleSubmit = () => { setHasAttemptedSubmit(true); if (isTitleError) return; const finalConfig = { ...config, title: config.title.trim() || 'New Event' }; onCreate(finalConfig); };
-    const footerContent = (<div className="flex justify-end gap-3"><Button onClick={onClose} variant="ghost">キャンセル</Button><Button onClick={handleSubmit} variant="primary">作成する</Button></div>);
+
+    const handleSubmit = () => {
+        setHasAttemptedSubmit(true);
+        if (isTitleError) return;
+        const finalConfig = { ...config, title: config.title.trim() || 'New Event' };
+        onCreate(finalConfig);
+    };
+
+    const footerContent = (
+        <div className="flex justify-end gap-3">
+            <Button onClick={onClose} variant="ghost">キャンセル</Button>
+            <Button onClick={handleSubmit} variant="primary">作成する</Button>
+        </div>
+    );
+
     return (
         <BaseModal isOpen={isOpen} onClose={onClose} title="新規イベント作成" footer={footerContent} isScrollable={true} maxWidthClass="max-w-md">
             <div className="space-y-6">
                 <div className="space-y-4">
-                    <div><Label>イベント名</Label><Input value={config.title} onChange={(e) => setConfig({ ...config, title: e.target.value })} placeholder="イベント名を入力..." autoFocus isError={isTitleError} error={hasAttemptedSubmit && isTitleError ? "イベント名を入力してください" : null} /></div>
+                    <div>
+                        <Label>イベント名</Label>
+                        <Input
+                            value={config.title}
+                            onChange={(e) => setConfig({ ...config, title: e.target.value })}
+                            placeholder="イベント名を入力..."
+                            autoFocus
+                            isError={isTitleError}
+                            error={hasAttemptedSubmit && isTitleError ? "イベント名を入力してください" : null}
+                        />
+                    </div>
                     <div className="space-y-3">
                         <div><Label>開催日</Label><Input type="date" value={config.startDate} onChange={(e) => setConfig({ ...config, startDate: e.target.value })} icon={CalendarIcon} className="font-mono text-sm" /></div>
                         <div><Label>開始時間</Label><CustomTimeInput value={config.startTime} onChange={(v) => setConfig({ ...config, startTime: v })} /></div>
                     </div>
                 </div>
                 <hr className="border-on-surface/10" />
-                <div className="space-y-2"><Label>オプション設定</Label><div className="bg-surface-background/50 rounded-xl px-4 py-2 space-y-2"><ToggleSwitch checked={config.vjEnabled} onChange={(val) => setConfig({ ...config, vjEnabled: val })} label="VJタイムテーブル機能" icon={VideoIcon} /><div className="border-t border-on-surface/5"></div><ToggleSwitch checked={config.isMultiFloor} onChange={(val) => setConfig({ ...config, isMultiFloor: val })} label="複数フロアを使用" icon={LayersIcon} /></div><p className="text-xs text-on-surface-variant/60 px-2">※ 複数フロアをONにすると、初期状態で2つのフロアが作成されます。</p></div>
+                <div className="space-y-2">
+                    <Label>オプション設定</Label>
+                    <div className="bg-surface-background/50 rounded-xl px-4 py-2 space-y-2">
+                        <ToggleSwitch checked={config.vjEnabled} onChange={(val) => setConfig({ ...config, vjEnabled: val })} label="VJタイムテーブル機能" icon={VideoIcon} />
+                        <div className="border-t border-on-surface/5"></div>
+                        <ToggleSwitch checked={config.isMultiFloor} onChange={(val) => setConfig({ ...config, isMultiFloor: val })} label="複数フロアを使用" icon={LayersIcon} />
+                    </div>
+                    <p className="text-xs text-on-surface-variant/60 px-2">※ 複数フロアをONにすると、初期状態で2つのフロアが作成されます。</p>
+                </div>
             </div>
         </BaseModal>
     );
 };
 
+// (formatDateForIcon, isEventActive, EventCard は変更なし)
 const formatDateForIcon = (dateStr) => {
     if (!dateStr) return { month: '---', day: '--' };
     const date = new Date(dateStr);
@@ -161,8 +342,12 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode })
     const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
     const [viewLimit, setViewLimit] = useState(100);
 
+    // ▼▼▼ ユーザー設定データの管理 ▼▼▼
+    const [userProfile, setUserProfile] = useState(null);
+
     const navigate = useNavigate();
 
+    // 1. イベントデータの読み込み
     useEffect(() => {
         if (!user) return;
         setIsLoading(true);
@@ -189,8 +374,22 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode })
         return () => unsubscribe();
     }, [user, viewLimit]);
 
+    // ▼▼▼ 2. ユーザー設定(users/{uid})の読み込み ▼▼▼
+    useEffect(() => {
+        if (!user) return;
+        const userDocRef = doc(db, "users", user.uid);
+        const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                setUserProfile(docSnap.data());
+            }
+        });
+        return () => unsubscribe();
+    }, [user]);
+    // ▲▲▲ 追加ここまで ▲▲▲
+
     const { nowEvents, upcomingEvents, pastEvents } = useMemo(() => {
         const now = new Date();
+
         const nowList = [];
         const upcomingList = [];
         const pastList = [];
@@ -269,10 +468,8 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode })
         <>
             <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto pb-32">
 
-                {/* ヘッダー: アニメーション適用 & 左右入れ替え */}
                 <header className="flex flex-row justify-between items-center mb-12 animate-fade-in-up relative z-30">
 
-                    {/* ▼▼▼ 左側: アプリ名 DASHBOARD (items-startで左揃え) ▼▼▼ */}
                     <div className="flex flex-col items-start select-none">
                         <h1 className="text-xl md:text-2xl font-bold tracking-widest text-on-surface">
                             DJ TIMEKEEPER <span className="text-brand-primary">PRO</span>
@@ -280,7 +477,6 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode })
                         <span className="text-[10px] font-bold tracking-[0.3em] text-on-surface-variant uppercase">Dashboard</span>
                     </div>
 
-                    {/* ▼▼▼ 右側: アカウントアイコン & メニュー ▼▼▼ */}
                     <div className="relative">
                         <button
                             onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
@@ -306,7 +502,10 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode })
                                 <div className="fixed inset-0 z-40" onClick={() => setIsAccountMenuOpen(false)} />
                                 <div className="absolute top-full right-0 mt-3 w-64 bg-surface-container rounded-2xl shadow-2xl border border-on-surface/10 p-2 z-50 animate-fade-in origin-top-right">
                                     <div className="px-4 py-3 border-b border-on-surface/10 mb-2">
-                                        <p className="font-bold text-sm text-on-surface truncate">{user?.displayName}</p>
+                                        {/* ▼▼▼ プロフィール名反映 ▼▼▼ */}
+                                        <p className="font-bold text-sm text-on-surface truncate">
+                                            {userProfile?.displayName || user?.displayName || 'Guest User'}
+                                        </p>
                                         <p className="text-xs text-on-surface-variant truncate opacity-70">{user?.email}</p>
                                     </div>
 
@@ -332,12 +531,10 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode })
 
                 </header>
 
+                {/* イベント一覧表示 (変更なし) */}
                 {events.length > 0 ? (
                     <div className="space-y-12">
-
-                        {/* 🔥 NOW ON AIR */}
                         {nowEvents.length > 0 && (
-                            // opacity-0 を追加して初期状態を非表示に (ちらつき防止)
                             <section className="animate-fade-in-up opacity-0">
                                 <div className="flex items-center gap-2 mb-4 text-red-500">
                                     <span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span>
@@ -346,27 +543,18 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode })
                                 <EventGrid items={nowEvents} />
                             </section>
                         )}
-
-                        {/* 📅 UPCOMING */}
                         {upcomingEvents.length > 0 && (
                             <section className="animate-fade-in-up opacity-0" style={{ animationDelay: '0.1s' }}>
-                                <h2 className="text-lg font-bold text-on-surface-variant mb-4 tracking-widest flex items-center gap-2">
-                                    <span className="text-brand-primary">●</span> UPCOMING
-                                </h2>
+                                <h2 className="text-lg font-bold text-on-surface-variant mb-4 tracking-widest flex items-center gap-2"><span className="text-brand-primary">●</span> UPCOMING</h2>
                                 <EventGrid items={upcomingEvents} />
                             </section>
                         )}
-
-                        {/* 🗂 ARCHIVE */}
                         {pastEvents.length > 0 && (
                             <section className="animate-fade-in-up opacity-0" style={{ animationDelay: '0.2s' }}>
                                 <h2 className="text-lg font-bold text-on-surface-variant/50 mb-4 tracking-widest">ARCHIVE</h2>
-                                <div className="transition-opacity duration-300">
-                                    <EventGrid items={pastEvents} />
-                                </div>
+                                <div className="transition-opacity duration-300"><EventGrid items={pastEvents} /></div>
                             </section>
                         )}
-
                     </div>
                 ) : (
                     <div className="flex flex-col items-center justify-center py-20 text-center opacity-70">
@@ -381,8 +569,23 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode })
                 </button>
             </div>
 
-            <EventSetupModal isOpen={isSetupModalOpen} onClose={() => setIsSetupModalOpen(false)} onCreate={handleSetupComplete} />
-            <DashboardSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} theme={theme} toggleTheme={toggleTheme} />
+            {/* ▼▼▼ モーダルにPropsを渡す ▼▼▼ */}
+            <EventSetupModal
+                isOpen={isSetupModalOpen}
+                onClose={() => setIsSetupModalOpen(false)}
+                onCreate={handleSetupComplete}
+                defaultPreferences={userProfile?.preferences} // デフォルト設定を渡す
+            />
+            <DashboardSettingsModal
+                isOpen={isSettingsOpen}
+                onClose={() => setIsSettingsOpen(false)}
+                theme={theme}
+                toggleTheme={toggleTheme}
+                onLogout={onLogout}
+                user={user}
+                userProfile={userProfile} // プロフィール情報を渡す
+            />
+
             <ConfirmModal isOpen={!!deleteTarget} title="イベントを削除" message={`イベント「${deleteTarget?.title || '無題'}」を削除します。復元はできません。本当によろしいですか？`} onConfirm={handleDeleteEvent} onCancel={() => setDeleteTarget(null)} />
 
             {isDevMode && (<><button onClick={() => setIsDevPanelOpen(p => !p)} className="fixed bottom-8 left-8 z-[998] w-12 h-12 bg-zinc-800 text-brand-primary border border-brand-primary rounded-full shadow-lg grid place-items-center hover:bg-zinc-700 transition-colors"><PowerIcon className="w-6 h-6" /></button>{isDevPanelOpen && <DevControls location="dashboard" onClose={() => setIsDevPanelOpen(false)} onDeleteAllEvents={handleDevDeleteAll} onCrashApp={() => { throw new Error("Dashboard Crash Test"); }} />}</>)}
