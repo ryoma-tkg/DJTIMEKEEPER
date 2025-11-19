@@ -15,10 +15,10 @@ import {
     LayersIcon,
     LogOutIcon,
     ToggleSwitch,
-    parseDateTime // 追加
+    parseDateTime
 } from './common';
 import { FullTimelineView } from './FullTimelineView';
-import { BaseModal } from './ui/BaseModal'; // BaseModalを使用
+import { BaseModal } from './ui/BaseModal';
 
 // --- サブコンポーネント: マルチビュー用カード ---
 const MiniFloorCard = ({ floorId, floorData, eventConfig, now, onClick }) => {
@@ -338,7 +338,6 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
     const hasVjData = visualVjTimetable && visualVjTimetable.length > 0;
     const isVjActive = eventConfig.vjFeatureEnabled && hasVjData && eventStatus === 'ON_AIR_BLOCK';
 
-    // ★★★ 修正: sortedFloors の定義をここに記述 (ReferenceError修正) ★★★
     const sortedFloors = useMemo(() => {
         if (!floors) return [];
         return Object.entries(floors)
@@ -346,7 +345,6 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
             .sort((a, b) => (a.order || 0) - (b.order || 0));
     }, [floors]);
 
-    // ★★★ 追加: 全フロア終了判定ロジック ★★★
     const isAllFloorsFinished = useMemo(() => {
         if (!floors || Object.keys(floors).length === 0) return eventStatus === 'FINISHED';
 
@@ -356,12 +354,8 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
         return Object.values(floors).every(floor => {
             const fTimetable = floor.timetable || [];
             if (fTimetable.length === 0) return true;
-
-            // そのフロアの合計時間を計算
             const totalDurationMinutes = fTimetable.reduce((acc, item) => acc + (parseFloat(item.duration) || 0), 0);
-            // 終了時刻を算出
             const floorEndTime = new Date(startDateTime.getTime() + totalDurationMinutes * 60000);
-
             return nowTime >= floorEndTime.getTime();
         });
     }, [floors, eventConfig, now, eventStatus]);
@@ -626,7 +620,6 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
             );
         }
         if (content.status === 'FINISHED') {
-            // ▼▼▼ 【修正】 終了メッセージの出し分け ▼▼▼
             return (
                 <div className="text-center animate-fade-in-up">
                     <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold">
@@ -645,11 +638,11 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
     const scheduleForModal = useMemo(() => schedule.map(dj => ({ ...dj, startTime: dj.startTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), endTime: dj.endTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), startTimeDate: dj.startTimeDate.toISOString(), endTimeDate: dj.endTimeDate.toISOString() })), [schedule]);
 
     const isAlreadyDisplayed = displayedDjKeysRef.current.has(visibleDjContent?.animationKey);
+    // ▼▼▼ 【修正】 削除されていた定義を復活 ▼▼▼
     const djAnimationClass = isDjFadingOut
         ? 'animate-fade-out-down'
         : (suppressEntryAnimation || isAlreadyDisplayed ? '' : 'animate-fade-in-up');
 
-    // ▼▼▼ 【修正】 レイアウト調整（VJなし時の位置調整） ▼▼▼
     const contentPositionClass = isVjActive
         ? 'bottom-24 md:bottom-56'
         : 'bottom-24 pb-20';
@@ -661,14 +654,8 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
 
             <ToastNotification message={toast.message} isVisible={toast.visible} className="top-32 md:top-24" />
 
-            {/* ヘッダー */}
-            <header
-                className="absolute top-0 left-0 right-0 p-4 md:p-8 z-20 flex flex-col gap-2"
-            >
-                {/* タイトル・時計・メニュー */}
-                <div
-                    className={`flex flex-wrap justify-between items-center gap-y-0 md:gap-y-2 transition-opacity duration-500 ${isControlsVisible ? 'opacity-100' : 'opacity-50'}`}
-                >
+            <header className="absolute top-0 left-0 right-0 p-4 md:p-8 z-20 flex flex-col gap-2">
+                <div className={`flex flex-wrap justify-between items-center gap-y-0 md:gap-y-2 transition-opacity duration-500 ${isControlsVisible ? 'opacity-100' : 'opacity-50'}`}>
                     <div className="w-auto md:flex-1 flex flex-row items-center gap-4 order-1">
                         {!isReadOnly && (
                             <button
@@ -702,13 +689,54 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
                             {timerDisplayMode === 'eventElapsed' && (`+${formatDurationHHMMSS(eventElapsedSeconds)}`)}
                         </div>
                     </div>
-                    <div className="w-auto md:flex-1 flex justify-end order-2 md:order-3">
+
+                    {/* メニューボタンとポップアップ */}
+                    <div className="w-auto md:flex-1 flex justify-end order-2 md:order-3 relative">
                         <button
-                            onClick={() => setIsMenuOpen(true)}
+                            onClick={() => setIsMenuOpen(!isMenuOpen)}
                             className="flex-shrink-0 flex items-center justify-center w-12 h-12 bg-surface-container/50 backdrop-blur-sm hover:bg-surface-container text-on-surface font-semibold rounded-full shadow-sm hover:shadow-md transition-all duration-200 active:scale-95 hover:-translate-y-0.5"
                         >
                             <MenuIcon className="w-5 h-5" />
                         </button>
+
+                        {isMenuOpen && (
+                            <>
+                                <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)} />
+                                <div className="absolute top-full right-0 mt-3 w-64 bg-surface-container rounded-2xl shadow-2xl border border-on-surface/10 p-2 z-50 animate-fade-in origin-top-right">
+                                    <div className="px-4 py-3 border-b border-on-surface/10 mb-2">
+                                        <p className="font-bold text-sm text-on-surface">Menu</p>
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <button
+                                            onClick={() => { setIsFullTimelineOpen(true); setIsMenuOpen(false); }}
+                                            disabled={schedule.length === 0}
+                                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-background transition-colors text-left text-on-surface disabled:opacity-50 disabled:cursor-not-allowed group"
+                                        >
+                                            <LayersIcon className="w-5 h-5 text-on-surface-variant" />
+                                            <span className="font-bold text-sm">全体を見る</span>
+                                        </button>
+
+                                        {!isReadOnly && (
+                                            <button
+                                                onClick={() => setMode('edit')}
+                                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-background transition-colors text-left text-on-surface group"
+                                            >
+                                                <LogOutIcon className="w-5 h-5 text-on-surface-variant rotate-180" />
+                                                <span className="font-bold text-sm">編集モードに戻る</span>
+                                            </button>
+                                        )}
+
+                                        <button
+                                            onClick={() => { setIsSettingsOpen(true); setIsMenuOpen(false); }}
+                                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-background transition-colors text-left text-on-surface group"
+                                        >
+                                            <SettingsIcon className="w-5 h-5 text-on-surface-variant" />
+                                            <span className="font-bold text-sm">表示設定</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
 
@@ -750,24 +778,10 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
                 )}
             </header>
 
-            {/* メニュー */}
-            <div className={`fixed top-16 right-4 md:top-24 md:right-8 z-40 bg-surface-container rounded-2xl shadow-2xl w-72 p-4 transition-all duration-200 ease-out ${isMenuOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`} style={{ transformOrigin: 'top right' }}>
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="font-bold text-on-surface">Menu</h2>
-                    <button onClick={() => setIsMenuOpen(false)} className="p-2 -m-2 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface"><XIcon className="w-5 h-5" /></button>
-                </div>
-                <div className="flex flex-col gap-2 max-h-[60vh] overflow-y-auto">
-                    <button onClick={() => { setIsFullTimelineOpen(true); setIsMenuOpen(false); }} className="w-full text-left bg-surface-background hover:bg-surface-background/70 text-on-surface font-semibold py-3 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed" disabled={schedule.length === 0}>全体を見る</button>
-                    {!isReadOnly && (<button onClick={() => setMode('edit')} className="w-full text-left bg-brand-primary/20 hover:bg-brand-primary/30 text-brand-primary font-semibold py-3 px-4 rounded-lg transition-colors duration-200">編集モードに戻る</button>)}
-                    <button onClick={() => { setIsSettingsOpen(true); setIsMenuOpen(false); }} className="w-full text-left bg-surface-background hover:bg-surface-background/70 text-on-surface font-semibold py-3 px-4 rounded-lg transition-colors duration-200 flex items-center gap-2"><SettingsIcon className="w-5 h-5 text-on-surface-variant" /><span>表示設定</span></button>
-                </div>
-            </div>
-
             <LiveSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} theme={theme} toggleTheme={toggleTheme} isWakeLockEnabled={isWakeLockEnabled} onWakeLockToggle={handleWakeLockToggle} />
 
             {viewMode === 'single' ? (
                 <div className="w-full h-full transition-opacity duration-500 ease-in-out" style={{ opacity: mainOpacity }}>
-                    {/* コンテンツ表示エリア */}
                     <div className={`absolute top-36 md:top-40 left-0 right-0 px-4 flex items-center justify-center overflow-hidden transition-all duration-500 ease-in-out ${contentPositionClass}`}>
                         <div className="w-full h-full overflow-y-auto flex items-center justify-center relative">
                             {visibleDjContent && (

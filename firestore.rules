@@ -1,4 +1,3 @@
-// [firestore.rules]
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -40,12 +39,15 @@ service cloud.firestore {
 
     // 1. Timetables
     match /timetables/{eventId} {
+      // 個別の取得: 誰でもOK（閲覧専用モードのため）
       allow get: if true;
       
-      // リスト取得 (修正): resource.dataの参照を削除し、クエリフィルタのみで判定
+      // ★★★ 修正箇所 ★★★
+      // リスト取得: 「取得するデータが自分のuidを持っているか」をチェックします。
+      // アプリ側で where("ownerUid", "==", user.uid) しているクエリと合致します。
       allow list: if isSignedIn()
-                  && request.query.filters.ownerUid == request.auth.uid;
-
+                  && resource.data.ownerUid == request.auth.uid;
+      
       allow create: if isSignedIn() && isValidNewEvent();
       allow update: if isSignedIn() && isOwner(resource.data.ownerUid) && isValidUpdate();
       allow delete: if isSignedIn() && isOwner(resource.data.ownerUid);
@@ -53,15 +55,8 @@ service cloud.firestore {
 
     // 2. Users
     match /users/{userId} {
-      // 自分のデータのみ読み書き可能
       allow get: if isSignedIn() && isOwner(userId);
-      
-      // 作成: UIDの一致をチェック
-      allow create: if isSignedIn() 
-                    && isOwner(userId)
-                    && isValidUserUpdate();
-      
-      // 更新・削除 (修正): 所有者であれば許可 (厳密なフィールドチェックを外してエラー回避)
+      allow create: if isSignedIn() && isOwner(userId) && isValidUserUpdate();
       allow update, delete: if isSignedIn() && isOwner(userId);
     }
   }

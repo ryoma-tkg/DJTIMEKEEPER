@@ -376,7 +376,7 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                         </div>
 
                         {/* 保存フッター */}
-                        <div className="p-4 px-8 border-t border-on-surface/5 flex justify-end gap-3 bg-surface-container/95 backdrop-blur-sm z-10 absolute bottom-0 left-0 right-0">
+                        <div className="p-4 px-8 border-t border-on-surface/5 flex justify-end gap-3 bg-surface-container/95 backdrop-blur-sm z-10 flex-shrink-0">
                             <Button onClick={onClose} variant="ghost">キャンセル</Button>
                             <Button onClick={handleSave} variant="primary" disabled={isSaving || isDeletingAccount} className="min-w-[100px] shadow-lg shadow-brand-primary/20">
                                 {isSaving ? '保存中...' : '設定を保存'}
