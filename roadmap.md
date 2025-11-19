@@ -82,24 +82,33 @@ Comprehensive design update focusing on "Tactile Feel" and "Modern Professional"
 
 ---
 
-### Phase 4: Communication & Performance Optimization (🚧 New Focus)
+### Phase 4: Communication & Performance Optimization (✅ Completed)
 **"Smart & Thrifty" - コスト削減とUX向上の両立**
-
-1.  **Storage Cache Strategy:**
-    * 画像アップロード時に `Cache-Control` ヘッダーを付与し、ブラウザキャッシュを最大限活用（Firebase Storage転送量削減）。
-2.  **Firestore Read Optimization:**
-    * ダッシュボードのイベント取得に `limit()` とページネーション（または「もっと見る」）を導入し、無駄な読み取りを削減。
-    * `enableIndexedDbPersistence` を有効化し、オフラインキャッシュを活用して再訪時の読み取り回数を削減。
-3.  **Code Splitting (Lazy Loading):**
-    * `React.lazy` と `Suspense` を導入し、初期ロード時のバンドルサイズを削減（Hosting転送量削減＆高速化）。
-4.  **Write Frequency Review:**
-    * 編集画面のデバウンス処理（自動保存の間隔）の最適化と、保存ステータス（「保存中...」「保存完了」）の可視化。
+* ✅ **Storage Cache Strategy:** Added `Cache-Control` (1 year) to uploads.
+* ✅ **Firestore Read Optimization:** Implemented dashboard pagination (`limit`) & `persistentLocalCache`.
+* ✅ **Code Splitting:** Applied `React.lazy` & `Suspense` for route-based splitting.
+* ✅ **Security Hardening:** Strict `firestore.rules` (Validation & List query constraints).
 
 ---
 
-### Phase 5: Release & Pro Features (Future)
-**Monetization and Public Release**
+### Phase 5: UX Refinement & Pro Features (🚧 Current Focus)
+**"Professional Tooling" - 継続利用のための機能拡充**
 
-1.  **Public Real-time Page:** `/public/:timetableId` (View-only).
-2.  **Monetization:** Stripe integration.
-3.  **Pro Features:** Image Export, CSV Import/Export.
+1.  **User Preferences (Defaults):**
+    * 新規イベント作成時のデフォルト値（開始時間、VJ ON/OFFなど）を保存・適用する機能。
+2.  **Account Management:**
+    * アカウント削除（退会）機能の実装。全データのクリーンアップ処理。
+3.  **Application Info:**
+    * バージョン情報表示、ヘルプ/GitHubへのリンク。
+4.  **Pro Features (Export/Import):**
+    * **Image Export:** タイムテーブルをSNS用画像として書き出し (`html2canvas`)。
+    * **CSV Management:** 一括インポート・エクスポート。
+
+---
+
+### Phase 6: Release & Monetization (Future)
+**Public Launch**
+
+1.  **Public Real-time Page:** `/public/:timetableId` (View-only, no auth required).
+2.  **Monetization:** Stripe integration for "Pro" plan.
+3.  **Marketing:** LP creation & SNS promotion.

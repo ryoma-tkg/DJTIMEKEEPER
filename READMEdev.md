@@ -1,79 +1,110 @@
-# Roadmap to Release
+# [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-phase3-dev/READMEdev.md]
+# Technical Stack & Architecture
 
 **Last Updated: 2025-11-19**
 
-## 🚀 Milestones
+## 1. Overview
 
-### Phase 1: Refactoring & Bug Fixes (✅ Completed)
-Initial stabilization of the single-event application.
-* ✅ UI/UX improvements (Mobile layout, Header).
-* ✅ Logic separation (Custom hooks).
-* ✅ Component separation.
-* ✅ Core bug fixes (Time calculation).
+DJ Timekeeper Pro is a real-time DJ timetable management application built with React and Firebase.
+It has evolved into a **multi-tenant, multi-floor web service** where users can manage multiple events securely under their Google account.
 
-### Phase 2: Feature Expansion (✅ Completed)
-Enhancing usability as a single-event app.
-* ✅ Live Mode Timer Toggle.
-* ✅ Settings Modal (Editor).
-* ✅ Viewer Settings (Live Mode).
-* ✅ VJ Name Field.
+## 2. Technology Stack
 
-### Phase 2.5: Core Logic Overhaul (✅ Completed)
-Fundamental fix for time calculation logic.
-* ✅ "Event Start Date" introduction.
-* ✅ Support for 24h+ events.
-* ✅ Explicit `STANDBY` logic (3 hours prior).
+### Frontend
+* **Framework:** React 19.2.0
+* **Routing:** React Router DOM 7.9.6
+* **Build Tool:** Vite 7.2.2 + SWC
+* **Styling:** Tailwind CSS 3.4.18 (Custom animations & `darkMode: 'class'`)
+* **Icons:** React Icons 5.5.0
 
-### Phase 2.6: UI/UX Polish (✅ Completed)
-Elevating the look and feel to a professional standard.
-* ✅ Live Mode VJ Bar UI/UX.
-* ✅ UPCOMING Display layout fixes.
-* ✅ Editor Mode auto-height cards.
+### Backend (BaaS)
+* **Service:** Firebase 12.5.0
+* **Auth:** Google Authentication
+* **Database:** Firestore (Real-time sync)
+* **Storage:** Firebase Storage (WebP image compression)
 
-### Phase 2.7: Live Mode Animation Separation (✅ Completed)
-Decoupling DJ and VJ animations.
-* ✅ `VjDisplay` component separation.
-* ✅ Independent fade-in/out logic.
+---
 
-### Phase 2.8: Developer Mode (✅ Completed)
-Accelerating testing and debugging.
-* ✅ Floating DevControls panel.
-* ✅ Time jump, Dummy data load, Crash test.
+## 3. Project Structure (Current)
 
-### Phase 2.85: Smartphone UI Polish (✅ Completed)
-Optimization for modern mobile devices.
-* ✅ `sp:` breakpoint (390px).
-* ✅ Live Mode font/icon sizing adjustment.
-* ✅ Cross-fade background animation.
+The project adopts a feature-based page structure managed by `react-router-dom`.
 
-### Phase 3: Web Service Architecture (✅ Completed)
-Transition to a multi-tenant, multi-floor SaaS platform.
+```text
+src/
+├── App.jsx             # Auth Guard, Routing, & Theme Provider
+├── main.jsx            # Entry point (BrowserRouter)
+├── firebase.js         # Firebase initialization
+│
+├── components/
+│   ├── LoginPage.jsx       # /login
+│   ├── DashboardPage.jsx   # / (Event list & Creation)
+│   ├── EditorPage.jsx      # /edit/:eventId/:floorId
+│   ├── LivePage.jsx        # /live/:eventId/:floorId
+│   │
+│   ├── TimetableEditor.jsx # Core Editor UI
+│   ├── LiveView.jsx        # Core Live UI (Shared by Editor/LivePage)
+│   ├── FloorManagerModal.jsx # Floor management UI
+│   ├── DevControls.jsx     # Debug panel
+│   └── common.jsx          # Shared UI components (Icons, Toggles)
+│
+├── hooks/
+│   ├── useTimetable.js     # Core time calculation logic
+│   ├── useDragAndDrop.js   # DnD logic with "Snap" physics
+│   ├── useStorageUpload.js # Image upload logic
+│   └── useImagePreloader.js
+│
+└── utils/
+    └── imageProcessor.js   # Client-side image compression (WebP)
 
-1.  **Authentication (Google):** (✅ Completed)
-    * Replaced anonymous auth with Google Auth.
-    * `LoginPage` implementation.
+    4. Key Technical Features
+4.1. Robust Drag & Drop (useDragAndDrop.js)
+To resolve layout shifts and "flying card" glitches, a specialized logic was implemented:
 
-2.  **Data Model Restructuring:** (✅ Completed)
-    * Migrated to `timetables` collection with `ownerUid`.
+Immediate Feedback: Visual updates happen instantly on pointerUp.
 
-3.  **Routing & Access Control:** (✅ Completed)
-    * `react-router-dom` integration.
-    * Page separation (`DashboardPage`, `EditorPage`, `LivePage`).
-    * Dynamic redirects (`/edit/:eventId` -> `/edit/:eventId/:floorId`).
+Commit Freeze: During the Firestore data commit (200ms), all CSS transitions are forcibly disabled (transition: none). This prevents the browser from interpolating between the old DOM position and the new DOM position, eliminating the "jump" effect.
 
-4.  **Multi-Floor Management:** (✅ Completed)
-    * `FloorManagerModal` implementation.
-    * LiveView seamless floor switching logic.
+4.2. Seamless Floor Switching (LiveView.jsx)
+To achieve TV-broadcast quality transitions between floors:
 
-### Phase 3.5: UI/UX Overhaul & Polish (✅ Completed)
-Comprehensive design update focusing on "Tactile Feel" and "Modern Professional" aesthetics.
-* ✅ **Dashboard:** Event cards with "Glow" effects and depth.
-* ✅ **Editor:** Intuitive drag-and-drop with "Snap" physics (no flying glitches).
-* ✅ **Animation:** Unified `cubic-bezier` physics and specialized transition logic.
-* ✅ **Setup Flow:** New "Event Setup Modal" for granular creation settings.
+Fade Out: The main container opacity drops to 0.
+
+Data Swap: Data is swapped while invisible. suppressEntryAnimation flag is set to true.
+
+Fade In: The container fades back in. The flag prevents individual items from triggering their "entry" animations, ensuring a stable frame.
+
+4.3. Multi-Floor Data Model
+Firestore Path: timetables/{eventId}
+
+Structure:
+
+JSON
+
+{
+  "floors": {
+    "floor_123": {
+      "name": "Main Floor",
+      "order": 0,
+      "timetable": [...],
+      "vjTimetable": [...]
+    },
+    "floor_456": { ... }
+  }
+}
+5. Upcoming Refactoring (Phase 3.9)
+The next immediate goal is to optimize the codebase without altering the user experience.
+
+Standardization: Consolidate repetitive modal structures (Overlay, Container, Close Button) into a generic BaseModal component.
+
+Cleanup: Remove legacy components and unused icon imports in common.jsx.
+
+Efficiency: Review re-renders and dependency arrays in useEffect / useCallback.
+
+
 
 ### Phase 3.9: Codebase Refactoring & Optimization (🚧 Next Step)
-Streamlining the code for maintainability without altering behavior.
+
+**コードベースの効率化と保守性向上**
 
 1.  **Modal Standardization (`BaseModal`):** Unify all modal structures (FloorManager, Settings, Setup, Confirm) into a single reusable component.
 2.  **List Card Generalization (`SortableListCard`):** Integrate and abstract the logic and UI of `DjItem` and inline `VjItem` into one component, controlling differences via props.
@@ -83,12 +114,6 @@ Streamlining the code for maintainability without altering behavior.
 
 ---
 
-### Phase 4: Release & Pro Features (Future)
-Monetization and public release.
+## 2. リファクタリング作業開始 (Step 1)
 
-1.  **Public Real-time Page:** `/public/:timetableId` (View-only, auto-updating).
-2.  **Monetization:** Stripe integration for Pro plans.
-3.  **Pro Features:**
-    * Image Export (`html2canvas`).
-    * CSV Import/Export.
-    * Preset saving.
+それでは、計画の最優先事項である **Step 1: `BaseModal` の作成と適用**から開始します。
