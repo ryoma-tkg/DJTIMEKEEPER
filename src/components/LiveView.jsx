@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useTimetable } from '../hooks/useTimetable';
-import { BaseModal } from './ui/BaseModal';
 import {
     SimpleImage,
     UserIcon,
@@ -16,10 +15,12 @@ import {
     LayersIcon,
     LogOutIcon,
     ToggleSwitch,
+    parseDateTime // 追加
 } from './common';
 import { FullTimelineView } from './FullTimelineView';
+import { BaseModal } from './ui/BaseModal'; // BaseModalを使用
 
-// --- サブコンポーネント: マルチビュー用カード (変更なし) ---
+// --- サブコンポーネント: マルチビュー用カード ---
 const MiniFloorCard = ({ floorId, floorData, eventConfig, now, onClick }) => {
     const {
         schedule,
@@ -90,7 +91,7 @@ const MiniFloorCard = ({ floorId, floorData, eventConfig, now, onClick }) => {
     );
 };
 
-// --- サブコンポーネント: 設定モーダル (変更なし) ---
+// --- サブコンポーネント: 設定モーダル (BaseModal化) ---
 const LiveSettingsModal = ({ isOpen, onClose, theme, toggleTheme, isWakeLockEnabled, onWakeLockToggle }) => {
     return (
         <BaseModal
@@ -125,14 +126,12 @@ const LiveSettingsModal = ({ isOpen, onClose, theme, toggleTheme, isWakeLockEnab
     );
 };
 
-// --- サブコンポーネント: VJ表示 (アニメーション制御修正済み) ---
+// --- サブコンポーネント: VJ表示 ---
 const VjDisplay = ({ vjTimetable, eventConfig, now, djEventStatus, suppressAnimation }) => {
     const [currentVjData, setCurrentVjData] = useState(null);
     const [visibleVjContent, setVisibleVjContent] = useState(null);
     const [isVjFadingOut, setIsVjFadingOut] = useState(false);
     const vjAnimationTimerRef = useRef(null);
-
-    // ★追加: 表示済みキーを管理するRef
     const displayedVjKeysRef = useRef(new Set());
 
     const { schedule: vjSchedule, eventStatus: vjEventStatus, currentlyPlayingIndex: currentlyPlayingVjIndex } = useTimetable(vjTimetable, eventConfig.startDate, eventConfig.startTime, now);
@@ -175,7 +174,6 @@ const VjDisplay = ({ vjTimetable, eventConfig, now, djEventStatus, suppressAnima
     }, [djEventStatus, vjEventStatus, currentVj, nextVj, vjRemainingSeconds, vjSchedule]);
 
     useEffect(() => {
-        // フロア切り替え中は即時反映
         if (suppressAnimation) {
             setVisibleVjContent(currentVjData);
             setIsVjFadingOut(false);
@@ -211,15 +209,12 @@ const VjDisplay = ({ vjTimetable, eventConfig, now, djEventStatus, suppressAnima
         }
     }, [currentVjData, visibleVjContent, isVjFadingOut, suppressAnimation]);
 
-    // ★追加: 表示済みキーの登録ロジック
     useEffect(() => {
         if (visibleVjContent?.animationKey) {
             const key = visibleVjContent.animationKey;
-            // アニメーション抑制中(=フロア切り替え時)は即座に登録し、後でアニメーションさせない
             if (suppressAnimation) {
                 displayedVjKeysRef.current.add(key);
             } else {
-                // 通常時はアニメーションが終わった頃(500ms後)に登録し、アニメーション中のクラス剥奪を防ぐ
                 const timer = setTimeout(() => {
                     displayedVjKeysRef.current.add(key);
                 }, 500);
@@ -257,7 +252,6 @@ const VjDisplay = ({ vjTimetable, eventConfig, now, djEventStatus, suppressAnima
         return null;
     };
 
-    // ★修正: すでに表示済みならアニメーションさせない
     const isAlreadyDisplayed = displayedVjKeysRef.current.has(visibleVjContent?.animationKey);
     const animationClass = isVjFadingOut
         ? 'animate-fade-out-down'
@@ -290,9 +284,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
     const [isDjFadingOut, setIsDjFadingOut] = useState(false);
     const djAnimationTimerRef = useRef(null);
 
-    // アニメーション制御フラグ
     const [suppressEntryAnimation, setSuppressEntryAnimation] = useState(false);
-    // ★追加: 表示済みキーを管理するRef
     const displayedDjKeysRef = useRef(new Set());
 
     const [timerDisplayMode, setTimerDisplayMode] = useState('currentTime');
@@ -340,18 +332,39 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
         }
     }, [currentFloorId, timetable, vjTimetable, displayFloorId]);
 
-
     const { schedule, eventStartTimeDate, eventEndTimeDate, eventStatus, currentlyPlayingIndex, eventRemainingSeconds, eventElapsedSeconds } = useTimetable(visualTimetable, eventConfig.startDate, eventConfig.startTime, now);
     const { schedule: vjSchedule, eventStatus: vjEventStatus } = useTimetable(visualVjTimetable, eventConfig.startDate, eventConfig.startTime, now);
 
     const hasVjData = visualVjTimetable && visualVjTimetable.length > 0;
+    const isVjActive = eventConfig.vjFeatureEnabled && hasVjData && eventStatus === 'ON_AIR_BLOCK';
 
+    // ★★★ 修正: sortedFloors の定義をここに記述 (ReferenceError修正) ★★★
     const sortedFloors = useMemo(() => {
         if (!floors) return [];
         return Object.entries(floors)
             .map(([id, data]) => ({ id, ...data }))
             .sort((a, b) => (a.order || 0) - (b.order || 0));
     }, [floors]);
+
+    // ★★★ 追加: 全フロア終了判定ロジック ★★★
+    const isAllFloorsFinished = useMemo(() => {
+        if (!floors || Object.keys(floors).length === 0) return eventStatus === 'FINISHED';
+
+        const nowTime = now.getTime();
+        const startDateTime = parseDateTime(eventConfig.startDate, eventConfig.startTime);
+
+        return Object.values(floors).every(floor => {
+            const fTimetable = floor.timetable || [];
+            if (fTimetable.length === 0) return true;
+
+            // そのフロアの合計時間を計算
+            const totalDurationMinutes = fTimetable.reduce((acc, item) => acc + (parseFloat(item.duration) || 0), 0);
+            // 終了時刻を算出
+            const floorEndTime = new Date(startDateTime.getTime() + totalDurationMinutes * 60000);
+
+            return nowTime >= floorEndTime.getTime();
+        });
+    }, [floors, eventConfig, now, eventStatus]);
 
     // ヘッダー自動非表示
     useEffect(() => {
@@ -458,15 +471,12 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
         }
     }, [currentDjData, visibleDjContent, isDjFadingOut, suppressEntryAnimation]);
 
-    // ★追加: 表示済みキーの登録ロジック
     useEffect(() => {
         if (visibleDjContent?.animationKey) {
             const key = visibleDjContent.animationKey;
             if (suppressEntryAnimation) {
-                // フロア切り替え時は即座に登録（後でsuppressが切れた時にアニメーションしないように）
                 displayedDjKeysRef.current.add(key);
             } else {
-                // 通常時はアニメーション終了頃に登録（アニメーション中にクラスが外れるのを防ぐ）
                 const timer = setTimeout(() => {
                     displayedDjKeysRef.current.add(key);
                 }, 500);
@@ -615,7 +625,16 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
                 </main>
             );
         }
-        if (content.status === 'FINISHED') return (<div className="text-center"><h1 className="text-4xl sm:text-5xl md:text-7xl font-bold">FLOOR FINISHED</h1></div>);
+        if (content.status === 'FINISHED') {
+            // ▼▼▼ 【修正】 終了メッセージの出し分け ▼▼▼
+            return (
+                <div className="text-center animate-fade-in-up">
+                    <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold">
+                        {isAllFloorsFinished ? 'EVENT FINISHED' : 'FLOOR FINISHED'}
+                    </h1>
+                </div>
+            );
+        }
         if (content.status === 'STANDBY') {
             const eventTitle = eventConfig.title || "DJ Timekeeper Pro";
             return (<div className="text-center"><h2 className="text-xl sm:text-2xl md:text-3xl text-on-surface-variant font-bold tracking-widest mb-4">STANDBY</h2><h1 className="text-4xl sp:text-5xl sm:text-6xl md:text-7xl font-bold break-words leading-tight">{eventTitle}</h1></div>);
@@ -625,12 +644,15 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
 
     const scheduleForModal = useMemo(() => schedule.map(dj => ({ ...dj, startTime: dj.startTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), endTime: dj.endTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), startTimeDate: dj.startTimeDate.toISOString(), endTimeDate: dj.endTimeDate.toISOString() })), [schedule]);
 
-    // ★修正: アニメーションクラスの決定ロジック
-    // 「抑制中」または「すでに表示済み」ならアニメーションクラスをつけない
     const isAlreadyDisplayed = displayedDjKeysRef.current.has(visibleDjContent?.animationKey);
     const djAnimationClass = isDjFadingOut
         ? 'animate-fade-out-down'
         : (suppressEntryAnimation || isAlreadyDisplayed ? '' : 'animate-fade-in-up');
+
+    // ▼▼▼ 【修正】 レイアウト調整（VJなし時の位置調整） ▼▼▼
+    const contentPositionClass = isVjActive
+        ? 'bottom-24 md:bottom-56'
+        : 'bottom-24 pb-20';
 
     return (
         <div className="fixed inset-0">
@@ -655,7 +677,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
                                         setMode('edit');
                                     }
                                 }}
-                                className="flex-shrink-0 flex items-center justify-center w-10 h-10 bg-surface-container/50 backdrop-blur-sm hover:bg-surface-container text-on-surface font-semibold rounded-full transition-colors duration-200"
+                                className="flex-shrink-0 flex items-center justify-center w-12 h-12 bg-surface-container/50 backdrop-blur-sm hover:bg-surface-container text-on-surface font-semibold rounded-full shadow-sm hover:shadow-md transition-all duration-200 active:scale-95 hover:-translate-y-0.5"
                             >
                                 {isPreview ? (
                                     <LogOutIcon className="w-5 h-5 rotate-180" />
@@ -674,20 +696,22 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
                     </div>
 
                     <div className="w-full md:w-auto flex-shrink-0 mx-auto order-3 md:order-2">
-                        <div className="bg-surface-container/50 dark:bg-black/30 backdrop-blur-sm text-on-surface font-bold py-2 px-4 rounded-full text-xl tracking-wider font-mono text-center min-w-[10ch] tabular-nums cursor-pointer" onClick={handleTimerClick} title="クリックで表示切替">
+                        <div className="bg-surface-container/50 dark:bg-black/30 backdrop-blur-sm text-on-surface font-bold py-2 px-4 rounded-full text-xl tracking-wider font-mono text-center min-w-[10ch] tabular-nums cursor-pointer active:scale-95 transition-transform" onClick={handleTimerClick} title="クリックで表示切替">
                             {timerDisplayMode === 'currentTime' && (now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))}
                             {timerDisplayMode === 'eventRemaining' && (`-${formatDurationHHMMSS(eventRemainingSeconds)}`)}
                             {timerDisplayMode === 'eventElapsed' && (`+${formatDurationHHMMSS(eventElapsedSeconds)}`)}
                         </div>
                     </div>
                     <div className="w-auto md:flex-1 flex justify-end order-2 md:order-3">
-                        <button onClick={() => setIsMenuOpen(true)} className="flex-shrink-0 flex items-center justify-center w-10 h-10 bg-surface-container/50 backdrop-blur-sm hover:bg-surface-container text-on-surface font-semibold rounded-full transition-colors duration-200">
+                        <button
+                            onClick={() => setIsMenuOpen(true)}
+                            className="flex-shrink-0 flex items-center justify-center w-12 h-12 bg-surface-container/50 backdrop-blur-sm hover:bg-surface-container text-on-surface font-semibold rounded-full shadow-sm hover:shadow-md transition-all duration-200 active:scale-95 hover:-translate-y-0.5"
+                        >
                             <MenuIcon className="w-5 h-5" />
                         </button>
                     </div>
                 </div>
 
-                {/* フロア切り替えタブ */}
                 {sortedFloors.length > 1 && (
                     <div className={`flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar justify-center mt-4 transition-opacity duration-500 ${isControlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                         {sortedFloors.map(floor => (
@@ -726,7 +750,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
                 )}
             </header>
 
-            {/* ハンバーガーメニュー */}
+            {/* メニュー */}
             <div className={`fixed top-16 right-4 md:top-24 md:right-8 z-40 bg-surface-container rounded-2xl shadow-2xl w-72 p-4 transition-all duration-200 ease-out ${isMenuOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`} style={{ transformOrigin: 'top right' }}>
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="font-bold text-on-surface">Menu</h2>
@@ -741,13 +765,11 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
 
             <LiveSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} theme={theme} toggleTheme={toggleTheme} isWakeLockEnabled={isWakeLockEnabled} onWakeLockToggle={handleWakeLockToggle} />
 
-            {/* ▼ メインコンテンツ切り替え (フロア切り替えフェード制御) ▼ */}
             {viewMode === 'single' ? (
                 <div className="w-full h-full transition-opacity duration-500 ease-in-out" style={{ opacity: mainOpacity }}>
                     {/* コンテンツ表示エリア */}
-                    <div className={`absolute top-36 md:top-40 left-0 right-0 px-4 flex items-center justify-center overflow-hidden transition-all duration-500 ease-in-out ${(eventConfig.vjFeatureEnabled && hasVjData && eventStatus === 'ON_AIR_BLOCK') ? 'bottom-24 md:bottom-56' : 'bottom-24'}`}>
+                    <div className={`absolute top-36 md:top-40 left-0 right-0 px-4 flex items-center justify-center overflow-hidden transition-all duration-500 ease-in-out ${contentPositionClass}`}>
                         <div className="w-full h-full overflow-y-auto flex items-center justify-center relative">
-                            {/* ★ 修正: アニメーションクラスを制御 (isAlreadyDisplayedを追加) */}
                             {visibleDjContent && (
                                 <div key={visibleDjContent.animationKey} className={`w-full absolute inset-0 p-4 flex items-center justify-center will-change-[transform,opacity] ${djAnimationClass}`}>
                                     {renderDjContent(visibleDjContent)}
@@ -756,13 +778,13 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
                         </div>
                     </div>
 
-                    {eventConfig.vjFeatureEnabled && hasVjData && (eventStatus === 'ON_AIR_BLOCK') && (
+                    {isVjActive && (
                         <VjDisplay
                             vjTimetable={visualVjTimetable}
                             eventConfig={eventConfig}
                             now={now}
                             djEventStatus={eventStatus}
-                            suppressAnimation={suppressEntryAnimation} // ★ 渡す
+                            suppressAnimation={suppressEntryAnimation}
                         />
                     )}
 
@@ -785,7 +807,6 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
                     )}
                 </div>
             ) : (
-                // --- マルチビュー (変更なし) ---
                 <div className="absolute top-36 bottom-0 left-0 right-0 p-4 overflow-y-auto">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 max-w-7xl mx-auto">
                         {sortedFloors.map(floor => (

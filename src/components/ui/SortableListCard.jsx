@@ -1,20 +1,10 @@
 // [src/components/ui/SortableListCard.jsx]
-import React, { useState } from 'react'; // ★ useStateを追加
-import { GripIcon, TrashIcon, CopyIcon } from '../common';
-import { Input } from './Input'; // ★ Inputをインポート
+import React, { useState } from 'react';
+import { GripIcon, TrashIcon, CopyIcon, AlertTriangleIcon } from '../common';
+import { Input } from './Input';
 
 /**
  * DJ/VJアイテム共通のリストカードコンポーネント
- * * @param {object} item - データオブジェクト (name, duration, color等)
- * @param {boolean} isPlaying - 再生中かどうか（枠線の色に影響）
- * @param {boolean} isDragging - ドラッグ中かどうか（スタイルに影響）
- * @param {function} onPointerDown - ドラッグ開始ハンドラ
- * @param {function} onUpdate - フィールド更新ハンドラ (field, value) => void
- * @param {function} onRemove - 削除ハンドラ
- * @param {function} onCopy - 複製ハンドラ (任意)
- * @param {ReactNode} iconNode - 左側のアイコンエリア（画像など）
- * @param {ReactNode} actionNode - 右側の追加アクションエリア（カラーピッカーなど）
- * @param {string} labelName - 名前入力欄のラベル (例: "DJ Name")
  */
 export const SortableListCard = ({
     item,
@@ -30,52 +20,61 @@ export const SortableListCard = ({
 }) => {
     const [isHovered, setIsHovered] = useState(false);
 
+    // バリデーションチェック
+    const isNameError = !item.name || item.name.trim() === '';
+    const isDurationError = item.duration === '' || item.duration === 0; // 0も警告対象にするならこちら
+
     // ドラッグ中のスタイル
     const draggingClass = isDragging
         ? 'dragging-item shadow-[0_20px_30px_-5px_rgba(0,0,0,0.3)] scale-105 z-50'
         : 'transition-all duration-300 cubic-bezier(0.4, 0, 0.2, 1)';
 
-    // ▼▼▼ ダッシュボードのスタイルを完全移植 ▼▼▼
-
-    // 共通のボーダー設定 (ダッシュボードと同じ)
-    // 再生中は色付き、通常時は薄いグレー
+    // ボーダー設定
     const borderClass = isPlaying
-        ? 'border' // 再生中は少し太めに強調
+        ? 'border-2'
         : 'border border-on-surface/10 dark:border-white/5';
 
-    // 動的スタイルの生成
-    let dynamicStyle = {};
+    // 動的スタイル生成
+    let dynamicStyle = {
+        '--tw-ring-color': isPlaying ? (item.color || 'rgb(var(--color-brand-primary))') : 'transparent'
+    };
 
     if (!isDragging) {
         if (isPlaying) {
-            // 【再生中】: ダッシュボードの "NOW ON AIR" スタイル
             const baseColor = item.color || '#007bff';
-
-            // Hexカラーにアルファ値を付与
-            const glowColorHover = `${baseColor}66`; // 40% opacity
-            const glowColorRest = `${baseColor}40`;  // 25% opacity
+            const glowColorHover = `${baseColor}66`;
+            const glowColorRest = `${baseColor}40`;
 
             dynamicStyle = {
-                borderColor: baseColor, // ★ボーダーにテーマカラーを適用
+                borderColor: baseColor,
                 transform: 'translateY(0)',
-                // ダッシュボードと同じ Glow Shadow 計算式
                 boxShadow: isHovered
                     ? `0 20px 30px -5px rgba(0, 0, 0, 0.2), 0 0 35px 5px ${glowColorHover}`
                     : `0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 0 20px 0px ${glowColorRest}`,
                 zIndex: isHovered ? 10 : 1,
             };
         } else {
-            // 【通常時】: ダッシュボードの通常カードスタイル (shadow-lg -> shadow-2xl)
-            // Tailwindのクラス値に準拠した値を直接指定してトーンを合わせる
             dynamicStyle = {
                 transform: 'translateY(0)',
-                // shadow-lg (通常) -> shadow-2xl (ホバー)
                 boxShadow: isHovered
-                    ? '0 25px 50px -12px rgba(0, 0, 0, 0.25)' // shadow-2xl
-                    : '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', // shadow-lg
+                    ? '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+                    : '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
             };
         }
     }
+
+    const handleDurationChange = (e) => {
+        const val = e.target.value;
+        if (val === '') {
+            onUpdate('duration', '');
+            return;
+        }
+        if (val.endsWith('.') || (val.includes('.') && val.endsWith('0'))) {
+            onUpdate('duration', val);
+        } else {
+            onUpdate('duration', parseFloat(val));
+        }
+    };
 
     return (
         <div
@@ -104,21 +103,27 @@ export const SortableListCard = ({
             <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                 <div className="flex flex-col">
                     <label className="text-xs text-on-surface-variant mb-1 font-bold ml-1">{labelName}</label>
+                    {/* ▼▼▼ 修正: error プロップを使用 (メッセージを渡す) ▼▼▼ */}
                     <Input
                         value={item.name}
                         onChange={(e) => onUpdate('name', e.target.value)}
                         className="font-bold text-lg"
+                        error={isNameError ? "必須" : null}
                     />
                 </div>
 
                 <div className="flex flex-col">
                     <label className="text-xs text-on-surface-variant mb-1 font-bold ml-1">Duration (min)</label>
+                    {/* ▼▼▼ 修正: error プロップを使用 ▼▼▼ */}
                     <Input
                         type="number"
                         value={item.duration}
                         step="1"
-                        onChange={(e) => onUpdate('duration', parseFloat(e.target.value) || 0)}
-                        className="font-mono font-bold"
+                        min="0"
+                        onFocus={(e) => e.target.select()}
+                        onChange={handleDurationChange}
+                        className="font-mono font-bold text-lg"
+                        isError={isDurationError}
                     />
                 </div>
 

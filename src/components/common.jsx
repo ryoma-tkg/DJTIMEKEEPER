@@ -9,6 +9,7 @@ export { LoadingScreen } from './ui/Loading';
 export { Button } from './ui/Button'; // 新しく追加
 export { SortableListCard } from './ui/SortableListCard'; // Step 2で追加済み
 export { Input } from './ui/Input';
+export { Label } from './ui/Label';
 
 // カラーパレット (変更なし)
 export const VIVID_COLORS = [

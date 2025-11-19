@@ -2,8 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { db } from '../firebase';
-import { collection, addDoc, deleteDoc, doc, query, where, onSnapshot, Timestamp, writeBatch } from 'firebase/firestore';
-import { BaseModal } from './ui/BaseModal';
+import { collection, addDoc, deleteDoc, doc, query, where, onSnapshot, Timestamp, writeBatch, orderBy, limit } from 'firebase/firestore';
 import {
     getTodayDateString,
     PlusIcon,
@@ -17,22 +16,23 @@ import {
     ConfirmModal,
     PowerIcon,
     ToggleSwitch,
-    // ▼▼▼ 追加インポート ▼▼▼
     CustomTimeInput,
     CalendarIcon,
     VideoIcon,
-    Button, Input,
+    BaseModal,
+    Button,
+    Input,
+    Label,
+    AlertTriangleIcon
 } from './common';
 import { DevControls } from './DevControls';
 
-// (ローディング - 変更なし)
 const LoadingSpinner = () => (
     <div className="flex items-center justify-center h-screen bg-surface-background">
         <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
     </div>
 );
 
-// (設定モーダル - 変更なし)
 const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout }) => {
     return (
         <BaseModal
@@ -61,9 +61,8 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout 
     );
 };
 
-// ▼▼▼ 【新設】 新規イベント作成設定モーダル ▼▼▼
+// ▼▼▼ 修正版 EventSetupModal (タイポ修正済み) ▼▼▼
 const EventSetupModal = ({ isOpen, onClose, onCreate }) => {
-    // 1. State定義
     const [config, setConfig] = useState({
         title: '',
         startDate: getTodayDateString(),
@@ -72,7 +71,9 @@ const EventSetupModal = ({ isOpen, onClose, onCreate }) => {
         isMultiFloor: false
     });
 
-    // 2. useEffect
+    // 送信を試みたかどうかのフラグ
+    const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
+
     useEffect(() => {
         if (isOpen) {
             setConfig({
@@ -82,11 +83,21 @@ const EventSetupModal = ({ isOpen, onClose, onCreate }) => {
                 vjEnabled: false,
                 isMultiFloor: false
             });
+            setHasAttemptedSubmit(false);
         }
     }, [isOpen]);
 
-    // 3. ハンドラ関数の定義 (★ここを footerContent より先に書く必要があります！)
+    // バリデーション変数名: isTitleError
+    const isTitleError = !config.title || config.title.trim() === '';
+
     const handleSubmit = () => {
+        setHasAttemptedSubmit(true);
+
+        // ▼▼▼ 修正: isTitleError を使用 ▼▼▼
+        if (isTitleError) {
+            return;
+        }
+
         const finalConfig = {
             ...config,
             title: config.title.trim() || 'New Event'
@@ -94,7 +105,6 @@ const EventSetupModal = ({ isOpen, onClose, onCreate }) => {
         onCreate(finalConfig);
     };
 
-    // 4. フッターの定義 (★ハンドラ定義の後)
     const footerContent = (
         <div className="flex justify-end gap-3">
             <Button onClick={onClose} variant="ghost">キャンセル</Button>
@@ -111,24 +121,26 @@ const EventSetupModal = ({ isOpen, onClose, onCreate }) => {
             isScrollable={true}
             maxWidthClass="max-w-md"
         >
-            {/* コンテンツ */}
             <div className="space-y-6">
 
                 {/* 基本情報 */}
                 <div className="space-y-4">
                     <div>
-                        <label className="text-xs text-on-surface-variant mb-1 block font-bold">イベント名</label>
+                        <Label>イベント名</Label>
+                        {/* ▼▼▼ 修正: isTitleError を使用 ▼▼▼ */}
                         <Input
                             value={config.title}
                             onChange={(e) => setConfig({ ...config, title: e.target.value })}
                             placeholder="イベント名を入力..."
                             autoFocus
+                            isError={isTitleError}
+                            error={hasAttemptedSubmit && isTitleError ? "イベント名を入力してください" : null}
                         />
                     </div>
 
                     <div className="space-y-3">
                         <div>
-                            <label className="text-xs text-on-surface-variant mb-1 block font-bold">開催日</label>
+                            <Label>開催日</Label>
                             <Input
                                 type="date"
                                 value={config.startDate}
@@ -138,7 +150,7 @@ const EventSetupModal = ({ isOpen, onClose, onCreate }) => {
                             />
                         </div>
                         <div>
-                            <label className="text-xs text-on-surface-variant mb-1 block font-bold">開始時間</label>
+                            <Label>開始時間</Label>
                             <CustomTimeInput
                                 value={config.startTime}
                                 onChange={(v) => setConfig({ ...config, startTime: v })}
@@ -151,7 +163,7 @@ const EventSetupModal = ({ isOpen, onClose, onCreate }) => {
 
                 {/* 機能設定 */}
                 <div className="space-y-2">
-                    <label className="text-xs text-on-surface-variant mb-1 block font-bold">オプション設定</label>
+                    <Label>オプション設定</Label>
                     <div className="bg-surface-background/50 rounded-xl px-4 py-2 space-y-2">
                         <ToggleSwitch
                             checked={config.vjEnabled}
@@ -175,9 +187,7 @@ const EventSetupModal = ({ isOpen, onClose, onCreate }) => {
         </BaseModal>
     );
 };
-// ▲▲▲ 新設ここまで ▲▲▲
 
-// (日付フォーマット - 変更なし)
 const formatDateForIcon = (dateStr) => {
     if (!dateStr) return { month: '---', day: '--' };
     const date = new Date(dateStr);
@@ -186,7 +196,6 @@ const formatDateForIcon = (dateStr) => {
     return { month: monthNames[date.getMonth()], day: String(date.getDate()).padStart(2, '0') };
 };
 
-// (開催中判定 - 変更なし)
 const isEventActive = (event) => {
     const { startDate, startTime } = event.eventConfig;
     if (!startDate || !startTime) return false;
@@ -196,7 +205,6 @@ const isEventActive = (event) => {
     return now >= start && now < end;
 };
 
-// (EventCard - 変更なし)
 const EventCard = ({ event, onDeleteClick, onClick }) => {
     const floorCount = event.floors ? Object.keys(event.floors).length : 0;
     const displayFloors = (floorCount === 0 && event.timetable) ? '1 Floor' : `${floorCount} Floors`;
@@ -270,55 +278,59 @@ const EventCard = ({ event, onDeleteClick, onClick }) => {
     );
 };
 
-// (DashboardPage - ロジック更新)
 export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode }) => {
     const [events, setEvents] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
-
-    // ▼▼▼ 追加ステート ▼▼▼
     const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
-    // ▲▲▲ ここまで ▲▲▲
-
     const [isCreating, setIsCreating] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [isDevPanelOpen, setIsDevPanelOpen] = useState(false);
+
+    const [viewLimit, setViewLimit] = useState(20);
+    const [hasMore, setHasMore] = useState(false);
+
     const navigate = useNavigate();
 
     useEffect(() => {
         if (!user) return;
         setIsLoading(true);
-        const q = query(collection(db, "timetables"), where("ownerUid", "==", user.uid));
+
+        const q = query(
+            collection(db, "timetables"),
+            where("ownerUid", "==", user.uid),
+            orderBy("createdAt", "desc"),
+            limit(viewLimit)
+        );
+
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const userEvents = [];
-            querySnapshot.forEach((doc) => { userEvents.push({ id: doc.id, ...doc.data() }); });
-            userEvents.sort((a, b) => {
-                const dateA = a.createdAt?.toDate?.() || new Date(0);
-                const dateB = b.createdAt?.toDate?.() || new Date(0);
-                return dateB - dateA;
+            querySnapshot.forEach((doc) => {
+                userEvents.push({ id: doc.id, ...doc.data() });
             });
             setEvents(userEvents);
+            setHasMore(userEvents.length === viewLimit);
             setIsLoading(false);
-        }, (error) => { console.error("イベント読込エラー:", error); setIsLoading(false); });
-        return () => unsubscribe();
-    }, [user]);
+        }, (error) => {
+            console.error("イベント読込エラー:", error);
+            setIsLoading(false);
+        });
 
-    // ▼▼▼ 【修正】 作成ボタンクリック時はモーダルを開くだけ ▼▼▼
-    const handleCreateClick = () => {
-        setIsSetupModalOpen(true);
+        return () => unsubscribe();
+    }, [user, viewLimit]);
+
+    const handleLoadMore = () => {
+        setViewLimit(prev => prev + 20);
     };
 
-    // ▼▼▼ 【修正】 モーダルからのデータを受け取って作成する処理 ▼▼▼
+    const handleCreateClick = () => { setIsSetupModalOpen(true); };
+
     const handleSetupComplete = async (modalConfig) => {
         if (isCreating || !user) return;
-
-        setIsSetupModalOpen(false); // モーダルを閉じる
-        setIsCreating(true); // ローディング開始
-
+        setIsSetupModalOpen(false);
+        setIsCreating(true);
         try {
-            // 複数フロア設定に応じた初期フロア構成
             const floorsConfig = {};
-
             if (modalConfig.isMultiFloor) {
                 const mainFloorId = `floor_${Date.now()}_main`;
                 const subFloorId = `floor_${Date.now()}_sub`;
@@ -342,17 +354,13 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode })
             };
 
             const docRef = await addDoc(collection(db, "timetables"), newEventDoc);
-
-            // 作成完了後、編集ページへ遷移
             navigate(`/edit/${docRef.id}`);
-
         } catch (error) {
             console.error("作成失敗:", error);
             alert("イベントの作成に失敗しました。");
             setIsCreating(false);
         }
     };
-    // ▲▲▲ 修正ここまで ▲▲▲
 
     const handleDeleteEvent = async () => {
         if (!deleteTarget) return;
@@ -369,7 +377,7 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode })
         } catch (error) { console.error("一括削除失敗:", error); alert("一括削除に失敗しました。"); }
     };
 
-    if (isLoading) return <LoadingSpinner />;
+    if (isLoading && events.length === 0) return <LoadingSpinner />;
 
     return (
         <>
@@ -395,15 +403,29 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode })
                 </header>
 
                 {events.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {events.map(event => (
-                            <EventCard
-                                key={event.id}
-                                event={event}
-                                onDeleteClick={(id, title) => setDeleteTarget({ id, title })}
-                                onClick={() => navigate(`/edit/${event.id}`)}
-                            />
-                        ))}
+                    <div className="space-y-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {events.map(event => (
+                                <EventCard
+                                    key={event.id}
+                                    event={event}
+                                    onDeleteClick={(id, title) => setDeleteTarget({ id, title })}
+                                    onClick={() => navigate(`/edit/${event.id}`)}
+                                />
+                            ))}
+                        </div>
+
+                        {hasMore && (
+                            <div className="flex justify-center">
+                                <Button
+                                    onClick={handleLoadMore}
+                                    variant="secondary"
+                                    className="px-8 py-3 rounded-full shadow-sm hover:shadow-md"
+                                >
+                                    もっと読み込む
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <div className="flex flex-col items-center justify-center py-20 text-center opacity-70">
@@ -415,9 +437,7 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode })
                     </div>
                 )}
 
-                {/* フローティング作成ボタン */}
                 <button
-                    // ▼▼▼ 【修正】 ハンドラを handleCreateClick に変更 ▼▼▼
                     onClick={handleCreateClick}
                     disabled={isCreating}
                     className="fixed bottom-8 right-8 z-30 flex items-center gap-3 bg-brand-primary hover:bg-brand-primary/90 text-white font-bold py-4 px-6 rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-wait group"
@@ -427,13 +447,7 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode })
                 </button>
             </div>
 
-            {/* ▼▼▼ 追加: 新規作成設定モーダル ▼▼▼ */}
-            <EventSetupModal
-                isOpen={isSetupModalOpen}
-                onClose={() => setIsSetupModalOpen(false)}
-                onCreate={handleSetupComplete}
-            />
-
+            <EventSetupModal isOpen={isSetupModalOpen} onClose={() => setIsSetupModalOpen(false)} onCreate={handleSetupComplete} />
             <DashboardSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} theme={theme} toggleTheme={toggleTheme} onLogout={onLogout} />
             <ConfirmModal isOpen={!!deleteTarget} title="イベントを削除" message={`イベント「${deleteTarget?.title || '無題'}」を削除します。復元はできません。本当によろしいですか？`} onConfirm={handleDeleteEvent} onCancel={() => setDeleteTarget(null)} />
 

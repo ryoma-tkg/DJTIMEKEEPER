@@ -1,9 +1,14 @@
-// [src/components/ImageEditModal.jsx]
 import React, { useState, useEffect, useRef } from 'react';
 import { useStorageUpload } from '../hooks/useStorageUpload';
-import { SimpleImage, UserIcon, UploadIcon } from './common'; // XIconは削除可能
-// ▼▼▼ 追加: BaseModalをインポート ▼▼▼
-import { BaseModal } from './ui/BaseModal';
+// ▼▼▼ 【修正】 すべて ./common から一括インポート（重複を防ぐ） ▼▼▼
+import {
+    SimpleImage,
+    UserIcon,
+    UploadIcon,
+    BaseModal, // commonからインポート
+    Label,     // commonからインポート
+    Input      // commonからインポート
+} from './common';
 
 export const ImageEditModal = ({ dj, onUpdate, onClose, storage }) => {
     const [imageUrl, setImageUrl] = useState(dj.imageUrl || '');
@@ -57,8 +62,16 @@ export const ImageEditModal = ({ dj, onUpdate, onClose, storage }) => {
                 <div className="space-y-4 w-full">
                     {isUrlInputVisible && (
                         <div className="animate-fade-in-up">
-                            <label className="text-sm text-on-surface-variant mb-1 block">Image URL</label>
-                            <input type="text" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} className="bg-surface-background text-on-surface p-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary" placeholder="https://example.com/image.png" />
+                            {/* ▼▼▼ 修正: Label と Input を使用 ▼▼▼ */}
+                            <Label>Image URL</Label>
+                            {/* ▼▼▼ 必要であれば error プロップを利用 (今回は必須ではないのでnullでもOK) ▼▼▼ */}
+                            <Input
+                                type="text"
+                                value={imageUrl}
+                                onChange={(e) => setImageUrl(e.target.value)}
+                                placeholder="https://example.com/image.png"
+                            // error={imageUrl === '' ? "入力してください" : null} // 必要なら
+                            />
                         </div>
                     )}
                     <div>
