@@ -236,8 +236,12 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                                 eventConfig={eventConfig}
                                 timetable={timetable}
                                 vjTimetable={vjTimetable}
+                                // ▼▼▼ ここから追加・修正 ▼▼▼
+                                setTimetable={setTimetable}      // 追加
+                                setVjTimetable={setVjTimetable}  // 追加
                                 onToggleVjFeature={handleToggleVj}
-                                onLoadDummyData={() => { }}
+                                onLoadDummyData={null} // DevControls側で実装したため不要
+                                // ▲▲▲ ここまで ▲▲▲
                                 onSetStartNow={handleSetStartNow}
                                 onFinishEvent={() => handleTimeJump(1440)}
                                 onCrashApp={() => { throw new Error('Test'); }}

@@ -11,6 +11,13 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
 
+    // ▼▼▼ 追加: 管理者かどうかの判定 ▼▼▼
+    // データベース上のユーザー情報を見て、roleが 'admin' なら管理者とみなす
+    function isAdmin() {
+      return isSignedIn() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
     // --- Timetables バリデーション ---
     function isValidNewEvent() {
       let data = request.resource.data;
@@ -39,12 +46,9 @@ service cloud.firestore {
 
     // 1. Timetables
     match /timetables/{eventId} {
-      // 個別の取得: 誰でもOK（閲覧専用モードのため）
       allow get: if true;
       
-      // ★★★ 修正箇所 ★★★
-      // リスト取得: 「取得するデータが自分のuidを持っているか」をチェックします。
-      // アプリ側で where("ownerUid", "==", user.uid) しているクエリと合致します。
+      // リスト取得: 所有者のみ許可
       allow list: if isSignedIn()
                   && resource.data.ownerUid == request.auth.uid;
       
@@ -55,9 +59,9 @@ service cloud.firestore {
 
     // 2. Users
     match /users/{userId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId) && isValidUserUpdate();
-      allow update, delete: if isSignedIn() && isOwner(userId);
+      // ▼▼▼ 修正: 管理者なら他人のデータも読み書き可能にする ▼▼▼
+      allow read: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow write: if isSignedIn() && (isOwner(userId) || isAdmin());
     }
   }
 }

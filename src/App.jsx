@@ -10,7 +10,6 @@ import {
     signInWithPopup,
     signOut
 } from './firebase';
-// ▼▼▼ 【追加】 setDoc, updateDoc, serverTimestamp をインポート ▼▼▼
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { LoadingScreen } from './components/common';
 
@@ -99,7 +98,16 @@ const App = () => {
     const [isLoggingIn, setIsLoggingIn] = useState(false);
     const navigate = useNavigate();
     const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
-    const ADMIN_USER_ID = "GLGPpy6IlyWbGw15OwBPzRdCPZI2";
+
+    // ▼▼▼ 【変更】 管理者IDを配列で管理 ▼▼▼
+    // ここに権限を与えたい人のUIDをカンマ区切りで追加します
+    const ADMIN_USER_IDS = [
+        "GLGPpy6IlyWbGw15OwBPzRdCPZI2", // あなたのID
+        // "USER_ID_2", // 追加したい人のID
+        // "USER_ID_3", // 追加したい人のID
+    ];
+    // ▲▲▲ 変更ここまで ▲▲▲
+
     const [isDevMode, setIsDevMode] = useState(false);
 
     useEffect(() => {
@@ -117,7 +125,8 @@ const App = () => {
     };
 
     const toggleDevMode = () => {
-        if (user && user.uid === ADMIN_USER_ID) {
+        // ▼▼▼ 【変更】 配列に含まれているかで判定 ▼▼▼
+        if (user && ADMIN_USER_IDS.includes(user.uid)) {
             setIsDevMode(prev => !prev);
         }
     };
@@ -126,55 +135,70 @@ const App = () => {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
+                // 1. まずはユーザー情報をセット
                 setUser(firebaseUser);
                 setAuthStatus('authed');
 
-                if (firebaseUser.uid === ADMIN_USER_ID) {
-                    console.warn("管理者モードで起動しました。");
-                    setIsDevMode(true);
-                } else {
-                    setIsDevMode(false);
-                }
+                // 2. 管理者判定 (コード指定のIDリスト)
+                const isSuperAdmin = ADMIN_USER_IDS.includes(firebaseUser.uid);
 
-                // --- Firestore 同期処理 ---
+                // 3. Firestoreから最新のユーザー情報を取得して権限確認
+                let firestoreRole = 'free';
                 try {
                     const userDocRef = doc(db, "users", firebaseUser.uid);
                     const userSnap = await getDoc(userDocRef);
 
+                    if (userSnap.exists()) {
+                        firestoreRole = userSnap.data().role || 'free';
+                    }
+
+                    // ★★★ ここが重要: スーパー管理者なら、強制的にDBも 'admin' に書き換える ★★★
+                    // これにより、次回からStep 1のルールを通過できるようになります
+                    if (isSuperAdmin && firestoreRole !== 'admin') {
+                        await updateDoc(userDocRef, { role: 'admin' });
+                        firestoreRole = 'admin';
+                        console.log("[Auth] Role updated to admin based on hardcoded list.");
+                    }
+
+                    // 新規作成時も同様
                     if (!userSnap.exists()) {
-                        // 新規ユーザー: ドキュメントを作成
                         await setDoc(userDocRef, {
                             uid: firebaseUser.uid,
                             email: firebaseUser.email,
                             displayName: firebaseUser.displayName,
                             photoURL: firebaseUser.photoURL,
-                            role: 'free', // 初期ロール
+                            role: isSuperAdmin ? 'admin' : 'free', // 初期作成時も判定
                             createdAt: serverTimestamp(),
                             lastLoginAt: serverTimestamp(),
                             preferences: {
-                                // 初期設定 (localStorageがあればそれを引き継ぐ)
                                 theme: localStorage.getItem('theme') || 'dark',
                                 defaultStartTime: '22:00',
                                 defaultVjEnabled: false,
                                 defaultMultiFloor: false,
                             }
                         });
-                        console.log("[Auth] User profile created.");
+                        if (isSuperAdmin) firestoreRole = 'admin';
                     } else {
-                        // 既存ユーザー: 情報を最新化
+                        // 既存ユーザー同期
                         await updateDoc(userDocRef, {
                             email: firebaseUser.email,
                             displayName: firebaseUser.displayName,
                             photoURL: firebaseUser.photoURL,
                             lastLoginAt: serverTimestamp()
                         });
-                        console.log("[Auth] User profile synced.");
                     }
+
+                    // 最終的な管理者判定 (コード指定 OR DB指定)
+                    if (isSuperAdmin || firestoreRole === 'admin') {
+                        console.warn("管理者モードで起動しました。");
+                        setIsDevMode(true);
+                    } else {
+                        setIsDevMode(false);
+                    }
+
                 } catch (error) {
-                    console.error("[Auth] User sync failed:", error);
-                    // 同期に失敗してもアプリの利用自体は止めない
+                    console.error("[Auth] User sync/check failed:", error);
                 }
-                // ---------------------------
 
             } else {
                 setUser(null);
@@ -228,7 +252,7 @@ const App = () => {
                             )
                         }
                     />
-                    {/* ... (以下ルート定義は変更なし) ... */}
+
                     <Route
                         path="/login"
                         element={
