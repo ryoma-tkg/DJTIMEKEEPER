@@ -111,3 +111,8 @@ Comprehensive design update focusing on "Tactile Feel" and "Modern Professional"
 1.  **Public Real-time Page:** `/public/:timetableId` (View-only).
 2.  **Pro Features:** Image Export, CSV Import/Export.
 3.  **Monetization:** Stripe integration.
+4.  
+### Future Ideas & Candidates (💡 New!)
+**次期開発候補・ユーザー要望**
+* **Co-Editing (共同編集):** イベント単位で他のユーザーを招待し、複数人でリアルタイムにタイムテーブルを編集できる機能。
+* **Venue Info (会場登録):** イベント名の下に会場名や場所情報を登録・表示できる機能。
