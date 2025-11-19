@@ -1,74 +1,86 @@
-# [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-phase3-dev/report.md]
-# フェーズ3移行に伴う 開発環境エラーレポート
+# Handover Report: Phase 3 Completion & UI Polish
 
-**最終更新日: 2025-11-18**
+**Last Updated: 2025-11-19**
 
-## 1. 経緯: フェーズ3（マルチテナント化）への移行
+This document outlines the completion of Phase 3 (Multi-tenant & Multi-floor architecture) and the subsequent comprehensive UI/UX overhaul (Phase 3.5+).
 
-1.  **認証の変更:** Firebase Google認証を導入。
-2.  **ルーティングの導入:** `react-router-dom` を導入。
-3.  **データ構造の変更:** FirestoreのDB構造を `timetables` コレクション（`ownerUid` で管理）に変更。
-4.  **環境変数の分離:** Firebase APIキーを `.env.local` と `src/firebase.js` を使う形に変更。
+## 1. Executive Summary
 
----
+The application has successfully transitioned from a single-event tool to a **multi-user, multi-event, multi-floor SaaS platform**.
+Following the structural changes, a significant effort was made to refine the UI/UX, focusing on "tactile feel," "smooth transitions," and "visual hierarchy." The application now boasts a commercial-grade look and feel.
 
-## 2. エラー 1: ローカル環境での画面真っ白（`App is not defined`）
+## 2. UI/UX Design Philosophy
 
-### 2.1. 症状
+The design language has been shifted towards a **"Modern Professional & Tactile"** aesthetic.
 
-* `npm run dev` で `http://localhost:5173/` にアクセスすると画面が真っ白になる。
-* コンソールに `ReferenceError: App is not defined at EditorPage.jsx:256` が表示される。
-* Viteから `The server is configured with a public base URL of /DJTIMEKEEPER/ ...` という警告が出ていた。
+### 2.1. Dashboard (Event List)
+* **Concept:** "Anticipation & Status." The dashboard is not just a list; it's a control center.
+* **Card Design:**
+    * **Calendar Icon:** Replaced plain text dates with a structured "Month/Day" icon to improve scanability.
+    * **Depth & Interaction:** Cards use `hover:-translate-y-1` to provide tactile feedback on interaction.
+    * **"NOW ON AIR" Glow:** Active events are highlighted not just by color, but by a **Double-Layer Shadow**.
+        * *Layer 1:* A tight, opaque shadow defines the shape.
+        * *Layer 2:* A wide, diffuse shadow simulates a neon glow (`box-shadow`), creating a "live" atmosphere.
+    * **Visual Hierarchy:** The "LIVE LINK" button is visually distinct from the "Edit Mode" text link to guide the user's primary action during an event.
 
-### 2.2. 対策と解決
+### 2.2. Animation Physics
+* **"Snappy yet Smooth":**
+    * Modal animations were re-tuned from a sluggish 0.4s~2.0s to a crisp **0.15s**.
+    * We utilize `cubic-bezier(0.16, 1, 0.3, 1)` to give modal appearances a slight "spring" or "pop," making the app feel responsive and native-like.
+* **Seamless Context Switching (LiveView):**
+    * When switching floors, the UI performs a coordinated **Fade Out -> Data Swap (while hidden) -> Fade In** sequence.
+    * This eliminates layout shifts and the "flicker" of loading spinners, providing a TV-broadcast-quality transition.
 
-1.  **`vite.config.js` の修正:** `base: '/DJTIMEKEEPER/'` を `base: '/'` に修正。
-2.  **`main.jsx` の修正:** `BrowserRouter` の `basename="/DJTIMEKEEPER/"` 属性を削除し、Viteの設定と統一。
-3.  **`EditorPage.jsx` の修正:** `export default App;` という参照エラーを `export default EditorPage;` に修正。
-4.  **Viteキャッシュの削除:** 上記1〜3を実行してもエラーが解消しなかったため、`node_modules/.vite` フォルダを `rm -rf` で強制削除し、サーバーを再起動した。
-5.  **結果:** **ローカル環境の表示に成功。**
-
----
-
-## 3. エラー 2: ステージング環境での画面真っ白（`auth/invalid-api-key`）
-
-### 3.1. 症状
-
-* ローカルの修正を `phase3-dev` ブランチにプッシュ。
-* GitHub Actionsによるデプロイが成功し、プレビューURLにアクセス。
-* 画面が真っ白になり、コンソールに `FirebaseError: Firebase: Error (auth/invalid-api-key)` が表示される。
-
-### 3.2. 対策と解決
-
-1.  **原因の特定:** `src/firebase.js` が `import.meta.env.VITE_...` からAPIキーを読み込もうとしたが、GitHub Actionsのビルド環境には `.env.local` が存在しないため、APIキーが `undefined` のままビルドされていた。
-2.  **GitHub Secretsの登録（計7個）:**
-    * **管理者キー (1個):** `FIREBASE_SERVICE_ACCOUNT_DJTABLE_2408D` （デプロイ用）
-    * **アプリ設定キー (6個):** `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN` などの6つのキーをGitHub Actionsのシークレットに1つずつ登録。
-3.  **ワークフローの修正:** `.github/workflows/firebase-hosting-preview.yml` の `Build Vite app` ステップに `env:` ブロックを追加。これにより、ビルド時にGitHub Secretsが `import.meta.env` に注入されるようになった。
-4.  **結果:** **ステージング環境での `invalid-api-key` エラー解消。**
+### 2.3. Editor Interface
+* **Placeholder Pattern:**
+    * "Add DJ" and "Add Floor" buttons are designed as **dashed-border placeholders**. This visually communicates "this is where new content will appear," offering better affordance than standard buttons.
+* **Alignment & Symmetry:**
+    * Strict attention was paid to the vertical alignment of the DJ column and VJ column. Wrappers were added to ensure buttons align perfectly even when content heights differ.
 
 ---
 
-## 4. エラー 3: ログイン後のデータ読み書き不可（`Missing or insufficient permissions`）
+## 3. Technical Implementation Details
 
-### 4.1. 症状
+### 3.1. LiveView Animation Logic (`src/components/LiveView.jsx`)
+To solve the "double animation" glitch (where old content fades out while new content fades in during floor switches), a robust state machine was implemented:
 
-* ローカル・ステージング共にログインは成功する（`ログイン成功: GLG...` と表示される）。
-* しかし、直後に `イベントの読み込みに失敗: FirebaseError: Missing or insufficient permissions.` が発生する。
-* ダッシュボード（`/`）で「新しいイベントを作成」 しても保存されない。
-* ただし、作成 → 編集画面 → ブラウザバック の操作時のみ、ローカルキャッシュにより一瞬イベントが表示されるが、リロードすると消える。
+1.  **`suppressEntryAnimation` Flag:**
+    * When a floor change is detected, the entire view fades out (`opacity: 0`).
+    * Data is swapped while invisible.
+    * The `suppressEntryAnimation` flag is set to `true`.
+    * The view fades in. Because the flag is true, individual DJ items **do not** trigger their entry animations. They appear statically.
+2.  **Restoring Animations:**
+    * After the floor transition completes (approx. 500ms), the flag is reset to `false`.
+    * Subsequent data updates (e.g., natural time progression) trigger standard entry/exit animations.
+3.  **"Already Displayed" Check:**
+    * `useRef` is used to track IDs of currently displayed elements to prevent re-animating elements that are already visible during minor re-renders.
 
-### 4.2. 対策と解決（切り分け）
+### 3.2. CSS & Tailwind Configuration
+* **Arbitrary Values:** Extensive use of Tailwind's arbitrary value syntax (e.g., `shadow-[0_0_20px_rgba(...)]`) for fine-tuned lighting effects that standard classes cannot achieve.
+* **Z-Index Management:** Fixed clipping issues in the `FloorManagerModal` during drag-and-drop operations by applying specific `z-index` stacking contexts to the scroll container and dragging items.
 
-1.  **ルールデプロイ:** `firebase deploy --only firestore:rules` を実行。`latest version ... already up to date` と表示され、デプロイ自体は成功していることを確認。
-2.  **DB作成確認:** Firebaseコンソールのスクリーンショット にて、`timetables` コレクションが存在し、データベースが作成済みであることを確認。
-3.  **広告ブロッカー確認:** `net::ERR_BLOCKED_BY_CLIENT` が出ていたため、広告ブロッカーをOFFにし、Safariでも試したが、`Missing or insufficient permissions` は解消せず。
-4.  **インデックス作成:** `DashboardPage.jsx` が `where("ownerUid", ...)` クエリを使っているため、Firestoreコンソールで `timetables` コレクションの `ownerUid` フィールド（昇順）のインデックスを作成。ステータスが「有効」になるまで待機。
-5.  **（失敗）:** インデックスが「有効」になってもエラーが解消せず。
+### 3.3. Components
+* **`ToggleSwitch` (`common.jsx`):** A new, reusable, iOS-style toggle component used in all settings modals.
+* **`FloorManagerModal`:**
+    * Implements custom Drag-and-Drop logic (ported and adapted from `useDragAndDrop` but simplified for this specific modal).
+    * Features "negative margin" techniques to allow shadows to cast outside the scrollable area without being clipped.
 
-### 4.3. 真の原因と解決
+---
 
-1.  **`firestore.rules` の構文エラー:** 調査の結果、`firestore.rules` の `allow list` に書かれていた `request.query.where...` という構文が、**Firestoreではサポートされていない無効なルール**であったことが判明した。（旧Realtime Databaseの構文と混同していた）
-2.  **`firestore.rules` の修正:** `allow list` のルールを、`request.query.where` を使った複雑な（そして無効な）検証から、シンプルに「**ログインしていればクエリの実行を許可する**」という意味の `if request.auth.uid != null;` に修正した。
-3.  **ルールの再デプロイ:** 修正した `firestore.rules` を `firebase deploy --only firestore:rules` で再度デプロイ。
-4.  **結果:** **エラー（`Missing or insufficient permissions`）が完全に解消。** ローカル・ステージング両方で、イベントの新規作成（保存）と一覧の読み込みが正常に動作することを確認した。
+## 4. Handover Notes & Next Steps
+
+### 4.1. Immediate Tasks (Phase 4)
+* **Image Export:** The user wants to export the timetable as an image for SNS.
+    * *Recommendation:* Use `html2canvas`. Create a hidden container with a specific aspect ratio (e.g., 4:5 for Instagram) to render a "clean" version of the timetable for export.
+* **CSV Import/Export:** Allow bulk data management.
+
+### 4.2. Maintenance
+* **`LiveView.jsx` Complexity:** The animation logic is sophisticated but complex. If modifying the fade durations, ensure the `setTimeout` delays in `useEffect` hooks are updated to match the CSS transition times defined in `tailwind.config.js`.
+* **Performance:** The "Glow" effects (`box-shadow`) are heavy on the GPU. If the dashboard becomes sluggish on low-end devices, consider simplifying the shadow to a single layer for mobile breakpoints.
+
+### 4.3. Known "Non-Bugs"
+* **Floor Switch Delay:** There is a deliberate ~500ms delay when switching floors in LiveView. This is *intentional* to allow for the "Fade Out -> Swap -> Fade In" sequence. Do not remove this delay without replacing the transition logic.
+
+---
+
+**Status:** The `phase3-dev` branch is stable, visually polished, and ready for staging deployment or merging into `main`.

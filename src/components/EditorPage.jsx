@@ -1,186 +1,175 @@
-// [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-phase3-dev/src/components/EditorPage.jsx]
+// [src/components/EditorPage.jsx]
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { db, storage } from '../firebase'; // auth は user prop 経由なので削除
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { db, storage } from '../firebase';
+import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 
-// 必要なコンポーネントとフックをインポート
 import { TimetableEditor } from './TimetableEditor';
 import { LiveView } from './LiveView';
 import { DevControls } from './DevControls';
 import { useImagePreloader } from '../hooks/useImagePreloader';
-import { PowerIcon, AlertTriangleIcon } from './common';
+import { PowerIcon, LoadingScreen } from './common';
 
-// (App.jsxからLoadingScreenを拝借)
-const LoadingScreen = ({ text = "読み込み中..." }) => (
-    <div className="flex flex-col items-center justify-center h-screen bg-surface-background">
-        <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner mb-4"></div>
-        <p className="text-lg text-on-surface-variant">{text}</p>
-    </div>
-);
-
-// (App.jsxからgetDefaultEventConfigを拝借)
+// デフォルト設定
 const getDefaultEventConfig = () => ({
     title: 'DJ Timekeeper Pro',
-    startDate: new Date().toISOString().split('T')[0], // 
+    startDate: new Date().toISOString().split('T')[0],
     startTime: '22:00',
     vjFeatureEnabled: false
 });
 
-// ★ EditorPage 本体
 export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleTheme }) => {
-    const { eventId } = useParams(); // URLから /edit/:eventId の eventId を取得
+    const { eventId, floorId } = useParams();
     const navigate = useNavigate();
-    const dbRef = useRef(db); // 
-    const storageRef = useRef(storage); // 
+    const dbRef = useRef(db);
+    const storageRef = useRef(storage);
 
-    // ▼▼▼ 旧 App.jsx のロジックをここにお引越し ▼▼▼
-    const [mode, setMode] = useState('edit'); // ★ 修正: EditorPage が mode を持つ
+    // state
+    const [eventData, setEventData] = useState(null);
+    const [eventConfig, setEventConfig] = useState(getDefaultEventConfig());
+    const [floors, setFloors] = useState({});
+
+    // 現在選択中のフロア情報
+    const [currentFloorId, setCurrentFloorId] = useState(floorId);
     const [timetable, setTimetable] = useState([]);
     const [vjTimetable, setVjTimetable] = useState([]);
-    const [eventConfig, setEventConfig] = useState(getDefaultEventConfig());
 
-    // データ読み込み＆権限チェック用
-    const [pageStatus, setPageStatus] = useState('loading'); // 'loading', 'ready', 'forbidden', 'not-found'
-
+    const [mode, setMode] = useState('edit');
+    const [pageStatus, setPageStatus] = useState('loading');
     const [timeOffset, setTimeOffset] = useState(0);
+    const [isDevPanelOpen, setIsDevPanelOpen] = useState(false);
 
-    // ▼▼▼ 【!!! 追加 !!!】 開発者パネルの「表示/非表示」を管理する state ▼▼▼
-    const [isDevPanelOpen, setIsDevPanelOpen] = useState(false); // デフォルトは非表示
-
-    // 画像プリロード
     const imageUrlsToPreload = useMemo(() => timetable.map(dj => dj.imageUrl), [timetable]);
     const { loadedUrls, allLoaded: imagesLoaded } = useImagePreloader(imageUrlsToPreload);
-
-    // タイムテーブルのドキュメントリファレンス
     const docRef = useMemo(() => doc(dbRef.current, 'timetables', eventId), [eventId]);
-    // ▲▲▲ お引越しここまで ▲▲▲
 
-    // ▼ 1. データ読み込み ＆ 権限チェック
+    // 1. データ読み込み
     useEffect(() => {
-        if (!user || !eventId) return; // ユーザーかeventIdが未定なら何もしない
-
-        setPageStatus('loading');
+        if (!user || !eventId) return;
+        // ★ 既にデータがある場合、フロア切り替え時に全画面ローディングを出さない
+        if (!eventData) {
+            setPageStatus('loading');
+        }
 
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
-
-                // ★★★ フェーズ3.3 セキュリティチェック ★★★
                 if (data.ownerUid !== user.uid) {
-                    // 自分のイベントじゃない！
-                    console.warn("アクセス権限がありません (Not the owner)");
-                    // ▼▼▼ 【!!! 修正 !!!】 エラー表示ではなく、/live/ にリダイレクト ▼▼▼
-                    setPageStatus('forbidden'); // （念のためセット）
-                    navigate(`/live/${eventId}`, { replace: true }); // 
-                    // ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲
-                } else {
-                    // 自分のイベントだった
-                    setTimetable(data.timetable || []);
-                    setVjTimetable(data.vjTimetable || []);
-                    setEventConfig(prev => ({ ...prev, ...(data.eventConfig || {}) }));
-                    setPageStatus('ready'); // 
+                    navigate(`/live/${eventId}`, { replace: true });
+                    return;
                 }
+                setEventData(data);
+                setEventConfig(prev => ({ ...prev, ...(data.eventConfig || {}) }));
+                setFloors(data.floors || {});
+
+                // 旧データ互換
+                if (!data.floors && data.timetable) {
+                    if (currentFloorId === 'default') {
+                        setTimetable(data.timetable || []);
+                        setVjTimetable(data.vjTimetable || []);
+                        setFloors({ 'default': { name: 'Timetable', order: 0, timetable: data.timetable, vjTimetable: data.vjTimetable } });
+                    } else {
+                        navigate(`/edit/${eventId}/default`, { replace: true });
+                    }
+                }
+                // 新データ
+                else if (data.floors) {
+                    if (data.floors[currentFloorId]) {
+                        setTimetable(data.floors[currentFloorId].timetable || []);
+                        setVjTimetable(data.floors[currentFloorId].vjTimetable || []);
+                    } else {
+                        const firstFloorId = Object.keys(data.floors).sort(
+                            (a, b) => (data.floors[a].order || 0) - (data.floors[b].order || 0)
+                        )[0];
+                        if (firstFloorId) {
+                            navigate(`/edit/${eventId}/${firstFloorId}`, { replace: true });
+                        }
+                    }
+                }
+                setPageStatus('ready');
             } else {
-                console.error("イベントが見つかりません (Not Found)");
                 setPageStatus('not-found');
             }
         }, (error) => {
-            console.error("イベントの読み込みに失敗:", error);
-            setPageStatus('offline'); // 
+            console.error(error);
+            setPageStatus('offline');
         });
-
         return () => unsubscribe();
-    }, [user, eventId, docRef, navigate]); // ★ navigate を依存配列に追加
+    }, [user, eventId, docRef, navigate]);
 
-    // ▼ 2. データベースへの自動保存ロジック (変更なし)
-    const saveDataToFirestore = useCallback(() => {
-        if (pageStatus !== 'ready' || !user) return; // 準備完了＆ログイン中のみ保存
-
-        // ★ 保存先を 'sharedTimetable' から 'timetables/{eventId}' に変更
-        const dataToSave = { timetable, vjTimetable, eventConfig };
-        // (ownerUid や createdAt は変更しないので、merge: true は不要)
-        setDoc(docRef, dataToSave, { merge: true }).catch(error => {
-            console.error("Error saving data to Firestore:", error);
-            setPageStatus('offline'); // 
-        });
-    }, [docRef, timetable, vjTimetable, eventConfig, pageStatus, user]);
-
-    // (自動保存useEffect - 変更なし)
+    // URL同期 & データ更新
     useEffect(() => {
-        if (pageStatus !== 'ready') return; // 読み込み中や権限なしの時は保存しない
+        setCurrentFloorId(floorId);
+        if (eventData && eventData.floors && eventData.floors[floorId]) {
+            setTimetable(eventData.floors[floorId].timetable || []);
+            setVjTimetable(eventData.floors[floorId].vjTimetable || []);
+        } else if (eventData && eventData.timetable && floorId === 'default') {
+            setTimetable(eventData.timetable || []);
+            setVjTimetable(eventData.vjTimetable || []);
+        }
+    }, [floorId, eventData]);
 
-        const handler = setTimeout(() => {
-            saveDataToFirestore();
-        }, 1000);
+    // 保存ロジック
+    const saveDataToFirestore = useCallback(() => {
+        if (pageStatus !== 'ready' || !user || !currentFloorId) return;
+        if (eventData && !eventData.floors && eventData.timetable) {
+            setDoc(docRef, { eventConfig, timetable, vjTimetable }, { merge: true });
+        } else if (eventData && eventData.floors) {
+            const updates = {
+                eventConfig,
+                [`floors.${currentFloorId}.timetable`]: timetable,
+                [`floors.${currentFloorId}.vjTimetable`]: vjTimetable,
+            };
+            updateDoc(docRef, updates);
+        }
+    }, [docRef, eventConfig, timetable, vjTimetable, pageStatus, user, currentFloorId, eventData]);
+
+    useEffect(() => {
+        if (pageStatus !== 'ready') return;
+        const handler = setTimeout(() => saveDataToFirestore(), 1000);
         return () => clearTimeout(handler);
-    }, [saveDataToFirestore, pageStatus]);
+    }, [saveDataToFirestore]);
 
-
-    // ▼ 3. Liveモードへの切り替え (旧 App.jsx からお引越し)
-    const handleSetMode = (newMode) => {
-        if (newMode === 'live') {
-            if (!imagesLoaded) {
-                alert("まだ画像の準備中っす！ちょっと待ってからもう一回押してくださいっす！");
-                return;
-            }
-            // ★ 修正: URL遷移せず、内部の mode を 'live' に変更
-            setMode('live');
-        } else {
-            // ★ 修正: 'edit' に戻る
-            setMode('edit');
+    const handleFloorsUpdate = async (newFloorsMap) => {
+        if (pageStatus !== 'ready' || !user) return;
+        if (eventData && !eventData.floors) return;
+        try {
+            await updateDoc(docRef, { floors: newFloorsMap });
+        } catch (error) {
+            console.error(error);
+            setPageStatus('offline');
         }
     };
 
-    // ▼ 4. 開発者モード用ロジック (変更なし)
-    const handleTimeJump = (minutes) => {
-        const msToAdd = minutes * 60 * 1000;
-        setTimeOffset(prevOffset => prevOffset + msToAdd);
+    const handleSetMode = (newMode) => {
+        // 画像読み込みチェックは任意だが、UX上はロード待ったほうが良い
+        if (newMode === 'live' && !imagesLoaded) {
+            // ロード画面を表示するなら setModeせず待機でも良いが、ここでは簡易警告
+            // alert("画像読み込み中..."); // 鬱陶しいので削除
+        }
+        setMode(newMode);
     };
+
+    const handleSelectFloor = (newFloorId) => {
+        if (newFloorId !== currentFloorId) {
+            navigate(`/edit/${eventId}/${newFloorId}`);
+        }
+    };
+
+    // 開発者ツール
+    const handleTimeJump = (m) => setTimeOffset(p => p + m * 60 * 1000);
     const handleTimeReset = () => setTimeOffset(0);
-    const handleToggleVjFeature = () => setEventConfig(prev => ({ ...prev, vjFeatureEnabled: !prev.vjFeatureEnabled }));
+    const handleToggleVj = () => setEventConfig(p => ({ ...p, vjFeatureEnabled: !p.vjFeatureEnabled }));
     const handleSetStartNow = () => {
         const now = new Date();
-        const newStartDate = now.toISOString().split('T')[0];
-        const newStartTime = now.toTimeString().slice(0, 5);
-        setEventConfig(prev => ({ ...prev, startDate: newStartDate, startTime: newStartTime, }));
+        setEventConfig(p => ({ ...p, startDate: now.toISOString().split('T')[0], startTime: now.toTimeString().slice(0, 5) }));
         setTimeOffset(0);
     };
-    const handleFinishEvent = () => handleTimeJump(1440);
-    const [crash, setCrash] = useState(false);
-    if (crash) throw new Error('Test Error from DevControls');
-    // (ダミーデータはDashboardで作るのでここでは不要)
 
+    if (pageStatus === 'loading') return <LoadingScreen text="読み込み中..." />;
+    if (pageStatus === 'offline') return <div className="p-8">接続エラー</div>;
+    if (pageStatus === 'not-found') return <div className="p-8">404 - Not Found<Link to="/">Dashboard</Link></div>;
 
-    // === レンダリング ===
-
-    if (pageStatus === 'loading') {
-        return <LoadingScreen text="イベントデータを読み込み中..." />;
-    }
-
-    if (pageStatus === 'offline') {
-        return (
-            <div className="fixed inset-0 bg-amber-500/90 text-white font-bold py-2 px-4 rounded-full shadow-lg flex items-center gap-2 animate-fade-in-up">
-                <AlertTriangleIcon className="w-5 h-5" />
-                <span>オフラインです。接続を確認してください。</span>
-            </div>
-        );
-    }
-
-    if (pageStatus === 'not-found') {
-        return <div className="p-8"><h1>404 - イベントが見つかりません</h1><Link to="/">ダッシュボードに戻る</Link></div>;
-    }
-
-    if (pageStatus === 'forbidden') {
-        // ★ リダイレクトが実行されるまでの間に一瞬表示されるローディング
-        return <LoadingScreen text="閲覧モードにリダイレクト中..." />;
-    }
-
-    //
-    // pageStatus === 'ready' の場合
-    //
-
-    // ▼▼▼ 【!!! 修正 !!!】 本来の return 文はこれです ▼▼▼
     return (
         <>
             {mode === 'edit' ? (
@@ -191,56 +180,71 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                     setTimetable={setTimetable}
                     vjTimetable={vjTimetable}
                     setVjTimetable={setVjTimetable}
-                    setMode={handleSetMode} // 内部の mode トグル用
-                    storage={storageRef.current} // storage の実体を渡す
+
+                    // フロア関連Props
+                    floors={floors}
+                    currentFloorId={currentFloorId}
+                    onSelectFloor={handleSelectFloor}
+                    onFloorsUpdate={handleFloorsUpdate}
+
+                    setMode={handleSetMode}
+                    storage={storageRef.current}
                     timeOffset={timeOffset}
                     theme={theme}
                     toggleTheme={toggleTheme}
                     imagesLoaded={imagesLoaded}
                 />
             ) : (
+                // ★ プレビューモード
                 <LiveView
                     timetable={timetable}
                     vjTimetable={vjTimetable}
                     eventConfig={eventConfig}
-                    setMode={handleSetMode} // 内部の mode トグル用
+                    floors={floors}
+                    currentFloorId={currentFloorId}
+                    onSelectFloor={handleSelectFloor}
+                    setMode={handleSetMode}
                     loadedUrls={loadedUrls}
                     timeOffset={timeOffset}
-                    isReadOnly={false} // 編集ページ内のLiveViewは ReadOnly ではない
+                    isReadOnly={false}
                     theme={theme}
                     toggleTheme={toggleTheme}
+                    eventId={eventId}
+                    isPreview={true} // ★ プレビューフラグ
                 />
             )}
 
-            {/* 開発者モード用 */}
             {isDevMode && (
                 <>
+                    {/* z-index強化 */}
                     <button
-                        onClick={() => setIsDevPanelOpen(prev => !prev)}
-                        className="fixed bottom-4 left-4 z-[998] w-12 h-12 bg-brand-primary text-white rounded-full shadow-lg grid place-items-center"
-                        title="開発者パネルを開く"
+                        onClick={() => setIsDevPanelOpen(p => !p)}
+                        className="fixed bottom-4 left-4 z-[9999] w-12 h-12 bg-brand-primary text-white rounded-full shadow-lg grid place-items-center hover:bg-brand-primary/80 transition-colors"
+                        style={{ isolation: 'isolate' }}
                     >
                         <PowerIcon className="w-6 h-6" />
                     </button>
                     {isDevPanelOpen && (
-                        <DevControls
-                            mode={mode}
-                            setMode={handleSetMode}
-                            timeOffset={timeOffset}
-                            onTimeJump={handleTimeJump}
-                            onTimeReset={handleTimeReset}
-                            eventConfig={eventConfig}
-                            timetable={timetable}
-                            vjTimetable={vjTimetable}
-                            onToggleVjFeature={handleToggleVjFeature}
-                            onLoadDummyData={() => alert("ダミーデータはダッシュボードで作成してください")}
-                            onSetStartNow={handleSetStartNow}
-                            onFinishEvent={handleFinishEvent}
-                            onCrashApp={() => setCrash(true)}
-                            imagesLoaded={imagesLoaded}
-                            onClose={() => setIsDevPanelOpen(false)} // ★ パネルを閉じる関数を渡す
-                        // onToggleDevMode={onToggleDevMode} // ★ App全体のDevModeトグルは不要
-                        />
+                        <div className="fixed bottom-4 right-4 z-[9999]" style={{ isolation: 'isolate' }}>
+                            <DevControls
+                                location="editor"
+                                mode={mode}
+                                setMode={handleSetMode}
+                                timeOffset={timeOffset}
+                                onTimeJump={handleTimeJump}
+                                onTimeReset={handleTimeReset}
+                                eventConfig={eventConfig}
+                                timetable={timetable}
+                                vjTimetable={vjTimetable}
+                                onToggleVjFeature={handleToggleVj}
+                                onLoadDummyData={() => { }}
+                                onSetStartNow={handleSetStartNow}
+                                onFinishEvent={() => handleTimeJump(1440)}
+                                onCrashApp={() => { throw new Error('Test'); }}
+                                imagesLoaded={imagesLoaded}
+                                onClose={() => setIsDevPanelOpen(false)}
+                            />
+                        </div>
                     )}
                 </>
             )}
@@ -248,5 +252,4 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
     );
 };
 
-// ★ 修正: export default App; ではなく、export default EditorPage;
 export default EditorPage;

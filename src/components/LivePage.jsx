@@ -1,22 +1,13 @@
-// [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-phase3-dev/src/components/LivePage.jsx]
+// [src/components/LivePage.jsx]
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 
-// 必要なコンポーネントとフックをインポート
 import { LiveView } from './LiveView';
 import { useImagePreloader } from '../hooks/useImagePreloader';
+import { LoadingScreen } from './common';
 
-// (ローディング)
-const LoadingScreen = ({ text = "読み込み中..." }) => (
-    <div className="flex flex-col items-center justify-center h-screen bg-surface-background">
-        <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner mb-4"></div>
-        <p className="text-lg text-on-surface-variant">{text}</p>
-    </div>
-);
-
-// (デフォルト設定)
 const getDefaultEventConfig = () => ({
     title: 'DJ Timekeeper Pro',
     startDate: new Date().toISOString().split('T')[0],
@@ -24,86 +15,117 @@ const getDefaultEventConfig = () => ({
     vjFeatureEnabled: false
 });
 
-// ★ LivePage 本体
 export const LivePage = ({ theme, toggleTheme }) => {
-    const { eventId } = useParams(); // URLから /live/:eventId の eventId を取得
+    const { eventId, floorId } = useParams();
     const navigate = useNavigate();
     const dbRef = useRef(db);
 
-    // ▼▼▼ 閲覧に必要な state のみ ▼▼▼
+    // state
+    const [eventData, setEventData] = useState(null);
+    const [eventConfig, setEventConfig] = useState(getDefaultEventConfig());
+    const [floors, setFloors] = useState({});
+
     const [timetable, setTimetable] = useState([]);
     const [vjTimetable, setVjTimetable] = useState([]);
-    const [eventConfig, setEventConfig] = useState(getDefaultEventConfig());
-    const [pageStatus, setPageStatus] = useState('loading'); // 'loading', 'ready', 'not-found'
-    const [timeOffset, setTimeOffset] = useState(0); // (DevModeがないので常に0だが、将来のために残す)
+    const [pageStatus, setPageStatus] = useState('loading');
+    const [timeOffset, setTimeOffset] = useState(0);
 
-    // 画像プリロード
     const imageUrlsToPreload = useMemo(() => timetable.map(dj => dj.imageUrl), [timetable]);
     const { loadedUrls, allLoaded: imagesLoaded } = useImagePreloader(imageUrlsToPreload);
-
-    // タイムテーブルのドキュメントリファレンス
     const docRef = useMemo(() => doc(dbRef.current, 'timetables', eventId), [eventId]);
 
-    // ▼ 1. データ読み込み (セキュリティチェックなし)
+    // 1. データ読み込み
     useEffect(() => {
-        if (!eventId) return;
+        if (!eventId || !floorId) return;
 
-        setPageStatus('loading');
+        // ★ 既にデータがある場合はLoadingにしない (LiveView側でフェード処理するため)
+        if (!eventData) {
+            setPageStatus('loading');
+        }
 
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
-                setTimetable(data.timetable || []);
-                setVjTimetable(data.vjTimetable || []);
+
+                setEventData(data);
                 setEventConfig(prev => ({ ...prev, ...(data.eventConfig || {}) }));
-                setPageStatus('ready');
+                setFloors(data.floors || {});
+
+                // 旧データ互換
+                if (!data.floors && data.timetable) {
+                    if (floorId === 'default') {
+                        setTimetable(data.timetable || []);
+                        setVjTimetable(data.vjTimetable || []);
+                        setFloors({ 'default': { name: 'Main Floor', order: 0, timetable: data.timetable, vjTimetable: data.vjTimetable } });
+                        setPageStatus('ready');
+                    } else {
+                        navigate(`/live/${eventId}/default`, { replace: true });
+                    }
+                }
+                // 新データ (複数フロア)
+                else if (data.floors) {
+                    if (data.floors[floorId]) {
+                        setTimetable(data.floors[floorId].timetable || []);
+                        setVjTimetable(data.floors[floorId].vjTimetable || []);
+                        setPageStatus('ready');
+                    } else {
+                        const firstFloorId = Object.keys(data.floors).sort(
+                            (a, b) => (data.floors[a].order || 0) - (data.floors[b].order || 0)
+                        )[0];
+                        if (firstFloorId) {
+                            navigate(`/live/${eventId}/${firstFloorId}`, { replace: true });
+                        } else {
+                            setPageStatus('not-found');
+                        }
+                    }
+                } else {
+                    setPageStatus('not-found');
+                }
             } else {
-                console.error("イベントが見つかりません (Not Found)");
                 setPageStatus('not-found');
             }
         }, (error) => {
-            console.error("イベントの読み込みに失敗:", error);
-            setPageStatus('offline'); // 
+            console.error(error);
+            setPageStatus('offline');
         });
 
         return () => unsubscribe();
-    }, [eventId, docRef]);
+    }, [eventId, floorId, docRef, navigate]);
 
-    // ▼ 2. 編集モードに戻る (isReadOnly=true なので実質オーナーのみ)
-    const handleSetMode = (newMode) => {
-        if (newMode === 'edit') {
-            navigate(`/edit/${eventId}`);
+    const handleSelectFloor = (newFloorId) => {
+        if (newFloorId !== floorId) {
+            navigate(`/live/${eventId}/${newFloorId}`);
         }
     };
 
-    // === レンダリング ===
+    const handleSetMode = (newMode) => {
+        if (newMode === 'edit') {
+            navigate(`/edit/${eventId}/${floorId}`);
+        }
+    };
 
-    if (pageStatus === 'loading' || (pageStatus === 'ready' && !imagesLoaded)) {
-        return <LoadingScreen text="タイムテーブルを読み込み中..." />;
+    if (pageStatus === 'loading') {
+        return <LoadingScreen text="読み込み中..." />;
     }
 
-    if (pageStatus === 'not-found') {
-        return <div className="p-8"><h1>404 - イベントが見つかりません</h1></div>;
-    }
+    if (pageStatus === 'not-found') return <div className="p-8">404 - Not Found</div>;
+    if (pageStatus === 'offline') return <div className="p-8">接続エラー</div>;
 
-    if (pageStatus === 'offline') {
-        return <div className="p-8"><h1>接続エラー</h1><p>オフラインのため、タイムテーブルを表示できません。</p></div>;
-    }
-
-    //
-    // pageStatus === 'ready'
-    //
     return (
         <LiveView
             timetable={timetable}
             vjTimetable={vjTimetable}
             eventConfig={eventConfig}
-            setMode={handleSetMode} // 
+            floors={floors}
+            currentFloorId={floorId}
+            setMode={handleSetMode}
+            onSelectFloor={handleSelectFloor}
             loadedUrls={loadedUrls}
             timeOffset={timeOffset}
-            isReadOnly={true} // ★ LivePage は常に ReadOnly
+            isReadOnly={true}
             theme={theme}
             toggleTheme={toggleTheme}
+            eventId={eventId}
         />
     );
 };
