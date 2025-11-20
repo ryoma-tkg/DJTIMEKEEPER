@@ -1,16 +1,36 @@
-import React, { useState } from 'react';
+// [src/components/UITestPage.jsx]
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import {
     PlayIcon, SettingsIcon, PlusIcon, TrashIcon,
-    LayersIcon, LogOutIcon, GripIcon, UserIcon,
-    VideoIcon, CalendarIcon, CopyIcon,
-    Button, Input, ToggleSwitch, CustomTimeInput,
-    Label, ClockIcon, MoonIcon, SunIcon, SearchIcon
+    LayersIcon, GripIcon, UserIcon,
+    SearchIcon, ClockIcon, MoonIcon, SunIcon,
+    CopyIcon, Label, VideoIcon, CalendarIcon,
+    XIcon, LogOutIcon, AlertTriangleIcon
 } from './common';
 
-// --- Design System Definitions (v2.3.3 - Refined Tactile & Visibility) ---
+// --- Icons Defined Locally ---
+const MoreVerticalIcon = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <circle cx="12" cy="12" r="1"></circle>
+        <circle cx="12" cy="5" r="1"></circle>
+        <circle cx="12" cy="19" r="1"></circle>
+    </svg>
+);
+const PaletteIcon = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"></circle>
+        <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"></circle>
+        <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"></circle>
+        <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"></circle>
+        <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"></path>
+    </svg>
+);
 
-// 1. Buttons (変更なし)
+// --- Design System Definitions (v4.2.0 - Corrected Logic) ---
+
+// 1. Buttons
 const NewButton = ({
     variant = 'secondary',
     size = 'md',
@@ -79,8 +99,8 @@ const NewButton = ({
     );
 };
 
-// 2. Input Fields (変更なし)
-const NewInput = ({ label, placeholder, icon: Icon, value = "" }) => (
+// 2. Input Fields
+const NewInput = ({ label, placeholder, icon: Icon, value = "", type = "text" }) => (
     <div className="w-full">
         {label && <label className="block text-sm font-bold text-on-surface-variant mb-2 ml-1 font-sans">{label}</label>}
         <div className="relative group">
@@ -88,7 +108,7 @@ const NewInput = ({ label, placeholder, icon: Icon, value = "" }) => (
                 <Icon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-on-surface-variant/50 group-focus-within:text-brand-primary transition-colors" />
             )}
             <input
-                type="text"
+                type={type}
                 placeholder={placeholder}
                 defaultValue={value}
                 className={`
@@ -96,166 +116,241 @@ const NewInput = ({ label, placeholder, icon: Icon, value = "" }) => (
                     ${Icon ? 'pl-12' : 'pl-4'} pr-4 py-3.5
                     rounded-xl border border-on-surface/5 dark:border-white/10
                     focus:outline-none focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary
-                    shadow-inner transition-all duration-200
                     text-base font-medium placeholder-on-surface-variant/30
+                    transition-all duration-200
+                    shadow-[inset_0_2px_4px_0_rgba(0,0,0,0.02)]
                 `}
             />
         </div>
     </div>
 );
 
-// 3. Toggle Switch (視認性強化: Border強化)
-const NewToggle = ({ label, checked = false, onChange }) => (
-    <div className="flex items-center justify-between p-4 bg-surface-container rounded-2xl border border-on-surface/10 dark:border-white/10 shadow-sm hover:border-on-surface/20 transition-colors">
-        <span className="font-bold text-sm text-on-surface font-sans">{label}</span>
+// 3. Toggle Switch
+const NewToggle = ({ label, checked = false, onChange, icon: Icon, description }) => (
+    <div className="flex items-center justify-between py-3 group">
+        <div className="flex items-start gap-3">
+            {Icon && (
+                <div className="mt-0.5 text-on-surface-variant group-hover:text-brand-primary transition-colors">
+                    <Icon className="w-5 h-5" />
+                </div>
+            )}
+            <div>
+                <div className="font-bold text-sm text-on-surface font-sans">{label}</div>
+                {description && <div className="text-xs text-on-surface-variant mt-0.5 font-sans opacity-80">{description}</div>}
+            </div>
+        </div>
         <button
             onClick={() => onChange && onChange(!checked)}
             className={`
-                relative w-12 h-7 rounded-full transition-colors duration-300 ease-in-out focus:outline-none
+                relative w-11 h-6 rounded-full transition-colors duration-300 ease-in-out focus:outline-none flex-shrink-0 ml-4
                 ${checked ? 'bg-brand-primary shadow-inner' : 'bg-on-surface/20 dark:bg-white/20 shadow-inner'}
             `}
         >
             <span className={`
-                absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-300 cubic-bezier(0.16, 1, 0.3, 1)
+                absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 cubic-bezier(0.16, 1, 0.3, 1)
                 ${checked ? 'translate-x-5' : 'translate-x-0'}
             `} />
         </button>
     </div>
 );
 
-// 4. DJ/VJ Card (大幅刷新: Layout Redesign)
+// 4. DJ/VJ Card
 const NewSortableCard = ({ initialName, initialDuration, time, color, isDragging }) => {
     const [name, setName] = useState(initialName);
     const [duration, setDuration] = useState(initialDuration);
 
     return (
         <div className={`
-            flex items-stretch gap-0 rounded-2xl bg-surface-container
-            border border-on-surface/10 dark:border-white/10 overflow-hidden
+            group relative flex items-center gap-4 p-3 pr-4 rounded-2xl bg-surface-container
+            border border-on-surface/10 dark:border-white/10 overflow-visible
             transition-all duration-300
             ${isDragging ? 'scale-105 shadow-2xl z-50 ring-2 ring-brand-primary' : 'shadow-sm hover:shadow-md hover:border-on-surface/20'}
         `}>
-            {/* 1. Color Indicator & Grip (Large Touch Target) */}
-            <div
-                className="w-12 flex flex-col items-center justify-center cursor-grab hover:opacity-80 active:opacity-100 transition-opacity"
-                style={{ backgroundColor: color }}
-                title="Color Label (Drag to sort)"
-            >
-                <GripIcon className="w-6 h-6 text-white/50" />
+            <div className="flex-shrink-0 cursor-grab touch-none text-on-surface-variant/30 hover:text-on-surface-variant p-2">
+                <GripIcon className="w-5 h-5" />
             </div>
-
-            {/* 2. Content Area */}
-            <div className="flex-grow p-4 flex flex-col justify-center gap-3 min-w-0">
-
-                {/* Top Row: Name (Huge) */}
+            <button
+                className="flex-shrink-0 w-14 h-14 rounded-full bg-surface-background border border-on-surface/10 hover:border-brand-primary transition-colors overflow-hidden relative group/icon shadow-inner -ml-1"
+                title="アイコンを変更"
+            >
+                <div className="w-full h-full flex items-center justify-center text-on-surface-variant/20 group-hover/icon:text-brand-primary/50">
+                    <UserIcon className="w-7 h-7" />
+                </div>
+            </button>
+            <div className="flex-grow min-w-0 flex flex-col justify-center gap-3 py-1">
                 <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="
-                        w-full bg-transparent text-xl font-bold text-on-surface
-                        border-b border-transparent focus:border-brand-primary
-                        px-0 py-0.5
-                        focus:outline-none transition-all placeholder-on-surface-variant/30 truncate
+                        w-full bg-surface-background text-lg font-bold text-on-surface
+                        rounded-lg px-3 py-1.5
+                        border border-on-surface/5 focus:border-brand-primary/50
+                        focus:outline-none focus:ring-2 focus:ring-brand-primary/20
+                        transition-all placeholder-on-surface-variant/30 truncate shadow-inner
+                        h-10
                     "
                     placeholder="Artist Name"
                 />
-
-                {/* Bottom Row: Duration & Time */}
-                <div className="flex items-center gap-4">
-                    {/* Duration Input (Prominent) */}
-                    <div className="flex items-center gap-2 bg-surface-background rounded-lg px-3 py-1.5 border border-on-surface/5 dark:border-white/5 shadow-inner">
-                        <span className="text-xs font-bold text-on-surface-variant uppercase">Time</span>
-                        <div className="relative w-16">
+                <div className="flex items-center gap-4 pl-0">
+                    <div className="flex items-center gap-2">
+                        <div className="relative group/duration">
                             <input
                                 type="number"
                                 value={duration}
                                 onChange={(e) => setDuration(e.target.value)}
                                 className="
-                                    w-full bg-transparent text-lg font-mono font-bold text-on-surface
-                                    focus:outline-none text-right pr-1
-                                    focus:text-brand-primary transition-colors
+                                    w-16 bg-surface-background text-base font-mono font-bold text-on-surface
+                                    rounded-lg px-2
+                                    border border-on-surface/5 focus:border-brand-primary/50
+                                    focus:outline-none focus:ring-2 focus:ring-brand-primary/20
+                                    transition-all 
+                                    shadow-[inset_0_2px_4px_0_rgba(0,0,0,0.02)]
+                                    h-10 text-center
                                 "
                             />
                         </div>
-                        <span className="text-xs font-bold text-on-surface-variant">min</span>
+                        <span className="text-xs font-bold text-on-surface-variant select-none">min</span>
                     </div>
-
-                    {/* Time Slot Display */}
-                    <div className="text-sm font-mono font-medium text-on-surface-variant flex items-center gap-1.5">
+                    <div className="w-px h-5 bg-on-surface/10"></div>
+                    <div className="flex items-center gap-1.5 text-sm font-mono font-medium text-on-surface-variant select-none h-10">
                         <ClockIcon className="w-4 h-4 opacity-60" />
                         {time}
                     </div>
                 </div>
             </div>
-
-            {/* 3. Actions (Vertical) */}
-            <div className="flex flex-col justify-center gap-2 pr-2 pl-2 border-l border-on-surface/5 dark:border-white/5">
-                <button className="p-2 rounded-lg text-on-surface-variant hover:text-brand-primary hover:bg-brand-primary/10 transition-colors">
-                    <CopyIcon className="w-5 h-5" />
+            <div className="flex-shrink-0 flex items-center gap-2 pl-3 border-l border-on-surface/5 dark:border-white/5 h-full">
+                <button
+                    className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-background transition-all active:scale-95 mr-1"
+                    title="カラーを変更"
+                >
+                    <div className="w-7 h-7 rounded-full shadow-sm ring-2 ring-white/20 dark:ring-black/20" style={{ backgroundColor: color }}></div>
                 </button>
-                <button className="p-2 rounded-lg text-on-surface-variant hover:text-red-500 hover:bg-red-500/10 transition-colors">
-                    <TrashIcon className="w-5 h-5" />
+                <div className="flex flex-col gap-2">
+                    <button className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant/70 hover:text-brand-primary hover:bg-brand-primary/5 transition-colors active:scale-95" title="複製">
+                        <CopyIcon className="w-4 h-4" />
+                    </button>
+                    <button className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant/70 hover:text-red-500 hover:bg-red-500/10 transition-colors active:scale-95" title="削除">
+                        <TrashIcon className="w-4 h-4" />
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// 5. Dashboard Event Card
+// ★修正: 縦幅の固定(min-h)を削除し、自然な高さへ。
+const NewEventCard = ({ title, date, floors, startTime, isActive }) => {
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const menuRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+                setIsMenuOpen(false);
+            }
+        };
+        if (isMenuOpen) document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isMenuOpen]);
+
+    return (
+        <div className={`
+            group relative bg-surface-container rounded-3xl p-6
+            transition-all duration-300 cursor-pointer overflow-visible flex flex-col
+            hover:-translate-y-1
+            ${isActive
+                ? 'border-2 border-red-500 shadow-lg shadow-red-500/20'
+                : 'border border-on-surface/10 dark:border-white/10 shadow-sm hover:shadow-xl hover:border-on-surface/20'
+            }
+        `}>
+            <div className={`absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent opacity-0 transition-opacity duration-500 pointer-events-none rounded-3xl ${isActive ? 'opacity-100' : 'group-hover:opacity-100'}`} />
+
+            <div className="absolute top-4 right-4 z-20" ref={menuRef}>
+                <button
+                    onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }}
+                    className={`
+                        w-8 h-8 rounded-full flex items-center justify-center transition-colors
+                        ${isMenuOpen ? 'bg-surface-background text-on-surface' : 'text-on-surface-variant/50 hover:text-on-surface hover:bg-surface-background/50'}
+                    `}
+                >
+                    <MoreVerticalIcon className="w-5 h-5" />
+                </button>
+                {isMenuOpen && (
+                    <div className="absolute right-0 top-full mt-2 w-32 bg-surface-container rounded-xl shadow-xl border border-on-surface/10 overflow-hidden animate-fade-in z-30">
+                        <button
+                            className="w-full text-left px-4 py-3 text-xs font-bold text-on-surface hover:bg-surface-background flex items-center gap-2"
+                            onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); }}
+                        >
+                            <CopyIcon className="w-3 h-3" /> 複製
+                        </button>
+                        <button
+                            className="w-full text-left px-4 py-3 text-xs font-bold text-red-500 hover:bg-red-500/10 flex items-center gap-2"
+                            onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); }}
+                        >
+                            <TrashIcon className="w-3 h-3" /> 削除
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            <div className="flex items-start gap-5 mb-6 flex-grow relative z-0">
+                <div className={`
+                    flex flex-col items-center justify-center w-16 h-16 rounded-2xl shadow-inner border shrink-0
+                    ${isActive
+                        ? 'bg-red-500/10 border-red-500/30 text-red-500'
+                        : 'bg-surface-background border-on-surface/5 dark:border-white/10 text-on-surface-variant'
+                    }
+                `}>
+                    <span className="text-[10px] font-bold tracking-widest uppercase leading-none mb-1 opacity-70">{date.month}</span>
+                    <span className="text-2xl font-bold leading-none font-mono">{date.day}</span>
+                </div>
+
+                <div className="flex-1 min-w-0 pt-1">
+                    {isActive && (
+                        <div className="flex items-center gap-2 mb-2 animate-fade-in">
+                            <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                            </span>
+                            <span className="text-[10px] font-bold text-red-500 tracking-widest uppercase">NOW ON AIR</span>
+                        </div>
+                    )}
+                    <h3 className={`text-lg font-bold truncate mb-1 font-sans transition-colors ${isActive ? 'text-red-500' : 'text-on-surface group-hover:text-brand-primary'}`}>{title}</h3>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-bold text-on-surface-variant">
+                        <div className="flex items-center gap-1.5">
+                            <LayersIcon className="w-3 h-3" />
+                            <span>{floors} Floors</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <ClockIcon className="w-3 h-3" />
+                            <span className="font-mono">START {startTime}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="mt-auto pt-4 border-t border-on-surface/5 dark:border-white/5 flex justify-between items-center relative z-0">
+                <span className="text-xs font-bold text-on-surface-variant/50 group-hover:text-on-surface-variant transition-colors">Open Editor</span>
+                <button
+                    className={`
+                        flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all
+                        ${isActive
+                            ? 'bg-red-500 text-white shadow-md hover:bg-red-600'
+                            : 'bg-surface-background text-on-surface-variant hover:text-red-500 hover:bg-red-500/10 border border-on-surface/5'}
+                    `}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-white animate-pulse' : 'bg-on-surface-variant/50'}`}></span>
+                    LIVE LINK
                 </button>
             </div>
         </div>
     );
 };
 
-// 5. Dashboard Event Card (変更なし)
-const NewEventCard = ({ title, date, floors, isActive }) => (
-    <div className={`
-        group relative bg-surface-container rounded-3xl p-6
-        transition-all duration-300 cursor-pointer overflow-hidden flex flex-col
-        hover:-translate-y-1
-        ${isActive
-            ? 'border-2 border-brand-primary shadow-lg shadow-brand-primary/20'
-            : 'border border-on-surface/10 dark:border-white/10 shadow-sm hover:shadow-xl hover:border-on-surface/20'
-        }
-    `}>
-        <div className="flex items-start gap-5 mb-6">
-            <div className={`
-                flex flex-col items-center justify-center w-16 h-16 rounded-2xl shadow-inner border shrink-0
-                ${isActive
-                    ? 'bg-brand-primary/10 border-brand-primary/30 text-brand-primary'
-                    : 'bg-surface-background border-on-surface/5 dark:border-white/10 text-on-surface-variant'
-                }
-            `}>
-                <span className="text-[10px] font-bold tracking-widest uppercase leading-none mb-1 opacity-70">{date.month}</span>
-                <span className="text-2xl font-bold leading-none font-mono">{date.day}</span>
-            </div>
-
-            <div className="flex-1 min-w-0 pt-1">
-                {isActive && (
-                    <div className="flex items-center gap-2 mb-2">
-                        <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-primary opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-primary"></span>
-                        </span>
-                        <span className="text-[10px] font-bold text-brand-primary tracking-widest uppercase">NOW ON AIR</span>
-                    </div>
-                )}
-                <h3 className="text-lg font-bold truncate mb-1 font-sans text-on-surface">{title}</h3>
-                <div className="flex items-center gap-2 text-xs font-bold text-on-surface-variant">
-                    <LayersIcon className="w-3 h-3" />
-                    <span>{floors} Floors</span>
-                </div>
-            </div>
-        </div>
-
-        <div className="mt-auto pt-4 border-t border-on-surface/5 dark:border-white/5 flex justify-between items-center">
-            <span className="text-xs font-bold text-on-surface-variant/50 group-hover:text-on-surface-variant transition-colors">Open Editor</span>
-            <div className={`
-                w-8 h-8 rounded-full flex items-center justify-center transition-all
-                ${isActive ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/30' : 'bg-surface-background text-on-surface-variant group-hover:bg-on-surface/10 dark:group-hover:bg-white/10'}
-            `}>
-                <PlayIcon className="w-3 h-3" />
-            </div>
-        </div>
-    </div>
-);
-
-// 6. List Item (視認性強化: Border)
+// 6. List Item (変更なし)
 const NewListItem = ({ label, onDelete }) => (
     <div className="flex items-center gap-3 p-3 rounded-xl bg-surface-background border border-on-surface/10 dark:border-white/10 hover:border-brand-primary/50 transition-all group shadow-sm">
         <div className="cursor-grab text-on-surface-variant/30 hover:text-on-surface-variant p-1">
@@ -289,8 +384,166 @@ const NewTrigger = ({ label, icon: Icon }) => (
     </button>
 );
 
-// --- Page Layout ---
+// --- Layout Components ---
+const PreviewContainer = ({ children, className = "" }) => (
+    <div className={`bg-surface-background p-6 rounded-3xl border border-on-surface/5 shadow-inner ${className}`}>
+        {children}
+    </div>
+);
 
+const CategoryHeader = ({ title }) => (
+    <h3 className="text-lg font-bold text-on-surface mb-4 border-b border-on-surface/10 pb-2">
+        {title}
+    </h3>
+);
+
+// --- Demo Components for Previews ---
+
+const CreateEventModalPreview = () => (
+    <div className="bg-surface-container rounded-2xl w-full max-w-md shadow-2xl border border-on-surface/10 flex flex-col mx-auto overflow-hidden">
+        <header className="flex justify-between items-center p-6 pb-4 border-b border-on-surface/5">
+            <h2 className="text-xl font-bold text-on-surface">新規イベント作成</h2>
+            <button className="p-2 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface transition-colors -mr-2"><XIcon className="w-5 h-5" /></button>
+        </header>
+        <div className="p-6 space-y-6">
+            <div className="space-y-5">
+                <div>
+                    <Label>イベント名</Label>
+                    <NewInput placeholder="イベント名を入力..." value="Saturday Night Fever" />
+                </div>
+                <div className="space-y-4">
+                    <div><Label>開催日</Label><NewInput type="date" value="2025-11-22" icon={CalendarIcon} /></div>
+                    <div>
+                        <Label>開始時間</Label>
+                        <div className="flex items-stretch w-full gap-2">
+                            <button className="flex-1 py-3 rounded-xl bg-surface-background hover:bg-surface-background/80 border border-on-surface/10 dark:border-white/10 text-base font-bold shadow-sm text-on-surface active:scale-95 transition-transform">-15</button>
+                            <div className="flex-grow relative group">
+                                <ClockIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-on-surface-variant/50 pointer-events-none" />
+                                <div className="bg-surface-background text-on-surface py-3 pl-10 pr-2 w-full h-full rounded-xl border border-on-surface/5 dark:border-white/10 shadow-inner flex items-center justify-center">
+                                    <span className="font-mono font-bold text-xl tracking-widest">22:00</span>
+                                </div>
+                            </div>
+                            <button className="flex-1 py-3 rounded-xl bg-surface-background hover:bg-surface-background/80 border border-on-surface/10 dark:border-white/10 text-base font-bold shadow-sm text-on-surface active:scale-95 transition-transform">+15</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="pt-2">
+                <div className="text-xs font-bold text-on-surface-variant mb-2 uppercase tracking-wider">オプション設定</div>
+                <div className="divide-y divide-on-surface/5 border-t border-b border-on-surface/5">
+                    <NewToggle label="VJタイムテーブル機能" icon={VideoIcon} description="VJのタイムテーブルも管理します" />
+                    <NewToggle label="複数フロアを使用" icon={LayersIcon} description="メインフロア以外のステージを追加します" />
+                </div>
+            </div>
+        </div>
+        <div className="p-6 pt-4 bg-surface-background/30 border-t border-on-surface/5 flex justify-end gap-3">
+            <NewButton variant="ghost" size="md">キャンセル</NewButton>
+            <NewButton variant="primary" size="md">作成する</NewButton>
+        </div>
+    </div>
+);
+
+const FloorManagerModalPreview = () => (
+    <div className="bg-surface-container rounded-2xl w-full max-w-md shadow-2xl border border-on-surface/10 flex flex-col mx-auto overflow-hidden">
+        <header className="flex justify-between items-center p-6 pb-4 border-b border-on-surface/5">
+            <h2 className="text-xl font-bold text-on-surface">フロア管理</h2>
+            <button className="p-2 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface transition-colors -mr-2"><XIcon className="w-5 h-5" /></button>
+        </header>
+        <div className="p-6 space-y-3">
+            <NewListItem label="Main Floor" onDelete={() => { }} />
+            <NewListItem label="Sub Floor" onDelete={() => { }} />
+            <NewListItem label="Lounge" onDelete={() => { }} />
+
+            <button className="w-full h-14 rounded-xl border-2 border-dashed border-on-surface/10 hover:border-brand-primary hover:bg-brand-primary/5 text-on-surface-variant hover:text-brand-primary transition-all duration-200 flex items-center justify-center gap-2 group mt-2">
+                <div className="w-6 h-6 rounded-full bg-surface-background border border-on-surface/10 flex items-center justify-center shadow-sm group-hover:border-brand-primary/30">
+                    <PlusIcon className="w-4 h-4" />
+                </div>
+                <span className="font-bold text-sm">フロアを追加</span>
+            </button>
+        </div>
+        <div className="p-6 pt-4 bg-surface-background/30 border-t border-on-surface/5 flex justify-end gap-3">
+            <NewButton variant="ghost" size="md">キャンセル</NewButton>
+            <NewButton variant="primary" size="md">保存して閉じる</NewButton>
+        </div>
+    </div>
+);
+
+const DashboardSettingsModalPreview = () => (
+    <div className="bg-surface-container rounded-2xl w-full max-w-4xl shadow-2xl border border-on-surface/10 flex flex-col md:flex-row mx-auto overflow-hidden h-[550px] relative">
+        <button className="absolute top-4 right-4 p-2 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface transition-colors z-10">
+            <XIcon className="w-5 h-5" />
+        </button>
+        <aside className="w-64 bg-surface-background border-r border-on-surface/5 flex flex-col p-6">
+            <div className="flex items-center gap-3 mb-8 px-2">
+                <div className="w-10 h-10 rounded-full bg-brand-primary flex items-center justify-center text-white font-bold text-lg">U</div>
+                <span className="font-bold text-sm">User Name</span>
+            </div>
+            <div className="flex flex-col gap-2">
+                <button className="flex items-center gap-3 text-left px-3 py-3 rounded-lg bg-on-surface/5 font-bold text-sm text-on-surface">
+                    <UserIcon className="w-4 h-4" />
+                    アカウント管理
+                </button>
+                <button className="flex items-center gap-3 text-left px-3 py-3 rounded-lg text-on-surface-variant hover:bg-on-surface/5 text-sm transition-colors">
+                    <SettingsIcon className="w-4 h-4" />
+                    イベント初期設定
+                </button>
+                <button className="flex items-center gap-3 text-left px-3 py-3 rounded-lg text-on-surface-variant hover:bg-on-surface/5 text-sm transition-colors">
+                    <SettingsIcon className="w-4 h-4" />
+                    アプリ設定
+                </button>
+            </div>
+            <div className="mt-auto pt-4 border-t border-on-surface/10">
+                <p className="text-[10px] text-on-surface-variant/50 text-center">DJ Timekeeper Pro v3.3.0</p>
+            </div>
+        </aside>
+        <main className="flex-1 flex flex-col min-w-0">
+            <div className="p-10 flex-1 overflow-y-auto custom-scrollbar">
+                <div className="space-y-10">
+                    <section>
+                        <h3 className="text-lg font-bold text-on-surface mb-1">プロフィール</h3>
+                        <p className="text-xs text-on-surface-variant mb-6 opacity-80">アプリ内で表示されるあなたの公開情報です。</p>
+                        <div className="space-y-5">
+                            <div>
+                                <Label>表示名</Label>
+                                <NewInput value="DJ Takuya" />
+                            </div>
+                            <div>
+                                <Label>メールアドレス</Label>
+                                <div className="text-sm font-mono text-on-surface-variant border-b border-dashed border-on-surface/20 pb-1 inline-block">user@example.com</div>
+                            </div>
+                        </div>
+                    </section>
+                    <section>
+                        <h3 className="text-lg font-bold text-on-surface mb-4 border-b border-on-surface/5 pb-2">セッション</h3>
+                        <button className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-on-surface-variant hover:text-on-surface hover:bg-surface-background rounded-lg transition-colors border border-on-surface/10">
+                            <LogOutIcon className="w-4 h-4" />
+                            <span>アカウントからログアウト</span>
+                        </button>
+                    </section>
+                    <section>
+                        <div className="mb-4 border-b border-red-500/20 pb-2">
+                            <h3 className="text-base font-bold text-red-500 flex items-center gap-2"><AlertTriangleIcon className="w-4 h-4" /> Danger Zone</h3>
+                        </div>
+                        <div className="p-6 border border-red-500/20 bg-red-500/5 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                            <div>
+                                <p className="font-bold text-on-surface text-sm">アカウントを削除する</p>
+                                <p className="text-xs text-on-surface-variant mt-1 leading-relaxed opacity-80">全てのデータが削除されます。<br />この操作は取り消せません。</p>
+                            </div>
+                            <NewButton variant="danger" size="sm">削除する</NewButton>
+                        </div>
+                    </section>
+                </div>
+            </div>
+            <div className="p-6 border-t border-on-surface/5 bg-surface-background/30 flex justify-end gap-3">
+                <NewButton variant="ghost" size="sm">キャンセル</NewButton>
+                <NewButton variant="primary" size="sm">設定を保存</NewButton>
+            </div>
+        </main>
+    </div>
+);
+
+// --- Page Layout Helper ---
 const Section = ({ title, description, children }) => (
     <div className="mb-16">
         <div className="mb-6">
@@ -313,9 +566,173 @@ const Row = ({ label, children }) => (
     </div>
 );
 
+// --- Spacing Visualizer ---
+const SpacingBlock = ({ label, sizeClass }) => (
+    <div className="flex flex-col gap-2">
+        <div className={`bg-brand-primary/20 border border-brand-primary/50 rounded-lg flex items-center justify-center text-xs font-mono text-brand-primary ${sizeClass}`}>
+            Space
+        </div>
+        <span className="text-xs text-on-surface-variant font-mono">{label}</span>
+    </div>
+);
+
+// --- New Components for Sections 9-12 ---
+
+// 9. Tabs (★修正: 影切れ防止)
+const NewTabs = ({ items, activeId, onChange }) => (
+    // p-4, -mx-4 で影の領域を確保
+    <div className="flex items-center gap-2 overflow-x-auto p-4 no-scrollbar -mx-4">
+        {items.map(item => {
+            const isActive = item.id === activeId;
+            return (
+                <button
+                    key={item.id}
+                    onClick={() => onChange(item.id)}
+                    className={`
+                        px-5 py-2 rounded-full font-bold text-sm whitespace-nowrap transition-all duration-200
+                        ${isActive
+                            ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/30 hover:-translate-y-0.5'
+                            : 'bg-surface-container hover:bg-surface-container/80 text-on-surface-variant hover:text-on-surface shadow-sm border border-on-surface/5'
+                        }
+                    `}
+                >
+                    {item.label}
+                </button>
+            );
+        })}
+    </div>
+);
+
+// 10. Status Badge (★修正: 色分けの明確化)
+const NewBadge = ({ status, label }) => {
+    // ON AIR: 赤 (注目)
+    // UPCOMING: 青 (予定)
+    // FINISHED: グレー (終了)
+    // STANDBY: アンバー (待機)
+    const styles = {
+        onAir: "bg-red-500/10 text-red-500 border-red-500/20 animate-pulse",
+        upcoming: "bg-brand-primary/10 text-brand-primary border-brand-primary/20", // 青
+        finished: "bg-on-surface/5 text-on-surface-variant border-on-surface/10",
+        standby: "bg-amber-500/10 text-amber-500 border-amber-500/20"
+    };
+
+    return (
+        <span className={`
+            inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border
+            ${styles[status] || styles.standby}
+        `}>
+            <span className={`w-1.5 h-1.5 rounded-full ${status === 'onAir' ? 'bg-current animate-ping' : 'bg-current'}`}></span>
+            {label}
+        </span>
+    );
+};
+
+// 11. Empty State
+const NewEmptyState = ({ icon: Icon, title, description, action }) => (
+    <div className="flex flex-col items-center justify-center py-12 px-4 text-center opacity-80 hover:opacity-100 transition-opacity">
+        <div className="w-20 h-20 bg-surface-container rounded-full flex items-center justify-center mb-4 shadow-sm border border-on-surface/5">
+            <Icon className="w-8 h-8 text-on-surface-variant" />
+        </div>
+        <h3 className="text-lg font-bold text-on-surface mb-1">{title}</h3>
+        <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed mb-6">{description}</p>
+        {action && action}
+    </div>
+);
+
+// 12. Color Picker
+const NewColorPicker = ({ colors, selectedColor, onSelect }) => (
+    <div className="grid grid-cols-4 sm:grid-cols-6 gap-3 p-2">
+        {colors.map(color => (
+            <button
+                key={color}
+                onClick={() => onSelect(color)}
+                className={`
+                    w-10 h-10 rounded-full transition-all duration-200 relative group
+                    ${selectedColor === color ? 'scale-110 shadow-lg ring-2 ring-offset-2 ring-brand-primary ring-offset-surface-container' : 'hover:scale-105 hover:shadow-md'}
+                `}
+                style={{ backgroundColor: color }}
+                title={color}
+            >
+                {selectedColor === color && (
+                    <span className="absolute inset-0 flex items-center justify-center text-white/90 drop-shadow-md">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </span>
+                )}
+            </button>
+        ))}
+    </div>
+);
+
+const VIVID_COLORS_SAMPLE = [
+    '#EF4444', '#F97316', '#F59E0B', '#84CC16',
+    '#10B981', '#06B6D4', '#3B82F6', '#8B5CF6',
+    '#D946EF', '#F43F5E', '#64748B', '#1E293B'
+];
+
+// --- Demo Components for Previews ---
+const DemoModal = ({ onClose }) => {
+    return createPortal(
+        <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
+            onClick={onClose}
+        >
+            <div
+                className="bg-surface-container rounded-2xl w-full max-w-md shadow-2xl relative animate-modal-in flex flex-col max-h-[90vh] overflow-hidden"
+                onClick={e => e.stopPropagation()}
+            >
+                <header className="flex justify-between items-center p-6 pb-0 flex-shrink-0">
+                    <h2 className="text-2xl font-bold text-on-surface">新規イベント作成</h2>
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface transition-colors -mr-2"><XIcon className="w-6 h-6" /></button>
+                </header>
+                <div className="p-6 space-y-6 overflow-y-auto">
+                    <div className="space-y-4">
+                        <div>
+                            <Label>イベント名</Label>
+                            <NewInput placeholder="イベント名を入力..." autoFocus />
+                        </div>
+                        <div className="space-y-3">
+                            <div><Label>開催日</Label><NewInput type="date" value="2025-11-22" icon={CalendarIcon} /></div>
+                            <div>
+                                <Label>開始時間</Label>
+                                <div className="flex items-stretch w-full gap-2">
+                                    <button className="flex-1 py-3 rounded-xl bg-surface-container hover:bg-surface-background border border-on-surface/10 dark:border-white/10 text-base font-bold shadow-sm text-on-surface active:scale-95 transition-transform">-15</button>
+                                    <div className="flex-grow relative group">
+                                        <ClockIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-on-surface-variant/50 pointer-events-none" />
+                                        <div className="bg-surface-background text-on-surface py-3 pl-10 pr-2 w-full h-full rounded-xl border border-on-surface/5 dark:border-white/10 shadow-inner flex items-center justify-center">
+                                            <span className="font-mono font-bold text-xl tracking-widest">22:00</span>
+                                        </div>
+                                    </div>
+                                    <button className="flex-1 py-3 rounded-xl bg-surface-container hover:bg-surface-background border border-on-surface/10 dark:border-white/10 text-base font-bold shadow-sm text-on-surface active:scale-95 transition-transform">+15</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <hr className="border-on-surface/10" />
+                    <div className="space-y-2">
+                        <Label>オプション設定</Label>
+                        <div className="bg-surface-background/50 rounded-xl px-4 py-2 space-y-2">
+                            <NewToggle label="VJタイムテーブル機能" icon={VideoIcon} />
+                            <div className="border-t border-on-surface/5"></div>
+                            <NewToggle label="複数フロアを使用" icon={LayersIcon} />
+                        </div>
+                    </div>
+                </div>
+                <div className="p-6 pt-0 flex justify-end gap-3 flex-shrink-0">
+                    <NewButton variant="ghost" onClick={onClose} size="md">キャンセル</NewButton>
+                    <NewButton variant="primary" onClick={onClose} size="md">作成する</NewButton>
+                </div>
+            </div>
+        </div>,
+        document.body
+    );
+};
+
 export const UITestPage = ({ theme, toggleTheme }) => {
-    // デモ用のトグル状態
-    const [demoToggle, setDemoToggle] = useState(true);
+    const [activeTab, setActiveTab] = useState('floor1');
+    const [selectedColor, setSelectedColor] = useState(VIVID_COLORS_SAMPLE[6]);
+    const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
+
+    const timeBtnClass = "flex-1 py-3 rounded-xl bg-surface-container hover:bg-surface-background border border-on-surface/10 dark:border-white/10 text-base font-bold shadow-sm text-on-surface active:scale-95 transition-transform";
 
     return (
         <div className="min-h-screen bg-surface-background p-6 md:p-12 pb-32 animate-fade-in transition-colors duration-300">
@@ -323,10 +740,9 @@ export const UITestPage = ({ theme, toggleTheme }) => {
                 <header className="mb-12 flex items-center justify-between">
                     <div>
                         <h1 className="text-3xl font-bold text-on-surface mb-2 tracking-tight font-sans">UI Design Catalog</h1>
-                        <p className="text-on-surface-variant font-medium font-sans">v2.3.3 | High Visibility & Typography</p>
+                        <p className="text-on-surface-variant font-medium font-sans">v4.2.0 | Corrected Logic</p>
                     </div>
                     <div className="flex gap-4">
-                        {/* Dark Mode Toggle for Testing */}
                         <button onClick={toggleTheme} className="px-4 py-2 bg-surface-container rounded-xl shadow-sm border border-on-surface/10 dark:border-white/10 flex items-center gap-2 hover:bg-surface-background transition-colors">
                             {theme === 'dark' ? <SunIcon className="w-5 h-5 text-brand-primary" /> : <MoonIcon className="w-5 h-5 text-on-surface-variant" />}
                             <span className="text-sm font-bold text-on-surface">{theme === 'dark' ? 'Light' : 'Dark'}</span>
@@ -337,29 +753,73 @@ export const UITestPage = ({ theme, toggleTheme }) => {
                     </div>
                 </header>
 
-                {/* 1. Buttons */}
-                <Section title="1. Buttons" description="重要度に応じた3つのサイズと、物理的な光の表現。">
-                    <Row label="Large (L)">
-                        <NewButton size="lg" variant="primary" icon={PlusIcon}>新規イベント作成</NewButton>
-                        <NewButton size="lg" variant="secondary">詳細設定</NewButton>
-                        <NewButton size="lg" variant="icon" icon={PlayIcon} />
-                    </Row>
-                    <Row label="Medium (M)">
-                        <NewButton size="md" variant="primary">保存する</NewButton>
-                        <NewButton size="md" variant="secondary" icon={SettingsIcon}>設定</NewButton>
-                        <NewButton size="md" variant="secondary">キャンセル</NewButton>
-                        <NewButton size="md" variant="icon" icon={UserIcon} />
-                    </Row>
-                    <Row label="Small (S)">
-                        <NewButton size="sm" variant="primary">保存</NewButton>
-                        <NewButton size="sm" variant="secondary">編集</NewButton>
-                        <NewButton size="sm" variant="danger" icon={TrashIcon}>削除</NewButton>
-                        <NewButton size="sm" variant="icon" icon={SearchIcon} />
-                    </Row>
+                {/* 1. Text Size System */}
+                <Section title="1. Text Size System" description="階層構造を明確にする文字サイズ定義。">
+                    <div className="space-y-6">
+                        <div className="border-b border-on-surface/10 pb-4">
+                            <div className="text-3xl font-bold text-on-surface mb-2">Display Text</div>
+                            <div className="text-xs text-on-surface-variant font-mono">text-3xl / Bold / Page Titles</div>
+                        </div>
+                        <div className="border-b border-on-surface/10 pb-4">
+                            <div className="text-2xl font-bold text-on-surface mb-2">Section Heading</div>
+                            <div className="text-xs text-on-surface-variant font-mono">text-2xl / Bold / Major Sections</div>
+                        </div>
+                        <div className="border-b border-on-surface/10 pb-4">
+                            <div className="text-lg font-bold text-on-surface mb-2">Card Heading</div>
+                            <div className="text-xs text-on-surface-variant font-mono">text-lg / Bold / Item Titles</div>
+                        </div>
+                        <div className="border-b border-on-surface/10 pb-4">
+                            <div className="text-base font-medium text-on-surface mb-2">Body Text: The quick brown fox jumps over the lazy dog.</div>
+                            <div className="text-xs text-on-surface-variant font-mono">text-base / Medium / Content</div>
+                        </div>
+                        <div>
+                            <div className="text-sm font-bold text-on-surface-variant mb-2">LABEL / CAPTION</div>
+                            <div className="text-xs text-on-surface-variant font-mono">text-sm / Bold / Metadata & Inputs</div>
+                        </div>
+                    </div>
                 </Section>
 
-                {/* 2. DJ/VJ Cards */}
-                <Section title="2. Sortable Items (DJ/VJ)" description="編集機能を内包した高機能カード。時間設定を強調。">
+                {/* 2. Forms & Lists */}
+                <Section title="2. Forms & Lists" description="視認性の高い入力フォームと、押しやすい時間調整ボタン。">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                        <div className="space-y-6">
+                            <h3 className="font-bold text-sm text-on-surface-variant uppercase tracking-wider mb-4">Inputs</h3>
+                            <NewInput label="イベントタイトル" placeholder="例: Saturday Night Fever" />
+                            <NewInput label="検索" placeholder="ユーザー名で検索..." icon={SearchIcon} />
+
+                            <div>
+                                <Label>開始時間</Label>
+                                <div className="flex items-stretch w-full gap-2">
+                                    <button className={timeBtnClass}>-15</button>
+                                    <div className="flex-grow relative group">
+                                        <ClockIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-on-surface-variant/50 pointer-events-none" />
+                                        <div className="bg-surface-background text-on-surface py-3 pl-10 pr-2 w-full h-full rounded-xl border border-on-surface/5 dark:border-white/10 shadow-inner flex items-center justify-center">
+                                            <span className="font-mono font-bold text-xl tracking-widest">22:00</span>
+                                        </div>
+                                    </div>
+                                    <button className={timeBtnClass}>+15</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-6">
+                            <h3 className="font-bold text-sm text-on-surface-variant uppercase tracking-wider mb-4">Lists & Toggles</h3>
+                            <div className="space-y-2">
+                                <NewListItem label="Main Floor" onDelete={() => { }} />
+                                <NewListItem label="Sub Floor" onDelete={() => { }} />
+                            </div>
+                            <div className="pt-4 space-y-4">
+                                <NewToggle label="VJタイムテーブル機能" checked={true} onChange={() => { }} />
+                                <div className="pt-2">
+                                    <NewTrigger label="DJを追加" icon={PlusIcon} />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </Section>
+
+                {/* 3. Sortable Items (DJ/VJ) */}
+                <Section title="3. Sortable Items (DJ/VJ)" description="左端を揃え、入力エリアの視認性を高めたデザイン。">
                     <div className="space-y-4 max-w-2xl">
                         <NewSortableCard
                             initialName="DJ TAKUYA"
@@ -378,91 +838,209 @@ export const UITestPage = ({ theme, toggleTheme }) => {
                     </div>
                 </Section>
 
-                {/* 3. Dashboard Cards */}
-                <Section title="3. Dashboard Cards" description="高コントラストで日付と状態を視認しやすく。">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
+                {/* 4. Buttons */}
+                <Section title="4. Buttons" description="物理的な押し心地を表現したボタンスタイル。">
+                    <Row label="Large (L)">
+                        <NewButton size="lg" variant="primary" icon={PlusIcon}>新規イベント作成</NewButton>
+                        <NewButton size="lg" variant="secondary">詳細設定</NewButton>
+                        <NewButton size="lg" variant="icon" icon={PlayIcon} />
+                    </Row>
+                    <Row label="Medium (M)">
+                        <NewButton size="md" variant="primary">保存する</NewButton>
+                        <NewButton size="md" variant="secondary" icon={SettingsIcon}>設定</NewButton>
+                        <NewButton size="md" variant="danger" icon={TrashIcon}>削除</NewButton>
+                    </Row>
+                    <Row label="Small (S)">
+                        <NewButton size="sm" variant="primary">保存</NewButton>
+                        <NewButton size="sm" variant="secondary">編集</NewButton>
+                        <NewButton size="sm" variant="danger" icon={TrashIcon}>削除</NewButton>
+                    </Row>
+                </Section>
+
+                {/* 5. Dashboard Cards */}
+                {/* ★修正: max-w-4xl (6. Screen Previews と合わせる) */}
+                <Section title="5. Dashboard Cards" description="開始時間を追加し、情報を充実させたイベントカード。">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
                         <NewEventCard
                             title="Saturday Night Fever"
                             date={{ month: 'NOV', day: '22' }}
                             floors={2}
+                            startTime="22:00"
                             isActive={false}
                         />
                         <NewEventCard
                             title="Countdown Party 2025"
                             date={{ month: 'DEC', day: '31' }}
                             floors={3}
+                            startTime="20:00"
                             isActive={true}
                         />
                     </div>
                 </Section>
 
-                {/* 4. Forms & Modals */}
-                <Section title="4. Forms & Lists" description="ダークモードでも視認性の高い境界線と、拡大された時間入力。">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                        <div className="space-y-6">
-                            <h3 className="font-bold text-sm text-on-surface-variant uppercase tracking-wider mb-4">Inputs</h3>
-                            <NewInput label="イベントタイトル" placeholder="例: Saturday Night Fever" />
-                            <NewInput label="検索" placeholder="ユーザー名で検索..." icon={SearchIcon} />
-                            <div>
-                                <Label>開始時間</Label>
-                                <div className="flex items-stretch w-full gap-2">
-                                    <button className="flex-1 py-3 rounded-xl bg-surface-container hover:bg-surface-background border border-on-surface/10 dark:border-white/10 text-xs font-bold shadow-sm text-on-surface">-15</button>
-                                    <div className="flex-grow relative">
-                                        <ClockIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-on-surface-variant/50" />
-                                        {/* 時間表示を大きく (text-3xl) */}
-                                        <div className="bg-surface-background text-on-surface py-3 pl-10 pr-2 w-full rounded-xl border border-on-surface/10 dark:border-white/10 shadow-inner text-center font-mono font-bold text-3xl tracking-widest">
-                                            22:00
-                                        </div>
-                                    </div>
-                                    <button className="flex-1 py-3 rounded-xl bg-surface-container hover:bg-surface-background border border-on-surface/10 dark:border-white/10 text-xs font-bold shadow-sm text-on-surface">+15</button>
+                {/* 6. Screen Previews */}
+                <Section title="6. Screen Previews" description="実際の画面構成におけるUIパーツの見え方を確認。">
+                    {/* Dashboard Preview */}
+                    <div className="mb-12">
+                        <CategoryHeader title="Dashboard View" />
+                        <PreviewContainer>
+                            {/* ★修正: max-w-4xl & mx-auto で Section 5 と完全にサイズを同期 */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+                                <NewEventCard title="Saturday Night Fever" date={{ month: 'NOV', day: '22' }} floors={2} startTime="22:00" isActive={false} />
+                                <NewEventCard title="Countdown Party 2025" date={{ month: 'DEC', day: '31' }} floors={3} startTime="20:00" isActive={true} />
+                                <button className="flex items-center justify-center gap-2 h-full min-h-[180px] rounded-3xl border-2 border-dashed border-on-surface/10 text-on-surface-variant hover:text-brand-primary hover:bg-brand-primary/5 hover:border-brand-primary/30 transition-all">
+                                    <PlusIcon className="w-8 h-8" />
+                                    <span className="font-bold">新規作成</span>
+                                </button>
+                            </div>
+                        </PreviewContainer>
+                    </div>
+
+                    {/* Editor Preview */}
+                    <div className="mb-12">
+                        <CategoryHeader title="Editor View" />
+                        <PreviewContainer className="space-y-4">
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-xl font-bold text-on-surface">Main Floor</h2>
+                                <div className="flex gap-2">
+                                    <span className="text-xs font-bold text-on-surface-variant bg-surface-container px-2 py-1 rounded">TOTAL: 3h 00m</span>
                                 </div>
+                            </div>
+                            <NewSortableCard initialName="DJ TAKUYA" initialDuration={60} time="22:00 - 23:00" color="#3B82F6" isDragging={false} />
+                            <NewSortableCard initialName="DJ YUI" initialDuration={60} time="23:00 - 00:00" color="#EC4899" isDragging={false} />
+                            <NewSortableCard initialName="GUEST DJ" initialDuration={60} time="00:00 - 01:00" color="#F59E0B" isDragging={false} />
+                            <NewTrigger label="DJを追加" icon={PlusIcon} />
+                        </PreviewContainer>
+                    </div>
+
+                    {/* Modal Previews */}
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
+                        <div>
+                            <CategoryHeader title="Modal View: Create Event" />
+                            <div className="flex justify-center py-8 bg-black/5 rounded-3xl border border-dashed border-on-surface/10">
+                                <CreateEventModalPreview />
                             </div>
                         </div>
-
-                        <div className="space-y-6">
-                            <h3 className="font-bold text-sm text-on-surface-variant uppercase tracking-wider mb-4">Lists & Toggles</h3>
-                            <div className="space-y-2">
-                                <NewListItem label="Main Floor" onDelete={() => { }} />
-                                <NewListItem label="Sub Floor" onDelete={() => { }} />
+                        <div>
+                            <CategoryHeader title="Modal View: Floor Manager" />
+                            <div className="flex justify-center py-8 bg-black/5 rounded-3xl border border-dashed border-on-surface/10">
+                                <FloorManagerModalPreview />
                             </div>
-                            <div className="pt-4 space-y-4">
-                                <NewToggle label="VJタイムテーブル機能" checked={true} onChange={() => { }} />
-                                <NewToggle label="デモ用トグル" checked={demoToggle} onChange={setDemoToggle} />
-                                <div className="pt-2">
-                                    <NewTrigger label="DJを追加" icon={PlusIcon} />
-                                </div>
+                        </div>
+                        <div className="xl:col-span-2">
+                            <CategoryHeader title="Modal View: Dashboard Settings" />
+                            <div className="flex justify-center py-8 bg-black/5 rounded-3xl border border-dashed border-on-surface/10">
+                                <DashboardSettingsModalPreview />
+                            </div>
+                        </div>
+                    </div>
+                    {/* Demo Modal Trigger for verification */}
+                    <div className="mt-8 text-center">
+                        <NewButton variant="primary" size="md" onClick={() => setIsDemoModalOpen(true)}>Open Demo Modal (Portal)</NewButton>
+                    </div>
+                </Section>
+
+                {/* 7. Layout Rules */}
+                <Section title="7. Layout Rules" description="レイアウトを一貫させるためのコンポーネントとルール。">
+                    <div className="grid grid-cols-1 gap-8">
+                        <div>
+                            <h4 className="text-sm font-bold text-on-surface mb-2">1. Preview Container (Content Wrapper)</h4>
+                            <p className="text-xs text-on-surface-variant mb-3">DashboardやEditorなどのメインコンテンツを囲む、凹み表現のあるコンテナ。</p>
+                            <PreviewContainer>
+                                <div className="h-12 flex items-center justify-center text-on-surface-variant font-mono">Inner Content Area</div>
+                            </PreviewContainer>
+                        </div>
+                        <div>
+                            <h4 className="text-sm font-bold text-on-surface mb-2">2. Category Header (Section Title)</h4>
+                            <p className="text-xs text-on-surface-variant mb-3">ページ内の大きなセクションを区切るための見出し。</p>
+                            <CategoryHeader title="Section Title Example" />
+                        </div>
+                    </div>
+                </Section>
+
+                {/* 8. Spacing Rules */}
+                <Section title="8. Spacing Rules" description="UIの呼吸を整えるための余白ルール。">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <div>
+                            <h4 className="text-sm font-bold text-on-surface mb-4">Small (Gap)</h4>
+                            <div className="space-y-4">
+                                <SpacingBlock label="gap-1 (4px): アイコンとテキスト" sizeClass="w-4 h-4" />
+                                <SpacingBlock label="gap-2 (8px): ボタン内の要素" sizeClass="w-8 h-8" />
+                                <SpacingBlock label="gap-3 (12px): リストアイテム間" sizeClass="w-12 h-12" />
+                            </div>
+                        </div>
+                        <div>
+                            <h4 className="text-sm font-bold text-on-surface mb-4">Medium (Padding)</h4>
+                            <div className="space-y-4">
+                                <SpacingBlock label="p-3 (12px): リストアイテム内部" sizeClass="w-12 h-12" />
+                                <SpacingBlock label="p-4 (16px): カード内部" sizeClass="w-16 h-16" />
+                                <SpacingBlock label="p-6 (24px): モーダル/コンテナ内部" sizeClass="w-24 h-24" />
+                            </div>
+                        </div>
+                        <div>
+                            <h4 className="text-sm font-bold text-on-surface mb-4">Large (Layout)</h4>
+                            <div className="space-y-4">
+                                <SpacingBlock label="gap-6 (24px): グリッド間隔" sizeClass="w-24 h-24" />
+                                <SpacingBlock label="mb-12 (48px): セクション間隔" sizeClass="w-32 h-12" />
                             </div>
                         </div>
                     </div>
                 </Section>
 
-                {/* 5. Typography System */}
-                <Section title="5. Text Size System" description="階層構造を明確にする文字サイズ定義。">
-                    <div className="space-y-6">
-                        <div className="border-b border-on-surface/10 pb-4">
-                            <div className="text-4xl font-bold text-on-surface mb-2">Display Text</div>
-                            <div className="text-xs text-on-surface-variant font-mono">text-4xl / Bold / Page Titles</div>
+                {/* 9. Tabs & Navigation */}
+                <Section title="9. Tabs & Navigation" description="直感的なフロア切り替えやナビゲーション。">
+                    <NewTabs
+                        items={[
+                            { id: 'floor1', label: 'Main Floor' },
+                            { id: 'floor2', label: 'Sub Floor' },
+                            { id: 'floor3', label: 'Lounge' }
+                        ]}
+                        activeId={activeTab}
+                        onChange={setActiveTab}
+                    />
+                </Section>
+
+                {/* 10. Status Badges */}
+                <Section title="10. Status Badges" description="イベントの状態を一目で伝えるバッジ。">
+                    <div className="flex flex-wrap gap-4">
+                        <NewBadge status="onAir" label="ON AIR" />
+                        <NewBadge status="upcoming" label="UPCOMING" />
+                        <NewBadge status="finished" label="FINISHED" />
+                        <NewBadge status="standby" label="STANDBY" />
+                    </div>
+                </Section>
+
+                {/* 11. Empty States */}
+                <Section title="11. Empty States" description="データがない時のプレースホルダー。">
+                    <PreviewContainer>
+                        <NewEmptyState
+                            icon={LayersIcon}
+                            title="イベントがありません"
+                            description="右下のボタンから、最初のイベントを作成しましょう！"
+                            action={
+                                <NewButton variant="primary" size="md" icon={PlusIcon}>新規作成</NewButton>
+                            }
+                        />
+                    </PreviewContainer>
+                </Section>
+
+                {/* 12. Color Picker */}
+                <Section title="12. Color Picker" description="DJのイメージカラーを選択するパレット。">
+                    <div className="max-w-md">
+                        <div className="flex items-center gap-2 mb-2">
+                            <PaletteIcon className="w-4 h-4 text-on-surface-variant" />
+                            <span className="text-sm font-bold text-on-surface">Theme Color</span>
                         </div>
-                        <div className="border-b border-on-surface/10 pb-4">
-                            <div className="text-lg font-bold text-on-surface mb-2">Heading Text</div>
-                            <div className="text-xs text-on-surface-variant font-mono">text-lg / Bold / Card Titles</div>
-                        </div>
-                        <div className="border-b border-on-surface/10 pb-4">
-                            <div className="text-base font-medium text-on-surface mb-2">Body Text: The quick brown fox jumps over the lazy dog.</div>
-                            <div className="text-xs text-on-surface-variant font-mono">text-base / Medium / Content</div>
-                        </div>
-                        <div className="border-b border-on-surface/10 pb-4">
-                            <div className="text-sm font-bold text-on-surface mb-2">Label Text</div>
-                            <div className="text-xs text-on-surface-variant font-mono">text-sm / Bold / Inputs & Buttons</div>
-                        </div>
-                        <div>
-                            <div className="text-xs font-bold text-on-surface-variant mb-2">CAPTION TEXT</div>
-                            <div className="text-xs text-on-surface-variant font-mono">text-xs / Bold / Metadata</div>
-                        </div>
+                        <NewColorPicker
+                            colors={VIVID_COLORS_SAMPLE}
+                            selectedColor={selectedColor}
+                            onSelect={setSelectedColor}
+                        />
                     </div>
                 </Section>
 
             </div>
+            {isDemoModalOpen && <DemoModal onClose={() => setIsDemoModalOpen(false)} />}
         </div>
     );
 };
