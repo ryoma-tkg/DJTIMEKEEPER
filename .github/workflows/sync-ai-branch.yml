@@ -6,7 +6,7 @@ on:
       - phase3-dev
 
 jobs:
-  sync-to-ai-chat:
+  sync-to-ai-chat2: # ジョブIDを変更
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -29,15 +29,16 @@ jobs:
           rm -f yarn.lock
           
           # --- 2. 画像アセットの削除 (推奨) ---
-          # コードのロジック相談には不要なため削除
           rm -f public/*.svg
           rm -f src/assets/*.svg
           rm -f src/assets/*.png
           
           # --- 3. 不要な設定ファイルやキャッシュの削除 ---
-          # プロジェクトから削除済みなら不要ですが、念のため
           rm -rf .firebase
           rm -f .github/workflows/deploy.yml
+          
+          # --- 4. (任意) ドキュメント類 ---
+          # rm -f UIdesign.md roadmap.md
 
           # 変更をコミット (ファイルがある場合のみ)
           if [ -n "$(git status --porcelain)" ]; then
@@ -45,6 +46,7 @@ jobs:
             git commit -m "Optimize for AI: Remove lockfiles and assets [skip ci]"
           fi
 
-      - name: Push to ai-chat branch
+      - name: Push to ai-chat2 branch
         run: |
-          git push origin HEAD:ai-chat --force
+          # 送信先を ai-chat2 に変更
+          git push origin HEAD:ai-chat2 --force
