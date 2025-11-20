@@ -1,7 +1,7 @@
 # DJ Timekeeper Pro - Tactile Design System Specification
 
-**Version:** 2.1.0 (Border Logic Added)
-**Last Updated:** 2025-11-19
+**Version:** 2.2.0 (Tactile Hierarchy Added)
+**Last Updated:** 2025-11-21
 **Concept:** "The Digital Instrument" - Precise, Weighted, Responsive.
 
 ---
@@ -12,13 +12,19 @@ This system simulates a physical interface. Elements are not just pixels; they h
 
 ### 1.1. The Lighting Model
 * **Light Source:** Top-center (90°), slightly diffuse.
-* **Shadows:** Cast downwards. Higher elevation = Larger, softer shadow + slight vertical offset.
-* **Glow:** Emissive elements (active states) cast colored light, not black shadows.
+* **Shadows (Reflective):** Standard elements cast black/gray shadows downwards.
+* **Glow (Emissive):** Only "Active/Emissive" elements cast colored light. They cast a "Glow", not a shadow.
 
 ### 1.2. Materiality
 * **Glass:** Used for overlays and floating headers (`backdrop-blur-sm` or `md`).
 * **Plastic/Metal:** Used for cards and buttons. Opaque, smooth, low friction.
 * **Rubber:** Used for inputs and touch targets. High friction, matte finish.
+
+### 1.3. Tactile Hierarchy (Logic Update)
+To preserve the current aesthetics while reducing visual noise:
+* **Emissive (光る):** Reserved for the **Primary Action** (1 per view) or Active States (ON AIR).
+* **Physical (光らない):** Used for **Secondary Actions** (Cancel, Settings, Edit). They have depth but no glow.
+* **Flat:** Used for tertiary actions.
 
 ---
 
@@ -39,12 +45,12 @@ Colors are defined as **RGB Triplets** in CSS variables to allow alpha transpare
 
 ### 2.2. Elevation & Shadows (The "Lift")
 
-We use a **Double-Layer Shadow System** to simulate realistic depth.
+We use a **Double-Layer Shadow System** to distinguish between "Physical Object" and "Light Source".
 
 * **Level 0 (Flat):** `shadow-none`. Inputs, inactive list items.
-* **Level 1 (Resting):** `shadow-sm`. Buttons, Cards.
+* **Level 1 (Resting - Physical):** `shadow-sm`. Buttons, Cards.
     * *CSS:* `0 1px 2px 0 rgb(0 0 0 / 0.05)`
-* **Level 2 (Hover/Lift):** `shadow-lg` + **Colored Glow**.
+* **Level 2 (Hover/Lift):** `shadow-lg` + **Colored Glow (if Emissive)**.
     * *Concept:* The object lifts closer to the light source.
     * *CSS:* `0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(var(--color-brand-primary) / 0.1)`
 * **Level 3 (Floating/Modal):** `shadow-2xl`.
@@ -107,11 +113,31 @@ Buttons are physical keys. They must depress when pushed.
 
 * **Shape:** `rounded-xl` (12px radius).
 * **Padding:** `py-2 px-4` (min-height 44px).
-* **States:**
+* **Interaction States:**
     * **Rest:** `scale-100`, `shadow-md`.
     * **Hover:** `scale-102` or `-translate-y-0.5`, `shadow-lg` (colored if primary), `brightness-105`.
     * **Active (Press):** `scale-95`, `shadow-inner` or `shadow-none`, `translate-y-0`. **CRITICAL:** This provides the "click" feeling.
     * **Disabled:** `opacity-50`, `cursor-not-allowed`, `scale-100` (no interaction).
+
+#### Variant Definitions (Hierarchy Update)
+
+* **Primary (Emissive):**
+    * **Usage:** Main action (Save, Create, Start). **Max 1-2 per screen.**
+    * **Style:** `bg-brand-primary` text-white.
+    * **Shadow:** `shadow-lg shadow-brand-primary/30` (Blue Glow enabled).
+
+* **Secondary (Physical):**
+    * **Usage:** Auxiliary actions (Cancel, Settings, Edit).
+    * **Style:** `bg-surface-background` hover:`bg-on-surface/5`.
+    * **Shadow:** `shadow-sm` (Standard Black Shadow). **No Blue Glow.**
+
+* **Ghost / Icon:**
+    * **Usage:** Navigation, weak actions.
+    * **Style:** Transparent background.
+
+* **Danger:**
+    * **Usage:** Destructive actions.
+    * **Style:** `bg-red-500/10 text-red-500`.
 
 ### 4.2. Inputs (`<Input />`)
 
@@ -161,14 +187,14 @@ Modals are sheets of glass/material sliding in from the bottom-center.
     * **Trigger:** `pointerdown`.
     * **State Change:** `z-index: 50`, `scale: 1.05`, `shadow-xl`.
 * **Grip Handle:** Left side, `cursor-grab`, `text-on-surface-variant`.
-* 
-### 4.6. Performance Monitor (New)
+
+### 4.6. Performance Monitor
 * **Style:** "Cyber-Tactile".
 * **Background:** `bg-gray-900/95` (Always dark).
 * **Border:** `border-gray-700`.
 * **Typography:** `font-mono`, `text-xs`.
 * **Graphs:** Bar charts using CSS width transition (`transition-all duration-500`).
-  
+
 ---
 
 ## 5. Implementation Rules (Code of Conduct)

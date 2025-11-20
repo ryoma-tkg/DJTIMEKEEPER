@@ -13,7 +13,7 @@ import {
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { LoadingScreen } from './components/common';
 import { PerformanceMonitor } from './components/PerformanceMonitor';
-
+import { UITestPage } from './components/UITestPage';
 // 遅延ロード
 const LoginPage = lazy(() => import('./components/LoginPage').then(module => ({ default: module.LoginPage })));
 const DashboardPage = lazy(() => import('./components/DashboardPage').then(module => ({ default: module.DashboardPage })));
@@ -219,6 +219,7 @@ const App = () => {
 
             <Suspense fallback={<LoadingScreen text="読み込み中..." />}>
                 <Routes>
+                    <Route path="/test-ui" element={<UITestPage theme={theme} toggleTheme={toggleTheme} />} />
                     <Route
                         path="/"
                         element={
