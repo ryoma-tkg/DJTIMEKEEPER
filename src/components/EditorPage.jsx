@@ -1,6 +1,6 @@
 // [src/components/EditorPage.jsx]
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'; // useLocation追加
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { db, storage } from '../firebase';
 import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 
@@ -20,7 +20,7 @@ const getDefaultEventConfig = () => ({
 export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleTheme, isPerfMonitorVisible, onTogglePerfMonitor }) => {
     const { eventId, floorId } = useParams();
     const navigate = useNavigate();
-    const location = useLocation(); // URLの状態監視用
+    const location = useLocation();
     const dbRef = useRef(db);
     const storageRef = useRef(storage);
 
@@ -31,7 +31,6 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
     const [timetable, setTimetable] = useState([]);
     const [vjTimetable, setVjTimetable] = useState([]);
 
-    // ▼▼▼ モード管理をURLハッシュに連動 ▼▼▼
     const [mode, setMode] = useState(location.hash === '#live' ? 'live' : 'edit');
 
     const [pageStatus, setPageStatus] = useState('loading');
@@ -42,28 +41,24 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
     const { loadedUrls, allLoaded: imagesLoaded } = useImagePreloader(imageUrlsToPreload);
     const docRef = useMemo(() => doc(dbRef.current, 'timetables', eventId), [eventId]);
 
-    // URLハッシュ変更検知
     useEffect(() => {
         setMode(location.hash === '#live' ? 'live' : 'edit');
     }, [location.hash]);
 
-    // モード変更ハンドラ (ナビゲーション履歴を使う)
     const handleSetMode = (newMode) => {
         if (newMode === 'live') {
-            // Liveモードへ: ハッシュを付与（履歴に追加される）
-            navigate(`#live`);
+            // Liveモードへ: ハッシュを付与（履歴に追加）
+            navigate('#live');
         } else {
-            // Editモードへ: 履歴を戻る（ブラウザバックと同じ挙動）
-            // もし直接 #live で開いていた場合は履歴がないので、明示的にハッシュを消す
+            // Editモードへ: 履歴を戻る
             if (window.history.length > 1) {
                 navigate(-1);
             } else {
-                navigate(location.pathname);
+                navigate(location.pathname, { replace: true });
             }
         }
     };
 
-    // 1. データ読み込み
     useEffect(() => {
         if (!user || !eventId) return;
         if (!eventData) {
@@ -73,7 +68,6 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
-                // ▼▼▼ 【修正】 管理者(isDevMode)なら他人のイベントも編集可能にする ▼▼▼
                 if (data.ownerUid !== user.uid && !isDevMode) {
                     navigate(`/live/${eventId}`, { replace: true });
                     return;
@@ -114,9 +108,8 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
             setPageStatus('offline');
         });
         return () => unsubscribe();
-    }, [user, eventId, docRef, navigate, isDevMode]); // isDevModeを依存に追加
+    }, [user, eventId, docRef, navigate, isDevMode]);
 
-    // URL同期 & データ更新
     useEffect(() => {
         setCurrentFloorId(floorId);
         if (eventData && eventData.floors && eventData.floors[floorId]) {
@@ -128,7 +121,6 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
         }
     }, [floorId, eventData]);
 
-    // 保存ロジック
     const saveDataToFirestore = useCallback(() => {
         if (pageStatus !== 'ready' || !user || !currentFloorId) return;
         if (eventData && !eventData.floors && eventData.timetable) {
@@ -160,11 +152,17 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
         }
     };
 
+    // ▼▼▼ 修正: Liveモード時はreplace遷移し、戻るボタンでEditへ戻れるようにする ▼▼▼
     const handleSelectFloor = (newFloorId) => {
         if (newFloorId !== currentFloorId) {
-            navigate(`/edit/${eventId}/${newFloorId}`);
+            // 履歴を置き換える (replace: true)
+            navigate({
+                pathname: `/edit/${eventId}/${newFloorId}`,
+                hash: location.hash // ハッシュ(#live)があれば維持
+            }, { replace: true });
         }
     };
+    // ▲▲▲ 修正ここまで ▲▲▲
 
     const handleTimeJump = (m) => setTimeOffset(p => p + m * 60 * 1000);
     const handleTimeReset = () => setTimeOffset(0);
