@@ -1,7 +1,6 @@
-# [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-phase3-dev/roadmap.md]
 # Roadmap to Release
 
-**Last Updated: 2025-11-19**
+**Last Updated: 2025-11-20**
 
 ## 🚀 Milestones
 
@@ -49,22 +48,10 @@ Optimization for modern mobile devices.
 
 ### Phase 3: Web Service Architecture (✅ Completed)
 Transition to a multi-tenant, multi-floor SaaS platform.
-
-1.  **Authentication (Google):** (✅ Completed)
-    * Replaced anonymous auth with Google Auth.
-    * `LoginPage` implementation.
-
-2.  **Data Model Restructuring:** (✅ Completed)
-    * Migrated to `timetables` collection with `ownerUid`.
-
-3.  **Routing & Access Control:** (✅ Completed)
-    * `react-router-dom` integration.
-    * Page separation (`DashboardPage`, `EditorPage`, `LivePage`).
-    * Dynamic redirects (`/edit/:eventId` -> `/edit/:eventId/:floorId`).
-
-4.  **Multi-Floor Management:** (✅ Completed)
-    * `FloorManagerModal` implementation.
-    * LiveView seamless floor switching logic.
+* ✅ **Authentication (Google):** Replaced anonymous auth with Google Auth.
+* ✅ **Data Model Restructuring:** Migrated to `timetables` collection with `ownerUid`.
+* ✅ **Routing & Access Control:** `react-router-dom` integration.
+* ✅ **Multi-Floor Management:** `FloorManagerModal` implementation.
 
 ### Phase 3.5: UI/UX Overhaul & Polish (✅ Completed)
 Comprehensive design update focusing on "Tactile Feel" and "Modern Professional" aesthetics.
@@ -80,8 +67,6 @@ Comprehensive design update focusing on "Tactile Feel" and "Modern Professional"
 * ✅ **Security Enhancement (`firestore.rules`)**
 * ✅ **UI Design Polish**
 
----
-
 ### Phase 4: Communication & Performance Optimization (✅ Completed)
 **"Smart & Thrifty" - コスト削減とUX向上の両立**
 * ✅ **Storage Cache Strategy:** Added `Cache-Control` (1 year) to uploads.
@@ -91,27 +76,29 @@ Comprehensive design update focusing on "Tactile Feel" and "Modern Professional"
 
 ---
 
-### Phase 5: User Management & Personalization (🚧 Current Focus)
+### Phase 5: User Management & Personalization (✅ Completed)
 **"Identity & Preferences" - ユーザー体験の個別化と基盤強化**
+* ✅ **User Database Architecture:** `users` collection setup & security rules.
+* ✅ **Authentication Flow Upgrade:** Automatic user profile creation/sync on login.
+* ✅ **Enhanced Settings Modal:** Default preferences (start time, VJ, floors), account deletion.
 
-1.  **User Database Architecture:**
-    * Firestore `users` コレクションの設計とセキュリティルールの実装。
-2.  **Authentication Flow Upgrade:**
-    * ログイン時に自動でユーザーデータ（`users/{uid}`）を作成・同期するロジックの実装。
-3.  **Enhanced Settings Modal:**
-    * **Preferences:** 新規イベント作成時のデフォルト値（開始時間、VJ、フロア構成）をDBに保存・適用。
-    * **Account Management:** アカウント削除（退会）機能。全データのクリーンアップ。
-    * **App Info:** バージョン情報の表示 (`package.json`参照)。
-
+### Phase 5.5: Admin Tools & UX Improvements (✅ Completed)
+**"Professional Control" - 管理機能の強化とUXの洗練**
+* ✅ **Admin Support Mode:** Administrators can search and access other users' dashboards for support.
+* ✅ **Performance Monitor:** Real-time tracking of FPS, Memory, Network, and DOM nodes with detailed logging.
+* ✅ **Dashboard UI Overhaul:** Replaced FAB with inline "Create Event" card and header actions for better usability.
+* ✅ **Navigation Logic:** Improved browser-back behavior for seamless transitions between Dashboard, Edit, and Live modes.
 ---
 
 ### Phase 6: Release & Monetization (Future)
 **Public Launch**
 
 1.  **Public Real-time Page:** `/public/:timetableId` (View-only).
-2.  **Pro Features:** Image Export, CSV Import/Export.
+2.  **Pro Features:** CSV Import/Export.
 3.  **Monetization:** Stripe integration.
-4.  
+4.  **Image Export:** Implement one-click image download of the timetable using `html2canvas`.
+
+
 ### Future Ideas & Candidates (💡 New!)
 **次期開発候補・ユーザー要望**
 * **Co-Editing (共同編集):** イベント単位で他のユーザーを招待し、複数人でリアルタイムにタイムテーブルを編集できる機能。
