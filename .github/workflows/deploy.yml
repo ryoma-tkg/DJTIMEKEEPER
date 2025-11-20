@@ -28,28 +28,32 @@ jobs:
     
     # ジョブのステップ
     steps:
-      # 1. (変更なし)
+      # 1. チェックアウト
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. (変更なし)
+      # 2. Node.jsのセットアップ
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20' 
           cache: 'npm'       
 
-      # 3. (変更なし)
+      # 3. 依存関係のインストール
       - name: Install dependencies
         run: npm ci 
 
-      # 4. (変更なし)
+      # 4. キャッシュ削除
       - name: Clear Vite build cache
         run: rm -rf node_modules/.vite
 
-      # ▼▼▼ 修正: 以前あった sed コマンド（パス書き換え）を削除しました ▼▼▼
-      # vite.config.js の base: '/' 設定をそのまま使用します。
-
+      # ▼▼▼ 【復活＆修正】 GitHub Pages用にパスを書き換える ▼▼▼
+      # vite.config.js の base: '/' を base: '/DJTIMEKEEPER/' に置換します
+      - name: Update vite.config.js for GitHub Pages
+        run: |
+          sed -i "s|base: '/'|base: '/DJTIMEKEEPER/'|" vite.config.js
+      # ▲▲▲ 修正ここまで ▲▲▲
+      
       # 5. ビルド実行
       - name: Build Vite app
         run: npm run build
@@ -61,20 +65,18 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
 
-      # ▼▼▼ 追加: SPA対策 (404.html の生成) ▼▼▼
-      # GitHub Pagesで404になった際に、index.htmlと同じ内容を返すことで
-      # React Routerに処理を引き継がせます。
+      # 6. SPA対策 (404.html の生成)
+      # GitHub PagesでURL直接入力時に404になるのを防ぐため、index.htmlを複製します
       - name: Create 404.html for SPA routing
         run: cp dist/index.html dist/404.html
-      # ▲▲▲ 追加ここまで ▲▲▲
 
-      # 6. (変更なし)
+      # 7. アーティファクトのアップロード
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: './dist' 
 
-      # 7. (変更なし)
+      # 8. デプロイ
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
