@@ -12,14 +12,12 @@ import {
     XIcon,
     TrashIcon,
     LayersIcon,
-    ActivityIcon, // ★追加
+    ActivityIcon,
     VIVID_COLORS,
     parseDateTime
 } from './common';
-// ▼▼▼ 追加 ▼▼▼
-import { PerformanceMonitor } from './PerformanceMonitor';
+// PerformanceMonitorのインポートは削除（App.jsxに移動したため）
 
-// ... (DevButtonの実装は変更なし) ...
 const DevButton = ({ onClick, children, className = '', title = '', disabled = false, active = false }) => (
     <button
         onClick={onClick}
@@ -40,10 +38,10 @@ const DevButton = ({ onClick, children, className = '', title = '', disabled = f
 );
 
 export const DevControls = ({
-    // ... (propsは変更なし) ...
     location = 'editor',
     onClose,
     onCrashApp,
+
     mode,
     setMode,
     timeOffset,
@@ -57,15 +55,15 @@ export const DevControls = ({
     onToggleVjFeature,
     onSetStartNow,
     imagesLoaded,
-    onDeleteAllEvents
+
+    onDeleteAllEvents,
+    // ▼▼▼ 追加: 親から受け取るモニター制御 ▼▼▼
+    isPerfMonitorVisible,
+    onTogglePerfMonitor
 }) => {
     const isDashboard = location === 'dashboard';
     const [isDebugLayout, setIsDebugLayout] = useState(false);
 
-    // ▼▼▼ 追加: モニター表示状態 ▼▼▼
-    const [isPerfMonitorOpen, setIsPerfMonitorOpen] = useState(false);
-
-    // ... (スマートダミーデータなどのロジックは変更なし) ...
     const handleLoadSmartDummy = () => {
         if (!window.confirm('現在のタイムテーブルを上書きしてダミーデータを生成しますか？')) return;
 
@@ -107,14 +105,17 @@ export const DevControls = ({
 
     const handleJumpToNextTransition = () => {
         if (!timetable.length || !eventConfig.startDate) return;
+
         const now = new Date(new Date().getTime() + timeOffset);
         const startTimeDate = parseDateTime(eventConfig.startDate, eventConfig.startTime);
+
         let currentEndTime = new Date(startTimeDate);
         let foundTarget = null;
 
         for (const item of timetable) {
             const duration = parseFloat(item.duration) || 0;
             const itemEndTime = new Date(currentEndTime.getTime() + duration * 60000);
+
             if (itemEndTime > now) {
                 foundTarget = itemEndTime;
                 break;
@@ -150,47 +151,50 @@ export const DevControls = ({
             console.log("Timetable (DJ):", timetable);
             console.log("Timetable (VJ):", vjTimetable);
             console.log("Time Offset (ms):", timeOffset);
+            const now = new Date(new Date().getTime() + timeOffset);
+            console.log("Virtual Now:", now.toLocaleString());
         }
         console.groupEnd();
     };
 
     return (
-        <>
-            {/* ▼▼▼ パフォーマンスモニター (表示状態ならレンダリング) ▼▼▼ */}
-            {isPerfMonitorOpen && <PerformanceMonitor onClose={() => setIsPerfMonitorOpen(false)} />}
+        <div className="fixed bottom-4 right-4 z-[9999] bg-surface-container/90 backdrop-blur-xl border border-on-surface/10 rounded-2xl shadow-2xl p-4 text-on-surface text-left w-[300px] animate-fade-in-up overflow-hidden">
 
-            <div className="fixed bottom-4 right-4 z-[9999] bg-surface-container/90 backdrop-blur-xl border border-on-surface/10 rounded-2xl shadow-2xl p-4 text-on-surface text-left w-[300px] animate-fade-in-up overflow-hidden">
-
-                {/* Header */}
-                <div className="flex items-center justify-between mb-3 pb-2 border-b border-on-surface/10">
-                    <div className="flex items-center gap-2">
-                        <div className="p-1.5 bg-brand-primary/10 rounded-lg">
-                            <SettingsIcon className="w-4 h-4 text-brand-primary" />
-                        </div>
-                        <div>
-                            <h3 className="font-bold text-sm leading-none">Developer Tools</h3>
-                            <p className="text-[10px] text-on-surface-variant font-mono opacity-70 mt-0.5">for DJ Timekeeper Pro</p>
-                        </div>
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-on-surface/10">
+                <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-brand-primary/10 rounded-lg">
+                        <SettingsIcon className="w-4 h-4 text-brand-primary" />
                     </div>
-                    <button onClick={onClose} className="p-1.5 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface transition-colors">
-                        <XIcon className="w-4 h-4" />
-                    </button>
+                    <div>
+                        <h3 className="font-bold text-sm leading-none">Developer Tools</h3>
+                        <p className="text-[10px] text-on-surface-variant font-mono opacity-70 mt-0.5">for DJ Timekeeper Pro</p>
+                    </div>
                 </div>
+                <button onClick={onClose} className="p-1.5 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface transition-colors">
+                    <XIcon className="w-4 h-4" />
+                </button>
+            </div>
 
-                <div className="space-y-4">
-                    {/* --- Dashboard Controls --- */}
-                    {isDashboard && (
-                        <div className="grid grid-cols-1 gap-2">
-                            <DevButton onClick={onDeleteAllEvents} className="bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/20">
-                                <TrashIcon className="w-4 h-4" /> 全イベント削除 (Danger)
+            <div className="space-y-4">
+                {isDashboard && (
+                    <div className="grid grid-cols-1 gap-2">
+                        {/* ▼▼▼ Dashboardにもモニターボタン追加 ▼▼▼ */}
+                        <DevButton onClick={onTogglePerfMonitor} active={isPerfMonitorVisible}>
+                            <ActivityIcon className="w-4 h-4" /> System Monitor
+                        </DevButton>
+                        <DevButton onClick={onDeleteAllEvents} className="bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/20">
+                            <TrashIcon className="w-4 h-4" /> 全イベント削除 (Danger)
+                        </DevButton>
+                    </div>
+                )}
+
+                {!isDashboard && (
+                    <>
+                        {/* ▼▼▼ Editorでのレイアウト変更: 縦並び & Monitorが上 ▼▼▼ */}
+                        <div className="flex flex-col gap-2">
+                            <DevButton onClick={onTogglePerfMonitor} active={isPerfMonitorVisible}>
+                                <ActivityIcon className="w-4 h-4" /> System Monitor
                             </DevButton>
-                        </div>
-                    )}
-
-                    {/* --- Editor Controls --- */}
-                    {!isDashboard && (
-                        <>
-                            {/* Mode & Visuals */}
                             <div className="grid grid-cols-2 gap-2">
                                 <DevButton
                                     onClick={() => setMode(mode === 'live' ? 'edit' : 'live')}
@@ -199,72 +203,61 @@ export const DevControls = ({
                                 >
                                     {mode === 'live' ? 'Edit Mode' : 'Live Mode'}
                                 </DevButton>
-
-                                {/* ▼▼▼ 追加: モニター起動ボタン ▼▼▼ */}
-                                <DevButton onClick={() => setIsPerfMonitorOpen(!isPerfMonitorOpen)} active={isPerfMonitorOpen}>
-                                    <ActivityIcon className="w-4 h-4" /> Monitor
-                                </DevButton>
-                            </div>
-
-                            <div className="grid grid-cols-1">
                                 <DevButton onClick={toggleDebugLayout} active={isDebugLayout}>
-                                    <LayersIcon className="w-4 h-4" /> UI Debug / Layout
+                                    <LayersIcon className="w-4 h-4" /> UI Debug
                                 </DevButton>
                             </div>
+                        </div>
 
-                            {/* Time Manipulation */}
-                            <div className="bg-surface-background/50 rounded-xl p-2 border border-on-surface/5">
-                                <div className="flex justify-between items-center mb-2 px-1">
-                                    <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Time Travel</span>
-                                    <span className="font-mono font-bold text-xs tabular-nums text-brand-primary">
-                                        {timeOffset ? (timeOffset / 60000).toFixed(1) + ' min' : '±0.0'}
-                                    </span>
-                                </div>
-                                <div className="grid grid-cols-4 gap-1">
-                                    <DevButton onClick={() => onTimeJump(-10)}>-10m</DevButton>
-                                    <DevButton onClick={() => onTimeJump(10)}>+10m</DevButton>
-                                    <DevButton onClick={() => onTimeJump(60)}>+1h</DevButton>
-                                    <DevButton onClick={onTimeReset} className="text-red-400"><ResetIcon className="w-4 h-4" /></DevButton>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2 mt-2">
-                                    <DevButton onClick={onSetStartNow} className="text-[10px]">
-                                        <ClockIcon className="w-3 h-3" /> Start Now
-                                    </DevButton>
-                                    <DevButton onClick={handleJumpToNextTransition} className="text-[10px]">
-                                        <SkipForwardIcon className="w-3 h-3" /> Next DJ -30s
-                                    </DevButton>
-                                </div>
+                        <div className="bg-surface-background/50 rounded-xl p-2 border border-on-surface/5">
+                            <div className="flex justify-between items-center mb-2 px-1">
+                                <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Time Travel</span>
+                                <span className="font-mono font-bold text-xs tabular-nums text-brand-primary">
+                                    {timeOffset ? (timeOffset / 60000).toFixed(1) + ' min' : '±0.0'}
+                                </span>
                             </div>
-
-                            {/* Data Manipulation */}
-                            <div className="space-y-2">
-                                <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Data & Features</p>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <DevButton onClick={handleLoadSmartDummy}>
-                                        <SparklesIcon className="w-4 h-4 text-amber-500" /> Smart Data
-                                    </DevButton>
-                                    <DevButton onClick={handleClearFloor} className="text-red-400 hover:bg-red-500/10">
-                                        <TrashIcon className="w-4 h-4" /> Clear Floor
-                                    </DevButton>
-                                    <DevButton onClick={onToggleVjFeature} active={eventConfig?.vjFeatureEnabled}>
-                                        <VideoIcon className="w-4 h-4" /> VJ Mode
-                                    </DevButton>
-                                    <DevButton onClick={handleLogState}>
-                                        <LogInIcon className="w-4 h-4" /> Log State
-                                    </DevButton>
-                                </div>
+                            <div className="grid grid-cols-4 gap-1">
+                                <DevButton onClick={() => onTimeJump(-10)}>-10m</DevButton>
+                                <DevButton onClick={() => onTimeJump(10)}>+10m</DevButton>
+                                <DevButton onClick={() => onTimeJump(60)}>+1h</DevButton>
+                                <DevButton onClick={onTimeReset} className="text-red-400"><ResetIcon className="w-4 h-4" /></DevButton>
                             </div>
-
-                            {/* System */}
-                            <div className="pt-2 border-t border-on-surface/10">
-                                <DevButton onClick={onCrashApp} className="w-full bg-red-500/10 text-red-500 hover:bg-red-500/20 border-transparent">
-                                    <BugIcon className="w-4 h-4" /> Force Crash
+                            <div className="grid grid-cols-2 gap-2 mt-2">
+                                <DevButton onClick={onSetStartNow} className="text-[10px]">
+                                    <ClockIcon className="w-3 h-3" /> Start Now
+                                </DevButton>
+                                <DevButton onClick={handleJumpToNextTransition} className="text-[10px]">
+                                    <SkipForwardIcon className="w-3 h-3" /> Next DJ -30s
                                 </DevButton>
                             </div>
-                        </>
-                    )}
-                </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Data & Features</p>
+                            <div className="grid grid-cols-2 gap-2">
+                                <DevButton onClick={handleLoadSmartDummy}>
+                                    <SparklesIcon className="w-4 h-4 text-amber-500" /> Smart Data
+                                </DevButton>
+                                <DevButton onClick={handleClearFloor} className="text-red-400 hover:bg-red-500/10">
+                                    <TrashIcon className="w-4 h-4" /> Clear Floor
+                                </DevButton>
+                                <DevButton onClick={onToggleVjFeature} active={eventConfig?.vjFeatureEnabled}>
+                                    <VideoIcon className="w-4 h-4" /> VJ Mode
+                                </DevButton>
+                                <DevButton onClick={handleLogState}>
+                                    <LogInIcon className="w-4 h-4" /> Log State
+                                </DevButton>
+                            </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-on-surface/10">
+                            <DevButton onClick={onCrashApp} className="w-full bg-red-500/10 text-red-500 hover:bg-red-500/20 border-transparent">
+                                <BugIcon className="w-4 h-4" /> Force Crash
+                            </DevButton>
+                        </div>
+                    </>
+                )}
             </div>
-        </>
+        </div>
     );
 };

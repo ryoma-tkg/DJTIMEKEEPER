@@ -1,4 +1,5 @@
 // [src/components/DashboardPage.jsx]
+// ... (import等は変更なし) ...
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { db, storage } from '../firebase';
@@ -32,11 +33,17 @@ import {
 } from './common';
 import { DevControls } from './DevControls';
 
-// ▼▼▼ 【改修】 UI刷新版 設定モーダル ▼▼▼
-const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout, user, userProfile }) => {
-    const [activeTab, setActiveTab] = useState('account'); // 'account' | 'event' | 'app' | 'admin'
+// ... (DashboardSettingsModal, EventSetupModal, EventCard は変更なし。そのまま使う) ...
+// ※ コード量が多いため、変更のあった DashboardPage コンポーネントのみ抜粋します。
+//    以前のコードの上書きで大丈夫ですが、return内のDevControls呼び出し部分だけが変わっています。
 
-    // フォーム状態
+// --- DashboardSettingsModal, EventSetupModal, EventCard は変更がないので省略します（以前のコードを維持してください） ---
+// 省略部分は以前のコードと同じです
+
+const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout, user, userProfile }) => {
+    // ... (以前のコードと同じ) ...
+    // 省略
+    const [activeTab, setActiveTab] = useState('account');
     const [displayName, setDisplayName] = useState(user?.displayName || '');
     const [preferences, setPreferences] = useState({
         defaultStartTime: '22:00',
@@ -44,24 +51,16 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
         defaultMultiFloor: false,
         ...userProfile?.preferences
     });
-
-    // 管理者管理用の状態
     const [targetEmail, setTargetEmail] = useState('');
-    const [adminSearchStatus, setAdminSearchStatus] = useState(''); // 'searching', 'found', 'not-found', 'error', 'success'
-    const [adminList, setAdminList] = useState([]); // 管理者一覧
-
-    // アプリ設定用の状態 (LocalStorage)
+    const [adminSearchStatus, setAdminSearchStatus] = useState('');
+    const [adminList, setAdminList] = useState([]);
     const [isWakeLockEnabled, setIsWakeLockEnabled] = useState(false);
-
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
-
-    // ★★★ スーパー管理者（あなた）だけの特別権限 ★★★
     const SUPER_ADMIN_UID = "GLGPpy6IlyWbGw15OwBPzRdCPZI2";
     const isSuperAdmin = user?.uid === SUPER_ADMIN_UID;
 
-    // モーダルが開くたびに初期値をセット
     useEffect(() => {
         if (isOpen) {
             setDisplayName(user?.displayName || '');
@@ -71,10 +70,8 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                 defaultMultiFloor: false,
                 ...userProfile?.preferences
             });
-            // LocalStorageからスリープ防止設定を読み込む
             setIsWakeLockEnabled(localStorage.getItem('wakeLockEnabled') === 'true');
-
-            setActiveTab('account'); // デフォルトタブ
+            setActiveTab('account');
             setTargetEmail('');
             setAdminSearchStatus('');
         }
@@ -102,13 +99,11 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
         }
     };
 
-    // スリープ防止設定の切り替え
     const handleWakeLockToggle = (val) => {
         setIsWakeLockEnabled(val);
         localStorage.setItem('wakeLockEnabled', val);
     };
 
-    // ▼▼▼ 管理者リストの取得 ▼▼▼
     const fetchAdminList = async () => {
         if (!isSuperAdmin) return;
         try {
@@ -124,27 +119,22 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
         }
     };
 
-    // タブが 'admin' になったらリストを取得
     useEffect(() => {
         if (activeTab === 'admin' && isSuperAdmin) {
             fetchAdminList();
         }
     }, [activeTab, isSuperAdmin]);
 
-    // ▼▼▼ 管理者権限の付与ロジック ▼▼▼
     const handleGrantAdmin = async () => {
         if (!targetEmail) return;
         setAdminSearchStatus('searching');
         try {
-            // メールアドレスでユーザーを検索
             const q = query(collection(db, "users"), where("email", "==", targetEmail));
             const querySnapshot = await getDocs(q);
-
             if (querySnapshot.empty) {
                 setAdminSearchStatus('not-found');
                 return;
             }
-
             const updates = [];
             querySnapshot.forEach((docSnap) => {
                 const userData = docSnap.data();
@@ -154,12 +144,11 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                     updates.push(updateDoc(docSnap.ref, { role: 'admin' }));
                 }
             });
-
             if (updates.length > 0) {
                 await Promise.all(updates);
                 setAdminSearchStatus('success');
-                fetchAdminList(); // リスト更新
-                setTargetEmail(''); // 入力欄クリア
+                fetchAdminList();
+                setTargetEmail('');
             }
         } catch (error) {
             console.error("管理者付与エラー:", error);
@@ -167,18 +156,16 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
         }
     };
 
-    // ▼▼▼ 管理者権限の剥奪ロジック ▼▼▼
     const handleRemoveAdmin = async (targetUid, targetName) => {
         if (targetUid === SUPER_ADMIN_UID) {
             alert("自分自身の権限は削除できません。");
             return;
         }
         if (!window.confirm(`「${targetName || 'このユーザー'}」から管理者権限を剥奪しますか？`)) return;
-
         try {
             const userRef = doc(db, "users", targetUid);
             await updateDoc(userRef, { role: 'free' });
-            fetchAdminList(); // リスト更新
+            fetchAdminList();
         } catch (error) {
             console.error("権限削除エラー:", error);
             alert("権限の変更に失敗しました。");
@@ -193,7 +180,6 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
             const querySnapshot = await getDocs(q);
             const deleteStoragePromises = [];
             const batch = writeBatch(db);
-
             querySnapshot.forEach((docSnap) => {
                 const data = docSnap.data();
                 const allTimetables = [];
@@ -211,7 +197,6 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                 });
                 batch.delete(docSnap.ref);
             });
-
             batch.delete(doc(db, "users", user.uid));
             await Promise.all(deleteStoragePromises);
             await batch.commit();
@@ -230,7 +215,6 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
         }
     };
 
-    // サイドバーのメニュー項目
     const MenuButton = ({ id, label, icon: Icon }) => {
         const isActive = activeTab === id;
         return (
@@ -259,17 +243,8 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
 
     return (
         <>
-            <BaseModal
-                isOpen={isOpen}
-                onClose={onClose}
-                maxWidthClass="max-w-4xl"
-                isScrollable={false}
-                noPadding={true}
-                hasCloseButton={false}
-                footer={null}
-            >
+            <BaseModal isOpen={isOpen} onClose={onClose} maxWidthClass="max-w-4xl" isScrollable={false} noPadding={true} hasCloseButton={false} footer={null}>
                 <div className="flex flex-col md:flex-row h-[70vh] md:h-[550px]">
-                    {/* サイドバー */}
                     <aside className="w-full md:w-64 bg-surface-background border-b md:border-b-0 md:border-r border-on-surface/10 flex flex-col flex-shrink-0">
                         <div className="p-4 pt-6 pb-2">
                             <div className="flex items-center gap-3 mb-4 px-2">
@@ -280,12 +255,10 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                             </div>
                             <div className="text-[10px] font-bold text-on-surface-variant/50 uppercase tracking-wider px-2 mb-1">Settings</div>
                         </div>
-
                         <div className="flex-1 px-3 flex flex-col gap-1 overflow-y-auto">
                             <MenuButton id="account" label="アカウント管理" icon={UserIcon} />
                             <MenuButton id="event" label="イベント初期設定" icon={SettingsIcon} />
                             <MenuButton id="app" label="アプリ設定" icon={SettingsIcon} />
-
                             {isSuperAdmin && (
                                 <>
                                     <div className="my-2 border-t border-on-surface/10 mx-2"></div>
@@ -293,22 +266,17 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                                 </>
                             )}
                         </div>
-
                         <div className="p-4 border-t border-on-surface/10">
                             <p className="text-[10px] text-on-surface-variant/40 font-mono text-center">DJ Timekeeper Pro {APP_VERSION}</p>
                         </div>
                     </aside>
-
-                    {/* コンテンツエリア */}
                     <main className="flex-1 flex flex-col h-full bg-surface-container relative">
                         <div className="absolute top-4 right-4 z-20">
                             <button onClick={onClose} className="p-2 text-on-surface-variant hover:bg-surface-background hover:text-on-surface rounded-full transition-colors">
                                 <XIcon className="w-5 h-5" />
                             </button>
                         </div>
-
                         <div className="flex-1 overflow-y-auto p-6 md:p-10 md:pt-12 space-y-10 custom-scrollbar">
-
                             {activeTab === 'account' && (
                                 <div className="animate-fade-in space-y-10">
                                     <section>
@@ -330,7 +298,6 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                                             </div>
                                         </div>
                                     </section>
-
                                     <section>
                                         <SectionHeader title="セッション" />
                                         <button onClick={onLogout} className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-on-surface-variant hover:text-on-surface hover:bg-surface-background rounded-lg transition-colors border border-on-surface/10">
@@ -338,7 +305,6 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                                             <span>アカウントからログアウト</span>
                                         </button>
                                     </section>
-
                                     <section>
                                         <div className="mb-4 border-b border-red-500/20 pb-2">
                                             <h3 className="text-base font-bold text-red-500 flex items-center gap-2"><AlertTriangleIcon className="w-4 h-4" /> Danger Zone</h3>
@@ -353,7 +319,6 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                                     </section>
                                 </div>
                             )}
-
                             {activeTab === 'event' && (
                                 <div className="animate-fade-in space-y-10">
                                     <section>
@@ -363,7 +328,6 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                                             <CustomTimeInput value={preferences.defaultStartTime} onChange={(v) => setPreferences(p => ({ ...p, defaultStartTime: v }))} />
                                         </div>
                                     </section>
-
                                     <section>
                                         <SectionHeader title="機能の有効化" description="イベント作成時に、以下の機能を最初からONにしておくか設定します。" />
                                         <div className="space-y-4 max-w-xl pl-1">
@@ -386,13 +350,11 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                                     </section>
                                 </div>
                             )}
-
                             {activeTab === 'app' && (
                                 <div className="animate-fade-in space-y-10">
                                     <section>
                                         <SectionHeader title="表示設定" description="このデバイスでのアプリの見た目をカスタマイズします。" />
                                         <div className="max-w-xl pl-1">
-                                            {/* ダークモード設定 */}
                                             <div className="flex items-center justify-between p-3 hover:bg-surface-background rounded-lg transition-colors">
                                                 <div>
                                                     <div className="font-bold text-sm text-on-surface flex items-center gap-2">
@@ -402,57 +364,30 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                                                 </div>
                                                 <ToggleSwitch checked={theme === 'dark'} onChange={toggleTheme} />
                                             </div>
-
                                             <div className="border-t border-on-surface/5 my-2"></div>
-
-                                            {/* ▼▼▼ 追加: スリープ防止設定 ▼▼▼ */}
                                             <div className="flex items-center justify-between p-3 hover:bg-surface-background rounded-lg transition-colors">
                                                 <div>
                                                     <div className="font-bold text-sm text-on-surface flex items-center gap-2">
-                                                        {isWakeLockEnabled ? <SunIcon className="w-4 h-4 text-brand-primary" /> : <MoonIcon className="w-4 h-4 text-on-surface-variant" />}
-                                                        LIVEモードのスリープ防止
+                                                        {isWakeLockEnabled ? <SunIcon className="w-4 h-4 text-brand-primary" /> : <MoonIcon className="w-4 h-4 text-on-surface-variant" />}LIVEモードのスリープ防止
                                                     </div>
-                                                    <p className="text-xs text-on-surface-variant mt-1">
-                                                        LIVEモードを表示中、デバイスが自動的にスリープしないようにします。
-                                                    </p>
+                                                    <p className="text-xs text-on-surface-variant mt-1">LIVEモードを表示中、デバイスが自動的にスリープしないようにします。</p>
                                                 </div>
-                                                <ToggleSwitch
-                                                    checked={isWakeLockEnabled}
-                                                    onChange={handleWakeLockToggle}
-                                                />
+                                                <ToggleSwitch checked={isWakeLockEnabled} onChange={handleWakeLockToggle} />
                                             </div>
                                         </div>
                                     </section>
                                 </div>
                             )}
-
-                            {/* --- ★ 管理者権限付与タブ（あなただけが見える） --- */}
                             {activeTab === 'admin' && isSuperAdmin && (
                                 <div className="animate-fade-in space-y-10">
                                     <section>
-                                        <SectionHeader
-                                            title="新しい管理者の追加"
-                                            description="指定したメールアドレスのユーザーに管理者権限を付与します。"
-                                        />
+                                        <SectionHeader title="新しい管理者の追加" description="指定したメールアドレスのユーザーに管理者権限を付与します。" />
                                         <div className="max-w-md space-y-4 pl-1">
                                             <div>
                                                 <Label>対象ユーザーのメールアドレス</Label>
                                                 <div className="flex gap-2">
-                                                    <Input
-                                                        value={targetEmail}
-                                                        onChange={(e) => {
-                                                            setTargetEmail(e.target.value);
-                                                            setAdminSearchStatus('');
-                                                        }}
-                                                        placeholder="example@gmail.com"
-                                                    />
-                                                    <Button
-                                                        onClick={handleGrantAdmin}
-                                                        disabled={!targetEmail || adminSearchStatus === 'searching'}
-                                                        className="flex-shrink-0"
-                                                    >
-                                                        {adminSearchStatus === 'searching' ? '検索中...' : '権限を付与'}
-                                                    </Button>
+                                                    <Input value={targetEmail} onChange={(e) => { setTargetEmail(e.target.value); setAdminSearchStatus(''); }} placeholder="example@gmail.com" />
+                                                    <Button onClick={handleGrantAdmin} disabled={!targetEmail || adminSearchStatus === 'searching'} className="flex-shrink-0">{adminSearchStatus === 'searching' ? '検索中...' : '権限を付与'}</Button>
                                                 </div>
                                             </div>
                                             {adminSearchStatus === 'success' && (<div className="p-3 bg-green-500/10 text-green-500 rounded-lg text-sm font-bold flex items-center gap-2"><span>✅ 権限を付与しました！</span></div>)}
@@ -461,12 +396,8 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                                             {adminSearchStatus === 'error' && (<div className="p-3 bg-red-500/10 text-red-500 rounded-lg text-sm font-bold flex items-center gap-2"><span>❌ エラーが発生しました。</span></div>)}
                                         </div>
                                     </section>
-
                                     <section>
-                                        <SectionHeader
-                                            title="現在の管理者一覧"
-                                            description="現在、管理者権限を持っているユーザーのリストです。"
-                                        />
+                                        <SectionHeader title="現在の管理者一覧" description="現在、管理者権限を持っているユーザーのリストです。" />
                                         <div className="max-w-lg space-y-3 pl-1">
                                             {adminList.length > 0 ? (
                                                 adminList.map((admin) => (
@@ -476,35 +407,21 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                                                                 {admin.photoURL ? <img src={admin.photoURL} className="w-full h-full object-cover" /> : <UserIcon className="w-4 h-4 text-on-surface-variant" />}
                                                             </div>
                                                             <div className="min-w-0">
-                                                                <div className="text-sm font-bold text-on-surface truncate flex items-center gap-2">
-                                                                    {admin.displayName || 'No Name'}
-                                                                    {admin.uid === SUPER_ADMIN_UID && <span className="text-[10px] bg-brand-primary/10 text-brand-primary px-1.5 py-0.5 rounded">YOU</span>}
-                                                                </div>
+                                                                <div className="text-sm font-bold text-on-surface truncate flex items-center gap-2">{admin.displayName || 'No Name'} {admin.uid === SUPER_ADMIN_UID && <span className="text-[10px] bg-brand-primary/10 text-brand-primary px-1.5 py-0.5 rounded">YOU</span>}</div>
                                                                 <div className="text-xs text-on-surface-variant truncate font-mono opacity-70">{admin.email}</div>
                                                             </div>
                                                         </div>
-
                                                         {admin.uid !== SUPER_ADMIN_UID && (
-                                                            <button
-                                                                onClick={() => handleRemoveAdmin(admin.id, admin.displayName)}
-                                                                className="p-2 text-on-surface-variant hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
-                                                                title="管理者権限を剥奪"
-                                                            >
-                                                                <XIcon className="w-4 h-4" />
-                                                            </button>
+                                                            <button onClick={() => handleRemoveAdmin(admin.id, admin.displayName)} className="p-2 text-on-surface-variant hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors" title="管理者権限を剥奪"><XIcon className="w-4 h-4" /></button>
                                                         )}
                                                     </div>
                                                 ))
-                                            ) : (
-                                                <p className="text-sm text-on-surface-variant p-2">読み込み中、または管理者がいません。</p>
-                                            )}
+                                            ) : (<p className="text-sm text-on-surface-variant p-2">読み込み中、または管理者がいません。</p>)}
                                         </div>
                                     </section>
                                 </div>
                             )}
                         </div>
-
-                        {/* 保存フッター */}
                         <div className="p-4 px-8 border-t border-on-surface/5 flex justify-end gap-3 bg-surface-container/95 backdrop-blur-sm z-10 flex-shrink-0">
                             <Button onClick={onClose} variant="ghost">キャンセル</Button>
                             <Button onClick={handleSave} variant="primary" disabled={isSaving || isDeletingAccount} className="min-w-[100px] shadow-lg shadow-brand-primary/20">{isSaving ? '保存中...' : '設定を保存'}</Button>
@@ -512,14 +429,14 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                     </main>
                 </div>
             </BaseModal>
-
             <ConfirmModal isOpen={isDeleteConfirmOpen} title="アカウント削除の確認" message="【警告】本当にアカウントを削除しますか？ これにより、あなたが作成したすべてのイベント、アップロードした画像、および設定が完全に削除されます。この操作は取り消すことができません。" onConfirm={executeDeleteAccount} onCancel={() => setIsDeleteConfirmOpen(false)} />
         </>
     );
 };
 
-// ... (以下の EventSetupModal, EventCard, DashboardPage は変更なし) ...
+// --- EventSetupModal (変更なし) ---
 const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences }) => {
+    // ... (変更なし)
     const [config, setConfig] = useState({
         title: '',
         startDate: getTodayDateString(),
@@ -593,7 +510,9 @@ const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences }) => {
     );
 };
 
+// --- EventCard (変更なし) ---
 const formatDateForIcon = (dateStr) => {
+    // ... (変更なし)
     if (!dateStr) return { month: '---', day: '--' };
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return { month: '---', day: '--' };
@@ -602,6 +521,7 @@ const formatDateForIcon = (dateStr) => {
 };
 
 const isEventActive = (event) => {
+    // ... (変更なし)
     const { startDate, startTime } = event.eventConfig;
     if (!startDate || !startTime) return false;
     const start = new Date(`${startDate}T${startTime}`);
@@ -611,6 +531,7 @@ const isEventActive = (event) => {
 };
 
 const EventCard = ({ event, onDeleteClick, onClick }) => {
+    // ... (変更なし)
     const floorCount = event.floors ? Object.keys(event.floors).length : 0;
     const displayFloors = (floorCount === 0 && event.timetable) ? '1 Floor' : `${floorCount} Floors`;
     const { month, day } = formatDateForIcon(event.eventConfig.startDate);
@@ -667,7 +588,8 @@ const EventCard = ({ event, onDeleteClick, onClick }) => {
     );
 };
 
-export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode }) => {
+// --- DashboardPage (変更あり: isPerfMonitorVisible, onTogglePerfMonitorを追加) ---
+export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, isPerfMonitorVisible, onTogglePerfMonitor }) => {
     const [events, setEvents] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
@@ -677,74 +599,43 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode })
     const [isDevPanelOpen, setIsDevPanelOpen] = useState(false);
     const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
     const [viewLimit, setViewLimit] = useState(100);
-
     const [userProfile, setUserProfile] = useState(null);
-
     const navigate = useNavigate();
 
     useEffect(() => {
         if (!user) return;
         setIsLoading(true);
-
-        const q = query(
-            collection(db, "timetables"),
-            where("ownerUid", "==", user.uid),
-            orderBy("createdAt", "desc"),
-            limit(viewLimit)
-        );
-
+        const q = query(collection(db, "timetables"), where("ownerUid", "==", user.uid), orderBy("createdAt", "desc"), limit(viewLimit));
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const userEvents = [];
-            querySnapshot.forEach((doc) => {
-                userEvents.push({ id: doc.id, ...doc.data() });
-            });
+            querySnapshot.forEach((doc) => { userEvents.push({ id: doc.id, ...doc.data() }); });
             setEvents(userEvents);
             setIsLoading(false);
-        }, (error) => {
-            console.error("イベント読込エラー:", error);
-            setIsLoading(false);
-        });
-
+        }, (error) => { console.error("イベント読込エラー:", error); setIsLoading(false); });
         return () => unsubscribe();
     }, [user, viewLimit]);
 
     useEffect(() => {
         if (!user) return;
         const userDocRef = doc(db, "users", user.uid);
-        const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
-            if (docSnap.exists()) {
-                setUserProfile(docSnap.data());
-            }
-        });
+        const unsubscribe = onSnapshot(userDocRef, (docSnap) => { if (docSnap.exists()) { setUserProfile(docSnap.data()); } });
         return () => unsubscribe();
     }, [user]);
 
     const { nowEvents, upcomingEvents, pastEvents } = useMemo(() => {
         const now = new Date();
-        const nowList = [];
-        const upcomingList = [];
-        const pastList = [];
-
+        const nowList = [], upcomingList = [], pastList = [];
         events.forEach(event => {
             const { startDate, startTime } = event.eventConfig || {};
-            if (!startDate || !startTime) {
-                pastList.push(event);
-                return;
-            }
+            if (!startDate || !startTime) { pastList.push(event); return; }
             const start = new Date(`${startDate}T${startTime}`);
             const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
-            if (now >= start && now < end) {
-                nowList.push(event);
-            } else if (now < start) {
-                upcomingList.push(event);
-            } else {
-                pastList.push(event);
-            }
+            if (now >= start && now < end) nowList.push(event);
+            else if (now < start) upcomingList.push(event);
+            else pastList.push(event);
         });
-
         upcomingList.sort((a, b) => new Date(`${a.eventConfig.startDate}T${a.eventConfig.startTime}`) - new Date(`${b.eventConfig.startDate}T${b.eventConfig.startTime}`));
         pastList.sort((a, b) => new Date(`${b.eventConfig.startDate}T${b.eventConfig.startTime}`) - new Date(`${a.eventConfig.startDate}T${a.eventConfig.startTime}`));
-
         return { nowEvents: nowList, upcomingEvents: upcomingList, pastEvents: pastList };
     }, [events]);
 
@@ -788,102 +679,51 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode })
 
     if (isLoading && events.length === 0) return <LoadingSpinner />;
 
-    const EventGrid = ({ items }) => (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {items.map(event => (
-                <EventCard
-                    key={event.id}
-                    event={event}
-                    onDeleteClick={(id, title) => setDeleteTarget({ id, title })}
-                    onClick={() => navigate(`/edit/${event.id}`)}
-                />
-            ))}
-        </div>
-    );
-
     return (
         <>
             <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto pb-32">
                 <header className="flex flex-row justify-between items-center mb-12 animate-fade-in-up relative z-30">
                     <div className="flex flex-col items-start select-none">
-                        <h1 className="text-xl md:text-2xl font-bold tracking-widest text-on-surface">
-                            DJ TIMEKEEPER <span className="text-brand-primary">PRO</span>
-                        </h1>
+                        <h1 className="text-xl md:text-2xl font-bold tracking-widest text-on-surface">DJ TIMEKEEPER <span className="text-brand-primary">PRO</span></h1>
                         <span className="text-[10px] font-bold tracking-[0.3em] text-on-surface-variant uppercase">Dashboard</span>
                     </div>
-
                     <div className="relative">
-                        <button
-                            onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
-                            className="flex items-center gap-3 group focus:outline-none"
-                            title="アカウントメニューを開く"
-                        >
-                            {user?.photoURL ? (
-                                <img
-                                    src={user.photoURL}
-                                    alt="User"
-                                    className="w-12 h-12 rounded-full border-2 border-surface-container shadow-md group-hover:scale-105 transition-transform group-hover:shadow-lg"
-                                />
-                            ) : (
-                                <div className="w-12 h-12 rounded-full bg-brand-primary flex items-center justify-center text-white font-bold text-xl shadow-md group-hover:scale-105 transition-transform group-hover:shadow-lg">
-                                    {user?.displayName?.[0] || "U"}
-                                </div>
-                            )}
+                        <button onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)} className="flex items-center gap-3 group focus:outline-none" title="アカウントメニューを開く">
+                            {user?.photoURL ? <img src={user.photoURL} alt="User" className="w-12 h-12 rounded-full border-2 border-surface-container shadow-md group-hover:scale-105 transition-transform group-hover:shadow-lg" /> : <div className="w-12 h-12 rounded-full bg-brand-primary flex items-center justify-center text-white font-bold text-xl shadow-md group-hover:scale-105 transition-transform group-hover:shadow-lg">{user?.displayName?.[0] || "U"}</div>}
                         </button>
-
                         {isAccountMenuOpen && (
                             <>
                                 <div className="fixed inset-0 z-40" onClick={() => setIsAccountMenuOpen(false)} />
                                 <div className="absolute top-full right-0 mt-3 w-64 bg-surface-container rounded-2xl shadow-2xl border border-on-surface/10 p-2 z-50 animate-fade-in origin-top-right">
                                     <div className="px-4 py-3 border-b border-on-surface/10 mb-2">
-                                        <p className="font-bold text-sm text-on-surface truncate">
-                                            {userProfile?.displayName || user?.displayName || 'Guest User'}
-                                        </p>
+                                        <p className="font-bold text-sm text-on-surface truncate">{userProfile?.displayName || user?.displayName || 'Guest User'}</p>
                                         <p className="text-xs text-on-surface-variant truncate opacity-70">{user?.email}</p>
                                     </div>
-
-                                    <button
-                                        onClick={() => { setIsSettingsOpen(true); setIsAccountMenuOpen(false); }}
-                                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-background transition-colors text-left text-on-surface"
-                                    >
-                                        <SettingsIcon className="w-5 h-5 text-on-surface-variant" />
-                                        <span className="font-bold text-sm">アプリ設定</span>
-                                    </button>
-
-                                    <button
-                                        onClick={() => { onLogout(); setIsAccountMenuOpen(false); }}
-                                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-500/10 text-red-500 transition-colors text-left mt-1"
-                                    >
-                                        <LogOutIcon className="w-5 h-5" />
-                                        <span className="font-bold text-sm">ログアウト</span>
-                                    </button>
+                                    <button onClick={() => { setIsSettingsOpen(true); setIsAccountMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-background transition-colors text-left text-on-surface"><SettingsIcon className="w-5 h-5 text-on-surface-variant" /><span className="font-bold text-sm">アプリ設定</span></button>
+                                    <button onClick={() => { onLogout(); setIsAccountMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-500/10 text-red-500 transition-colors text-left mt-1"><LogOutIcon className="w-5 h-5" /><span className="font-bold text-sm">ログアウト</span></button>
                                 </div>
                             </>
                         )}
                     </div>
                 </header>
-
                 {events.length > 0 ? (
                     <div className="space-y-12">
                         {nowEvents.length > 0 && (
                             <section className="animate-fade-in-up opacity-0">
-                                <div className="flex items-center gap-2 mb-4 text-red-500">
-                                    <span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span>
-                                    <h2 className="text-lg font-bold tracking-widest">NOW ON AIR</h2>
-                                </div>
-                                <EventGrid items={nowEvents} />
+                                <div className="flex items-center gap-2 mb-4 text-red-500"><span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span><h2 className="text-lg font-bold tracking-widest">NOW ON AIR</h2></div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{nowEvents.map(event => <EventCard key={event.id} event={event} onDeleteClick={(id, title) => setDeleteTarget({ id, title })} onClick={() => navigate(`/edit/${event.id}`)} />)}</div>
                             </section>
                         )}
                         {upcomingEvents.length > 0 && (
                             <section className="animate-fade-in-up opacity-0" style={{ animationDelay: '0.1s' }}>
                                 <h2 className="text-lg font-bold text-on-surface-variant mb-4 tracking-widest flex items-center gap-2"><span className="text-brand-primary">●</span> UPCOMING</h2>
-                                <EventGrid items={upcomingEvents} />
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{upcomingEvents.map(event => <EventCard key={event.id} event={event} onDeleteClick={(id, title) => setDeleteTarget({ id, title })} onClick={() => navigate(`/edit/${event.id}`)} />)}</div>
                             </section>
                         )}
                         {pastEvents.length > 0 && (
                             <section className="animate-fade-in-up opacity-0" style={{ animationDelay: '0.2s' }}>
                                 <h2 className="text-lg font-bold text-on-surface-variant/50 mb-4 tracking-widest">ARCHIVE</h2>
-                                <div className="transition-opacity duration-300"><EventGrid items={pastEvents} /></div>
+                                <div className="transition-opacity duration-300"><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{pastEvents.map(event => <EventCard key={event.id} event={event} onDeleteClick={(id, title) => setDeleteTarget({ id, title })} onClick={() => navigate(`/edit/${event.id}`)} />)}</div></div>
                             </section>
                         )}
                     </div>
@@ -894,31 +734,14 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode })
                         <p className="text-sm text-on-surface-variant">右下のボタンから、最初のイベントを作成しましょう！</p>
                     </div>
                 )}
-
                 <button onClick={handleCreateClick} disabled={isCreating} className="fixed bottom-8 right-8 z-30 flex items-center gap-3 bg-brand-primary hover:bg-brand-primary/90 text-white font-bold py-4 px-6 rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-wait group">
                     <PlusIcon className="w-6 h-6 transition-transform group-hover:rotate-90" /><span className="text-lg pr-1 hidden sm:inline">{isCreating ? '作成中...' : '新規イベント'}</span>
                 </button>
             </div>
-
-            <EventSetupModal
-                isOpen={isSetupModalOpen}
-                onClose={() => setIsSetupModalOpen(false)}
-                onCreate={handleSetupComplete}
-                defaultPreferences={userProfile?.preferences}
-            />
-            <DashboardSettingsModal
-                isOpen={isSettingsOpen}
-                onClose={() => setIsSettingsOpen(false)}
-                theme={theme}
-                toggleTheme={toggleTheme}
-                onLogout={onLogout}
-                user={user}
-                userProfile={userProfile}
-            />
-
+            <EventSetupModal isOpen={isSetupModalOpen} onClose={() => setIsSetupModalOpen(false)} onCreate={handleSetupComplete} defaultPreferences={userProfile?.preferences} />
+            <DashboardSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} theme={theme} toggleTheme={toggleTheme} onLogout={onLogout} user={user} userProfile={userProfile} />
             <ConfirmModal isOpen={!!deleteTarget} title="イベントを削除" message={`イベント「${deleteTarget?.title || '無題'}」を削除します。復元はできません。本当によろしいですか？`} onConfirm={handleDeleteEvent} onCancel={() => setDeleteTarget(null)} />
-
-            {isDevMode && (<><button onClick={() => setIsDevPanelOpen(p => !p)} className="fixed bottom-8 left-8 z-[998] w-12 h-12 bg-zinc-800 text-brand-primary border border-brand-primary rounded-full shadow-lg grid place-items-center hover:bg-zinc-700 transition-colors"><PowerIcon className="w-6 h-6" /></button>{isDevPanelOpen && <DevControls location="dashboard" onClose={() => setIsDevPanelOpen(false)} onDeleteAllEvents={handleDevDeleteAll} onCrashApp={() => { throw new Error("Dashboard Crash Test"); }} />}</>)}
+            {isDevMode && (<><button onClick={() => setIsDevPanelOpen(p => !p)} className="fixed bottom-8 left-8 z-[998] w-12 h-12 bg-zinc-800 text-brand-primary border border-brand-primary rounded-full shadow-lg grid place-items-center hover:bg-zinc-700 transition-colors"><PowerIcon className="w-6 h-6" /></button>{isDevPanelOpen && <DevControls location="dashboard" onClose={() => setIsDevPanelOpen(false)} onDeleteAllEvents={handleDevDeleteAll} onCrashApp={() => { throw new Error("Dashboard Crash Test"); }} isPerfMonitorVisible={isPerfMonitorVisible} onTogglePerfMonitor={onTogglePerfMonitor} />}</>)}
         </>
     );
 };

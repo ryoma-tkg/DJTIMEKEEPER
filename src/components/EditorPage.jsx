@@ -18,7 +18,8 @@ const getDefaultEventConfig = () => ({
     vjFeatureEnabled: false
 });
 
-export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleTheme }) => {
+// ▼▼▼ isPerfMonitorVisible, onTogglePerfMonitor を props に追加 ▼▼▼
+export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleTheme, isPerfMonitorVisible, onTogglePerfMonitor }) => {
     const { eventId, floorId } = useParams();
     const navigate = useNavigate();
     const dbRef = useRef(db);
@@ -46,7 +47,6 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
     // 1. データ読み込み
     useEffect(() => {
         if (!user || !eventId) return;
-        // ★ 既にデータがある場合、フロア切り替え時に全画面ローディングを出さない
         if (!eventData) {
             setPageStatus('loading');
         }
@@ -62,7 +62,6 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                 setEventConfig(prev => ({ ...prev, ...(data.eventConfig || {}) }));
                 setFloors(data.floors || {});
 
-                // 旧データ互換
                 if (!data.floors && data.timetable) {
                     if (currentFloorId === 'default') {
                         setTimetable(data.timetable || []);
@@ -72,7 +71,6 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                         navigate(`/edit/${eventId}/default`, { replace: true });
                     }
                 }
-                // 新データ
                 else if (data.floors) {
                     if (data.floors[currentFloorId]) {
                         setTimetable(data.floors[currentFloorId].timetable || []);
@@ -142,11 +140,6 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
     };
 
     const handleSetMode = (newMode) => {
-        // 画像読み込みチェックは任意だが、UX上はロード待ったほうが良い
-        if (newMode === 'live' && !imagesLoaded) {
-            // ロード画面を表示するなら setModeせず待機でも良いが、ここでは簡易警告
-            // alert("画像読み込み中..."); // 鬱陶しいので削除
-        }
         setMode(newMode);
     };
 
@@ -156,7 +149,6 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
         }
     };
 
-    // 開発者ツール
     const handleTimeJump = (m) => setTimeOffset(p => p + m * 60 * 1000);
     const handleTimeReset = () => setTimeOffset(0);
     const handleToggleVj = () => setEventConfig(p => ({ ...p, vjFeatureEnabled: !p.vjFeatureEnabled }));
@@ -180,13 +172,10 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                     setTimetable={setTimetable}
                     vjTimetable={vjTimetable}
                     setVjTimetable={setVjTimetable}
-
-                    // フロア関連Props
                     floors={floors}
                     currentFloorId={currentFloorId}
                     onSelectFloor={handleSelectFloor}
                     onFloorsUpdate={handleFloorsUpdate}
-
                     setMode={handleSetMode}
                     storage={storageRef.current}
                     timeOffset={timeOffset}
@@ -195,7 +184,6 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                     imagesLoaded={imagesLoaded}
                 />
             ) : (
-                // ★ プレビューモード
                 <LiveView
                     timetable={timetable}
                     vjTimetable={vjTimetable}
@@ -210,13 +198,12 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                     theme={theme}
                     toggleTheme={toggleTheme}
                     eventId={eventId}
-                    isPreview={true} // ★ プレビューフラグ
+                    isPreview={true}
                 />
             )}
 
             {isDevMode && (
                 <>
-                    {/* z-index強化 */}
                     <button
                         onClick={() => setIsDevPanelOpen(p => !p)}
                         className="fixed bottom-4 left-4 z-[9999] w-12 h-12 bg-brand-primary text-white rounded-full shadow-lg grid place-items-center hover:bg-brand-primary/80 transition-colors"
@@ -236,17 +223,18 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                                 eventConfig={eventConfig}
                                 timetable={timetable}
                                 vjTimetable={vjTimetable}
-                                // ▼▼▼ ここから追加・修正 ▼▼▼
-                                setTimetable={setTimetable}      // 追加
-                                setVjTimetable={setVjTimetable}  // 追加
+                                setTimetable={setTimetable}
+                                setVjTimetable={setVjTimetable}
                                 onToggleVjFeature={handleToggleVj}
-                                onLoadDummyData={null} // DevControls側で実装したため不要
-                                // ▲▲▲ ここまで ▲▲▲
+                                onLoadDummyData={null}
                                 onSetStartNow={handleSetStartNow}
                                 onFinishEvent={() => handleTimeJump(1440)}
                                 onCrashApp={() => { throw new Error('Test'); }}
                                 imagesLoaded={imagesLoaded}
                                 onClose={() => setIsDevPanelOpen(false)}
+                                // ▼▼▼ 追加: モニター制御を渡す ▼▼▼
+                                isPerfMonitorVisible={isPerfMonitorVisible}
+                                onTogglePerfMonitor={onTogglePerfMonitor}
                             />
                         </div>
                     )}

@@ -12,14 +12,15 @@ import {
 } from './firebase';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { LoadingScreen } from './components/common';
+import { PerformanceMonitor } from './components/PerformanceMonitor';
 
-// 遅延ロード (Lazy Loading)
+// 遅延ロード
 const LoginPage = lazy(() => import('./components/LoginPage').then(module => ({ default: module.LoginPage })));
 const DashboardPage = lazy(() => import('./components/DashboardPage').then(module => ({ default: module.DashboardPage })));
 const EditorPage = lazy(() => import('./components/EditorPage').then(module => ({ default: module.EditorPage })));
 const LivePage = lazy(() => import('./components/LivePage').then(module => ({ default: module.LivePage })));
 
-// (Redirectorコンポーネントは変更なし)
+// --- Redirector コンポーネント ---
 const EditorRedirector = () => {
     const { eventId } = useParams();
     const [targetFloorId, setTargetFloorId] = useState(null);
@@ -99,16 +100,14 @@ const App = () => {
     const navigate = useNavigate();
     const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
 
-    // ▼▼▼ 【変更】 管理者IDを配列で管理 ▼▼▼
-    // ここに権限を与えたい人のUIDをカンマ区切りで追加します
+    // 管理者ID
     const ADMIN_USER_IDS = [
-        "GLGPpy6IlyWbGw15OwBPzRdCPZI2", // あなたのID
-        // "USER_ID_2", // 追加したい人のID
-        // "USER_ID_3", // 追加したい人のID
+        "GLGPpy6IlyWbGw15OwBPzRdCPZI2",
     ];
-    // ▲▲▲ 変更ここまで ▲▲▲
 
     const [isDevMode, setIsDevMode] = useState(false);
+    // モニター表示管理
+    const [isPerfMonitorVisible, setIsPerfMonitorVisible] = useState(false);
 
     useEffect(() => {
         if (theme === 'dark') {
@@ -125,49 +124,35 @@ const App = () => {
     };
 
     const toggleDevMode = () => {
-        // ▼▼▼ 【変更】 配列に含まれているかで判定 ▼▼▼
         if (user && ADMIN_USER_IDS.includes(user.uid)) {
             setIsDevMode(prev => !prev);
         }
     };
 
-    // ▼▼▼ ログイン検知 & ユーザーデータ同期ロジック ▼▼▼
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
-                // 1. まずはユーザー情報をセット
                 setUser(firebaseUser);
                 setAuthStatus('authed');
 
-                // 2. 管理者判定 (コード指定のIDリスト)
-                const isSuperAdmin = ADMIN_USER_IDS.includes(firebaseUser.uid);
+                if (ADMIN_USER_IDS.includes(firebaseUser.uid)) {
+                    console.warn("管理者モードで起動しました。");
+                    setIsDevMode(true);
+                } else {
+                    setIsDevMode(false);
+                }
 
-                // 3. Firestoreから最新のユーザー情報を取得して権限確認
-                let firestoreRole = 'free';
                 try {
                     const userDocRef = doc(db, "users", firebaseUser.uid);
                     const userSnap = await getDoc(userDocRef);
 
-                    if (userSnap.exists()) {
-                        firestoreRole = userSnap.data().role || 'free';
-                    }
-
-                    // ★★★ ここが重要: スーパー管理者なら、強制的にDBも 'admin' に書き換える ★★★
-                    // これにより、次回からStep 1のルールを通過できるようになります
-                    if (isSuperAdmin && firestoreRole !== 'admin') {
-                        await updateDoc(userDocRef, { role: 'admin' });
-                        firestoreRole = 'admin';
-                        console.log("[Auth] Role updated to admin based on hardcoded list.");
-                    }
-
-                    // 新規作成時も同様
                     if (!userSnap.exists()) {
                         await setDoc(userDocRef, {
                             uid: firebaseUser.uid,
                             email: firebaseUser.email,
                             displayName: firebaseUser.displayName,
                             photoURL: firebaseUser.photoURL,
-                            role: isSuperAdmin ? 'admin' : 'free', // 初期作成時も判定
+                            role: 'free',
                             createdAt: serverTimestamp(),
                             lastLoginAt: serverTimestamp(),
                             preferences: {
@@ -177,27 +162,18 @@ const App = () => {
                                 defaultMultiFloor: false,
                             }
                         });
-                        if (isSuperAdmin) firestoreRole = 'admin';
+                        console.log("[Auth] User profile created.");
                     } else {
-                        // 既存ユーザー同期
                         await updateDoc(userDocRef, {
                             email: firebaseUser.email,
                             displayName: firebaseUser.displayName,
                             photoURL: firebaseUser.photoURL,
                             lastLoginAt: serverTimestamp()
                         });
+                        console.log("[Auth] User profile synced.");
                     }
-
-                    // 最終的な管理者判定 (コード指定 OR DB指定)
-                    if (isSuperAdmin || firestoreRole === 'admin') {
-                        console.warn("管理者モードで起動しました。");
-                        setIsDevMode(true);
-                    } else {
-                        setIsDevMode(false);
-                    }
-
                 } catch (error) {
-                    console.error("[Auth] User sync/check failed:", error);
+                    console.error("[Auth] User sync failed:", error);
                 }
 
             } else {
@@ -233,6 +209,14 @@ const App = () => {
 
     return (
         <>
+            {/* 管理者モード時のみ、モニターコンポーネントを常駐させる */}
+            {isDevMode && (
+                <PerformanceMonitor
+                    visible={isPerfMonitorVisible}
+                    onClose={() => setIsPerfMonitorVisible(false)}
+                />
+            )}
+
             <Suspense fallback={<LoadingScreen text="読み込み中..." />}>
                 <Routes>
                     <Route
@@ -246,6 +230,8 @@ const App = () => {
                                     toggleTheme={toggleTheme}
                                     isDevMode={isDevMode}
                                     onToggleDevMode={toggleDevMode}
+                                    isPerfMonitorVisible={isPerfMonitorVisible}
+                                    onTogglePerfMonitor={() => setIsPerfMonitorVisible(p => !p)}
                                 />
                             ) : (
                                 <Navigate to="/login" replace />
@@ -274,6 +260,8 @@ const App = () => {
                                     onToggleDevMode={toggleDevMode}
                                     theme={theme}
                                     toggleTheme={toggleTheme}
+                                    isPerfMonitorVisible={isPerfMonitorVisible}
+                                    onTogglePerfMonitor={() => setIsPerfMonitorVisible(p => !p)}
                                 />
                             ) : (
                                 <Navigate to="/login" replace />

@@ -161,7 +161,14 @@ Modals are sheets of glass/material sliding in from the bottom-center.
     * **Trigger:** `pointerdown`.
     * **State Change:** `z-index: 50`, `scale: 1.05`, `shadow-xl`.
 * **Grip Handle:** Left side, `cursor-grab`, `text-on-surface-variant`.
-
+* 
+### 4.6. Performance Monitor (New)
+* **Style:** "Cyber-Tactile".
+* **Background:** `bg-gray-900/95` (Always dark).
+* **Border:** `border-gray-700`.
+* **Typography:** `font-mono`, `text-xs`.
+* **Graphs:** Bar charts using CSS width transition (`transition-all duration-500`).
+  
 ---
 
 ## 5. Implementation Rules (Code of Conduct)
@@ -202,3 +209,15 @@ theme: {
     }
   }
 }
+
+## 7. Responsive Strategy (New)
+
+We adopt a **Mobile-First** approach with specific tuning for small devices.
+
+| Breakpoint  | Width    | Usage                                           |
+| :---------- | :------- | :---------------------------------------------- |
+| **Default** | `0px` ~  | Mobile layout (Stack, 1 column).                |
+| **sp**      | `390px`  | Modern Smartphones (Adjust font sizes/padding). |
+| **sm**      | `640px`  | Tablets / Large Phones.                         |
+| **md**      | `768px`  | Dashboard Sidebar appears, Grid becomes 2 cols. |
+| **lg**      | `1024px` | Desktop layout, Grid 3 cols.                    |
