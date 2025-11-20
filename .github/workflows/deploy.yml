@@ -47,14 +47,10 @@ jobs:
       - name: Clear Vite build cache
         run: rm -rf node_modules/.vite
 
-      # 5. (変更なし)
-      - name: Update vite.config.js for GitHub Pages
-        run: |
-          sed -i "s|base: '/'|base: '/DJTIMEKEEPER/'|" vite.config.js
-      
-      # ▼▼▼ 【!!! ココが最重要 !!!】 env: ブロックを追加 ▼▼▼
-      # npm run build を実行する際に、GitHub Secretsの値を
-      # Viteが読み取れる環境変数 (VITE_...) として設定します
+      # ▼▼▼ 修正: 以前あった sed コマンド（パス書き換え）を削除しました ▼▼▼
+      # vite.config.js の base: '/' 設定をそのまま使用します。
+
+      # 5. ビルド実行
       - name: Build Vite app
         run: npm run build
         env:
@@ -64,7 +60,13 @@ jobs:
           VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
-      # ▲▲▲ 【!!! 修正 !!!】 ここまで ▲▲▲
+
+      # ▼▼▼ 追加: SPA対策 (404.html の生成) ▼▼▼
+      # GitHub Pagesで404になった際に、index.htmlと同じ内容を返すことで
+      # React Routerに処理を引き継がせます。
+      - name: Create 404.html for SPA routing
+        run: cp dist/index.html dist/404.html
+      # ▲▲▲ 追加ここまで ▲▲▲
 
       # 6. (変更なし)
       - name: Upload artifact

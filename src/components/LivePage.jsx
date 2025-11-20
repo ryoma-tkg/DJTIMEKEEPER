@@ -94,7 +94,7 @@ export const LivePage = ({ theme, toggleTheme }) => {
 
     const handleSelectFloor = (newFloorId) => {
         if (newFloorId !== floorId) {
-            navigate(`/live/${eventId}/${newFloorId}`);
+            navigate(`/live/${eventId}/${newFloorId}`, { replace: true });
         }
     };
 

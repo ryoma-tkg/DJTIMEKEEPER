@@ -91,7 +91,7 @@ const MiniFloorCard = ({ floorId, floorData, eventConfig, now, onClick }) => {
     );
 };
 
-// --- サブコンポーネント: 設定モーダル (BaseModal化) ---
+// --- サブコンポーネント: 設定モーダル ---
 const LiveSettingsModal = ({ isOpen, onClose, theme, toggleTheme, isWakeLockEnabled, onWakeLockToggle }) => {
     return (
         <BaseModal
@@ -297,6 +297,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
     const [bg2Style, setBg2Style] = useState({ opacity: 0, transition: 'opacity 1.0s ease-in-out' });
     const isBg1ActiveRef = useRef(true);
 
+    // コントロールの表示状態管理
     const [isControlsVisible, setIsControlsVisible] = useState(true);
     const controlsTimeoutRef = useRef(null);
 
@@ -305,6 +306,27 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
 
     const [visualTimetable, setVisualTimetable] = useState(timetable);
     const [visualVjTimetable, setVisualVjTimetable] = useState(vjTimetable);
+
+    // マウス操作検知ロジック (3秒後に非表示)
+    useEffect(() => {
+        const showControls = () => {
+            setIsControlsVisible(true);
+            if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+            controlsTimeoutRef.current = setTimeout(() => {
+                setIsControlsVisible(false);
+            }, 3000);
+        };
+
+        window.addEventListener('mousemove', showControls);
+        window.addEventListener('touchstart', showControls);
+        showControls(); // 初期表示
+
+        return () => {
+            window.removeEventListener('mousemove', showControls);
+            window.removeEventListener('touchstart', showControls);
+            if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+        };
+    }, []);
 
     // フロア切り替えロジック
     useEffect(() => {
@@ -359,25 +381,6 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
             return nowTime >= floorEndTime.getTime();
         });
     }, [floors, eventConfig, now, eventStatus]);
-
-    // ヘッダー自動非表示
-    useEffect(() => {
-        const showControls = () => {
-            setIsControlsVisible(true);
-            if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-            controlsTimeoutRef.current = setTimeout(() => {
-                setIsControlsVisible(false);
-            }, 3000);
-        };
-        window.addEventListener('mousemove', showControls);
-        window.addEventListener('touchstart', showControls);
-        showControls();
-        return () => {
-            window.removeEventListener('mousemove', showControls);
-            window.removeEventListener('touchstart', showControls);
-            if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-        };
-    }, []);
 
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date(new Date().getTime() + timeOffset)), 1000);
@@ -635,10 +638,16 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
         return null;
     };
 
-    const scheduleForModal = useMemo(() => schedule.map(dj => ({ ...dj, startTime: dj.startTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), endTime: dj.endTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), startTimeDate: dj.startTimeDate.toISOString(), endTimeDate: dj.endTimeDate.toISOString() })), [schedule]);
+    // 変数定義の漏れを修正
+    const scheduleForModal = useMemo(() => schedule.map(dj => ({
+        ...dj,
+        startTime: dj.startTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        endTime: dj.endTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        startTimeDate: dj.startTimeDate.toISOString(),
+        endTimeDate: dj.endTimeDate.toISOString()
+    })), [schedule]);
 
     const isAlreadyDisplayed = displayedDjKeysRef.current.has(visibleDjContent?.animationKey);
-    // ▼▼▼ 【修正】 削除されていた定義を復活 ▼▼▼
     const djAnimationClass = isDjFadingOut
         ? 'animate-fade-out-down'
         : (suppressEntryAnimation || isAlreadyDisplayed ? '' : 'animate-fade-in-up');
@@ -654,8 +663,9 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
 
             <ToastNotification message={toast.message} isVisible={toast.visible} className="top-32 md:top-24" />
 
+            {/* ヘッダー全体（常時表示） */}
             <header className="absolute top-0 left-0 right-0 p-4 md:p-8 z-20 flex flex-col gap-2">
-                <div className={`flex flex-wrap justify-between items-center gap-y-0 md:gap-y-2 transition-opacity duration-500 ${isControlsVisible ? 'opacity-100' : 'opacity-50'}`}>
+                <div className="flex flex-wrap justify-between items-center gap-y-0 md:gap-y-2">
                     <div className="w-auto md:flex-1 flex flex-row items-center gap-4 order-1">
                         {!isReadOnly && (
                             <button
@@ -664,7 +674,12 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
                                         setMode('edit');
                                     }
                                 }}
-                                className="flex-shrink-0 flex items-center justify-center w-12 h-12 bg-surface-container/50 backdrop-blur-sm hover:bg-surface-container text-on-surface font-semibold rounded-full shadow-sm hover:shadow-md transition-all duration-200 active:scale-95 hover:-translate-y-0.5"
+                                className={`
+                                    flex-shrink-0 flex items-center justify-center w-12 h-12 
+                                    bg-surface-container hover:bg-surface-container/80 
+                                    text-on-surface font-semibold rounded-full shadow-md 
+                                    transition-all duration-200 active:scale-95 hover:-translate-y-0.5
+                                `}
                             >
                                 {isPreview ? (
                                     <LogOutIcon className="w-5 h-5 rotate-180" />
@@ -677,24 +692,30 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
                                 )}
                             </button>
                         )}
-                        <h1 className="text-xl md:text-2xl font-bold text-on-surface-variant tracking-wider truncate max-w-[calc(100vw-120px)] md:max-w-xs opacity-70">
+                        {/* タイトルの影を削除 */}
+                        <h1 className="text-xl md:text-2xl font-bold text-on-surface-variant tracking-wider truncate max-w-[calc(100vw-120px)] md:max-w-xs">
                             {eventConfig.title}
                         </h1>
                     </div>
 
                     <div className="w-full md:w-auto flex-shrink-0 mx-auto order-3 md:order-2">
-                        <div className="bg-surface-container/50 dark:bg-black/30 backdrop-blur-sm text-on-surface font-bold py-2 px-4 rounded-full text-xl tracking-wider font-mono text-center min-w-[10ch] tabular-nums cursor-pointer active:scale-95 transition-transform" onClick={handleTimerClick} title="クリックで表示切替">
+                        {/* タイマーの影を削除 */}
+                        <div className="bg-surface-container dark:bg-black/60 text-on-surface font-bold py-2 px-4 rounded-full text-xl tracking-wider font-mono text-center min-w-[10ch] tabular-nums cursor-pointer active:scale-95 transition-transform" onClick={handleTimerClick} title="クリックで表示切替">
                             {timerDisplayMode === 'currentTime' && (now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))}
                             {timerDisplayMode === 'eventRemaining' && (`-${formatDurationHHMMSS(eventRemainingSeconds)}`)}
                             {timerDisplayMode === 'eventElapsed' && (`+${formatDurationHHMMSS(eventElapsedSeconds)}`)}
                         </div>
                     </div>
 
-                    {/* メニューボタンとポップアップ */}
                     <div className="w-auto md:flex-1 flex justify-end order-2 md:order-3 relative">
                         <button
                             onClick={() => setIsMenuOpen(!isMenuOpen)}
-                            className="flex-shrink-0 flex items-center justify-center w-12 h-12 bg-surface-container/50 backdrop-blur-sm hover:bg-surface-container text-on-surface font-semibold rounded-full shadow-sm hover:shadow-md transition-all duration-200 active:scale-95 hover:-translate-y-0.5"
+                            className={`
+                                flex-shrink-0 flex items-center justify-center w-12 h-12 
+                                bg-surface-container hover:bg-surface-container/80 
+                                text-on-surface font-semibold rounded-full shadow-md 
+                                transition-all duration-200 active:scale-95 hover:-translate-y-0.5
+                            `}
                         >
                             <MenuIcon className="w-5 h-5" />
                         </button>
@@ -741,7 +762,8 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
                 </div>
 
                 {sortedFloors.length > 1 && (
-                    <div className={`flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar justify-center mt-4 transition-opacity duration-500 ${isControlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                    // マルチフロア選択部分のみに透明度制御を適用
+                    <div className={`flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar justify-center mt-4 transition-opacity duration-500 ${isControlsVisible ? 'opacity-100' : 'opacity-50'}`}>
                         {sortedFloors.map(floor => (
                             <button
                                 key={floor.id}
@@ -750,7 +772,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
                                     px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap transition-colors flex items-center gap-2
                                     ${(viewMode === 'single' && floor.id === displayFloorId)
                                         ? 'bg-on-surface-variant text-surface-background shadow-md'
-                                        : 'bg-surface-container/50 hover:bg-surface-container text-on-surface-variant hover:text-on-surface backdrop-blur-sm'
+                                        : 'bg-surface-container hover:bg-surface-container/80 text-on-surface-variant hover:text-on-surface shadow-sm'
                                     }
                                 `}
                             >
@@ -766,7 +788,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
                                     px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap transition-colors flex items-center gap-2
                                     ${viewMode === 'multi'
                                         ? 'bg-on-surface-variant text-surface-background shadow-md'
-                                        : 'bg-surface-container/50 hover:bg-surface-container text-on-surface-variant hover:text-on-surface backdrop-blur-sm'
+                                        : 'bg-surface-container hover:bg-surface-container/80 text-on-surface-variant hover:text-on-surface shadow-sm'
                                     }
                                 `}
                             >
@@ -775,69 +797,72 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
                             </button>
                         )}
                     </div>
-                )}
-            </header>
+                )
+                }
+            </header >
 
             <LiveSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} theme={theme} toggleTheme={toggleTheme} isWakeLockEnabled={isWakeLockEnabled} onWakeLockToggle={handleWakeLockToggle} />
 
-            {viewMode === 'single' ? (
-                <div className="w-full h-full transition-opacity duration-500 ease-in-out" style={{ opacity: mainOpacity }}>
-                    <div className={`absolute top-36 md:top-40 left-0 right-0 px-4 flex items-center justify-center overflow-hidden transition-all duration-500 ease-in-out ${contentPositionClass}`}>
-                        <div className="w-full h-full overflow-y-auto flex items-center justify-center relative">
-                            {visibleDjContent && (
-                                <div key={visibleDjContent.animationKey} className={`w-full absolute inset-0 p-4 flex items-center justify-center will-change-[transform,opacity] ${djAnimationClass}`}>
-                                    {renderDjContent(visibleDjContent)}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {isVjActive && (
-                        <VjDisplay
-                            vjTimetable={visualVjTimetable}
-                            eventConfig={eventConfig}
-                            now={now}
-                            djEventStatus={eventStatus}
-                            suppressAnimation={suppressEntryAnimation}
-                        />
-                    )}
-
-                    {schedule.length > 0 && eventStatus !== 'STANDBY' && (
-                        <div ref={timelineContainerRef} className="absolute bottom-0 left-0 right-0 w-full shrink-0 overflow-hidden mask-gradient z-10 pb-4 hidden md:block h-20 md:h-32">
-                            <div className="flex h-full items-center space-x-4 md:space-x-6 px-4 py-2 will-change-transform" style={{ transform: timelineTransform, transition: 'transform 0.4s ease-in-out' }}>
-                                {schedule.map((dj, index) => {
-                                    const isPlaying = currentlyPlayingIndex === index;
-                                    const borderClass = isPlaying ? 'border border-on-surface dark:border-white' : 'border border-on-surface/30 dark:border-white/30';
-                                    const isActive = isPlaying || (eventStatus === 'ON_AIR_BLOCK' && currentlyPlayingIndex === -1 && index === 0);
-                                    return (
-                                        <div key={dj.id} className={`shrink-0 w-40 md:w-64 h-16 md:h-24 bg-surface-container/40 backdrop-blur-sm rounded-2xl p-3 md:p-4 flex items-center ${borderClass} ${dj.isBuffer ? 'justify-center' : 'space-x-2 md:space-x-6'} ${isActive ? 'opacity-100 scale-100' : 'opacity-60 scale-90'} transition-all duration-1000 ease-in-out will-change-[opacity,transform,border]`}>
-                                            {dj.imageUrl ? (<div className="w-8 h-8 md:w-14 md:h-14 rounded-full bg-surface-container flex-shrink-0 grid place-items-center overflow-hidden"><SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" /></div>) : !dj.isBuffer ? (<div className="w-8 h-8 md:w-14 md:h-14 rounded-full bg-surface-container flex-shrink-0 grid place-items-center overflow-hidden"><UserIcon className="w-5 h-5 md:w-8 md:h-8 text-on-surface-variant" /></div>) : null}
-                                            <div className="overflow-hidden flex flex-col justify-center"><p className={`text-sm md:text-lg font-bold truncate w-full ${dj.isBuffer ? 'text-center' : 'text-left'}`}>{dj.name}</p><p className={`text-xs md:text-sm font-mono text-on-surface-variant ${dj.isBuffer ? 'text-center' : 'text-left'}`}>{dj.startTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p></div>
-                                        </div>
-                                    );
-                                })}
+            {
+                viewMode === 'single' ? (
+                    <div className="w-full h-full transition-opacity duration-500 ease-in-out" style={{ opacity: mainOpacity }}>
+                        <div className={`absolute top-36 md:top-40 left-0 right-0 px-4 flex items-center justify-center overflow-hidden transition-all duration-500 ease-in-out ${contentPositionClass}`}>
+                            <div className="w-full h-full overflow-y-auto flex items-center justify-center relative">
+                                {visibleDjContent && (
+                                    <div key={visibleDjContent.animationKey} className={`w-full absolute inset-0 p-4 flex items-center justify-center will-change-[transform,opacity] ${djAnimationClass}`}>
+                                        {renderDjContent(visibleDjContent)}
+                                    </div>
+                                )}
                             </div>
                         </div>
-                    )}
-                </div>
-            ) : (
-                <div className="absolute top-36 bottom-0 left-0 right-0 p-4 overflow-y-auto">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 max-w-7xl mx-auto">
-                        {sortedFloors.map(floor => (
-                            <MiniFloorCard
-                                key={floor.id}
-                                floorId={floor.id}
-                                floorData={floor}
+
+                        {isVjActive && (
+                            <VjDisplay
+                                vjTimetable={visualVjTimetable}
                                 eventConfig={eventConfig}
                                 now={now}
-                                onClick={(fid) => { onSelectFloor(fid); setViewMode('single'); }}
+                                djEventStatus={eventStatus}
+                                suppressAnimation={suppressEntryAnimation}
                             />
-                        ))}
+                        )}
+
+                        {schedule.length > 0 && eventStatus !== 'STANDBY' && (
+                            <div ref={timelineContainerRef} className="absolute bottom-0 left-0 right-0 w-full shrink-0 overflow-hidden mask-gradient z-10 pb-4 hidden md:block h-20 md:h-32">
+                                <div className="flex h-full items-center space-x-4 md:space-x-6 px-4 py-2 will-change-transform" style={{ transform: timelineTransform, transition: 'transform 0.4s ease-in-out' }}>
+                                    {schedule.map((dj, index) => {
+                                        const isPlaying = currentlyPlayingIndex === index;
+                                        const borderClass = isPlaying ? 'border border-on-surface dark:border-white' : 'border border-on-surface/30 dark:border-white/30';
+                                        const isActive = isPlaying || (eventStatus === 'ON_AIR_BLOCK' && currentlyPlayingIndex === -1 && index === 0);
+                                        return (
+                                            <div key={dj.id} className={`shrink-0 w-40 md:w-64 h-16 md:h-24 bg-surface-container/40 backdrop-blur-sm rounded-2xl p-3 md:p-4 flex items-center ${borderClass} ${dj.isBuffer ? 'justify-center' : 'space-x-2 md:space-x-6'} ${isActive ? 'opacity-100 scale-100' : 'opacity-60 scale-90'} transition-all duration-1000 ease-in-out will-change-[opacity,transform,border]`}>
+                                                {dj.imageUrl ? (<div className="w-8 h-8 md:w-14 md:h-14 rounded-full bg-surface-container flex-shrink-0 grid place-items-center overflow-hidden"><SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" /></div>) : !dj.isBuffer ? (<div className="w-8 h-8 md:w-14 md:h-14 rounded-full bg-surface-container flex-shrink-0 grid place-items-center overflow-hidden"><UserIcon className="w-5 h-5 md:w-8 md:h-8 text-on-surface-variant" /></div>) : null}
+                                                <div className="overflow-hidden flex flex-col justify-center"><p className={`text-sm md:text-lg font-bold truncate w-full ${dj.isBuffer ? 'text-center' : 'text-left'}`}>{dj.name}</p><p className={`text-xs md:text-sm font-mono text-on-surface-variant ${dj.isBuffer ? 'text-center' : 'text-left'}`}>{dj.startTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p></div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
                     </div>
-                </div>
-            )}
+                ) : (
+                    <div className="absolute top-36 bottom-0 left-0 right-0 p-4 overflow-y-auto">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 max-w-7xl mx-auto">
+                            {sortedFloors.map(floor => (
+                                <MiniFloorCard
+                                    key={floor.id}
+                                    floorId={floor.id}
+                                    floorData={floor}
+                                    eventConfig={eventConfig}
+                                    now={now}
+                                    onClick={(fid) => { onSelectFloor(fid); setViewMode('single'); }}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )
+            }
 
             <FullTimelineView isOpen={isFullTimelineOpen} onClose={() => setIsFullTimelineOpen(false)} schedule={scheduleForModal} now={now} currentlyPlayingIndex={currentlyPlayingIndex} />
-        </div>
+        </div >
     );
 };

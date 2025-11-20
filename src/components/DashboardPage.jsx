@@ -1,9 +1,8 @@
 // [src/components/DashboardPage.jsx]
-// ... (import等は変更なし) ...
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { db, storage } from '../firebase';
-import { collection, addDoc, deleteDoc, doc, query, where, onSnapshot, Timestamp, writeBatch, orderBy, limit, updateDoc, getDocs } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, doc, query, where, onSnapshot, Timestamp, writeBatch, orderBy, limit, updateDoc, getDocs, getDoc } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import { updateProfile, deleteUser } from 'firebase/auth';
 import {
@@ -28,21 +27,15 @@ import {
     Label,
     AlertTriangleIcon,
     UserIcon,
+    SearchIcon,
+    InfoIcon,
     LoadingScreen as LoadingSpinner,
     APP_VERSION
 } from './common';
 import { DevControls } from './DevControls';
 
-// ... (DashboardSettingsModal, EventSetupModal, EventCard は変更なし。そのまま使う) ...
-// ※ コード量が多いため、変更のあった DashboardPage コンポーネントのみ抜粋します。
-//    以前のコードの上書きで大丈夫ですが、return内のDevControls呼び出し部分だけが変わっています。
-
-// --- DashboardSettingsModal, EventSetupModal, EventCard は変更がないので省略します（以前のコードを維持してください） ---
-// 省略部分は以前のコードと同じです
-
-const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout, user, userProfile }) => {
-    // ... (以前のコードと同じ) ...
-    // 省略
+// --- DashboardSettingsModal (サポートモード検索機能を追加) ---
+const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout, user, userProfile, onViewUser }) => {
     const [activeTab, setActiveTab] = useState('account');
     const [displayName, setDisplayName] = useState(user?.displayName || '');
     const [preferences, setPreferences] = useState({
@@ -51,8 +44,16 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
         defaultMultiFloor: false,
         ...userProfile?.preferences
     });
+
+    // 管理者追加用
     const [targetEmail, setTargetEmail] = useState('');
     const [adminSearchStatus, setAdminSearchStatus] = useState('');
+
+    // サポートモード用
+    const [supportSearchEmail, setSupportSearchEmail] = useState('');
+    const [supportSearchStatus, setSupportSearchStatus] = useState('');
+    const [foundUser, setFoundUser] = useState(null);
+
     const [adminList, setAdminList] = useState([]);
     const [isWakeLockEnabled, setIsWakeLockEnabled] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -60,6 +61,7 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
     const SUPER_ADMIN_UID = "GLGPpy6IlyWbGw15OwBPzRdCPZI2";
     const isSuperAdmin = user?.uid === SUPER_ADMIN_UID;
+    const isAdmin = isSuperAdmin || userProfile?.role === 'admin';
 
     useEffect(() => {
         if (isOpen) {
@@ -74,6 +76,9 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
             setActiveTab('account');
             setTargetEmail('');
             setAdminSearchStatus('');
+            setSupportSearchEmail('');
+            setSupportSearchStatus('idle');
+            setFoundUser(null);
         }
     }, [isOpen, user, userProfile]);
 
@@ -105,7 +110,7 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
     };
 
     const fetchAdminList = async () => {
-        if (!isSuperAdmin) return;
+        if (!isSuperAdmin && userProfile?.role !== 'admin') return;
         try {
             const q = query(collection(db, "users"), where("role", "==", "admin"));
             const querySnapshot = await getDocs(q);
@@ -120,10 +125,10 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
     };
 
     useEffect(() => {
-        if (activeTab === 'admin' && isSuperAdmin) {
+        if (activeTab === 'admin_role') {
             fetchAdminList();
         }
-    }, [activeTab, isSuperAdmin]);
+    }, [activeTab]);
 
     const handleGrantAdmin = async () => {
         if (!targetEmail) return;
@@ -215,6 +220,38 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
         }
     };
 
+    const handleSupportSearch = async () => {
+        if (!supportSearchEmail) return;
+        setSupportSearchStatus('searching');
+        setFoundUser(null);
+        try {
+            const q = query(collection(db, "users"), where("email", "==", supportSearchEmail));
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+                const docSnap = querySnapshot.docs[0];
+                setFoundUser({ id: docSnap.id, ...docSnap.data() });
+                setSupportSearchStatus('found');
+            } else {
+                try {
+                    const docRef = doc(db, "users", supportSearchEmail);
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        setFoundUser({ id: docSnap.id, ...docSnap.data() });
+                        setSupportSearchStatus('found');
+                    } else {
+                        setSupportSearchStatus('not-found');
+                    }
+                } catch (e) {
+                    setSupportSearchStatus('not-found');
+                }
+            }
+        } catch (error) {
+            console.error("ユーザー検索エラー:", error);
+            setSupportSearchStatus('error');
+        }
+    };
+
     const MenuButton = ({ id, label, icon: Icon }) => {
         const isActive = activeTab === id;
         return (
@@ -259,10 +296,15 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                             <MenuButton id="account" label="アカウント管理" icon={UserIcon} />
                             <MenuButton id="event" label="イベント初期設定" icon={SettingsIcon} />
                             <MenuButton id="app" label="アプリ設定" icon={SettingsIcon} />
-                            {isSuperAdmin && (
+
+                            {isAdmin && (
                                 <>
                                     <div className="my-2 border-t border-on-surface/10 mx-2"></div>
-                                    <MenuButton id="admin" label="管理者権限管理" icon={UserIcon} />
+                                    <div className="text-[10px] font-bold text-brand-primary uppercase tracking-wider px-2 mb-1 mt-1">Administrator Menu</div>
+                                    <MenuButton id="admin_support" label="ユーザーサポート" icon={SearchIcon} />
+                                    {isSuperAdmin && (
+                                        <MenuButton id="admin_role" label="管理者権限管理" icon={PowerIcon} />
+                                    )}
                                 </>
                             )}
                         </div>
@@ -378,7 +420,46 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                                     </section>
                                 </div>
                             )}
-                            {activeTab === 'admin' && isSuperAdmin && (
+
+                            {activeTab === 'admin_support' && isAdmin && (
+                                <div className="animate-fade-in space-y-10">
+                                    <section>
+                                        <SectionHeader title="ユーザーサポート (ダッシュボード閲覧)" description="ユーザーのEmailまたはUIDで検索し、そのユーザーとしてダッシュボードを表示します。" />
+                                        <div className="max-w-md space-y-4 pl-1">
+                                            <div>
+                                                <Label>ユーザーのEmail / UID</Label>
+                                                <div className="flex gap-2">
+                                                    <Input value={supportSearchEmail} onChange={(e) => { setSupportSearchEmail(e.target.value); setSupportSearchStatus(''); }} placeholder="user@example.com" />
+                                                    <Button onClick={handleSupportSearch} disabled={!supportSearchEmail || supportSearchStatus === 'searching'} className="flex-shrink-0" variant="secondary">
+                                                        <SearchIcon className="w-4 h-4" />
+                                                        {supportSearchStatus === 'searching' ? '検索中...' : '検索'}
+                                                    </Button>
+                                                </div>
+                                            </div>
+
+                                            {supportSearchStatus === 'not-found' && (<div className="p-3 bg-red-500/10 text-red-500 rounded-lg text-sm font-bold flex items-center gap-2"><span>⚠️ ユーザーが見つかりませんでした。</span></div>)}
+                                            {supportSearchStatus === 'found' && foundUser && (
+                                                <div className="p-4 bg-surface-background border-2 border-brand-primary/30 rounded-xl space-y-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-full bg-on-surface/10 overflow-hidden">
+                                                            {foundUser.photoURL ? <img src={foundUser.photoURL} className="w-full h-full object-cover" /> : <UserIcon className="w-6 h-6 m-2 text-on-surface-variant" />}
+                                                        </div>
+                                                        <div>
+                                                            <div className="font-bold text-sm text-on-surface">{foundUser.displayName || 'No Name'}</div>
+                                                            <div className="text-xs text-on-surface-variant font-mono">{foundUser.email}</div>
+                                                        </div>
+                                                    </div>
+                                                    <Button onClick={() => { onViewUser(foundUser); onClose(); }} variant="primary" className="w-full">
+                                                        このユーザーのダッシュボードを見る
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </section>
+                                </div>
+                            )}
+
+                            {activeTab === 'admin_role' && isSuperAdmin && (
                                 <div className="animate-fade-in space-y-10">
                                     <section>
                                         <SectionHeader title="新しい管理者の追加" description="指定したメールアドレスのユーザーに管理者権限を付与します。" />
@@ -386,7 +467,7 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                                             <div>
                                                 <Label>対象ユーザーのメールアドレス</Label>
                                                 <div className="flex gap-2">
-                                                    <Input value={targetEmail} onChange={(e) => { setTargetEmail(e.target.value); setAdminSearchStatus(''); }} placeholder="example@gmail.com" />
+                                                    <Input value={targetEmail} onChange={(e) => { setTargetEmail(e.target.value); setAdminSearchStatus(''); }} placeholder="admin@example.com" />
                                                     <Button onClick={handleGrantAdmin} disabled={!targetEmail || adminSearchStatus === 'searching'} className="flex-shrink-0">{adminSearchStatus === 'searching' ? '検索中...' : '権限を付与'}</Button>
                                                 </div>
                                             </div>
@@ -434,9 +515,7 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
     );
 };
 
-// --- EventSetupModal (変更なし) ---
 const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences }) => {
-    // ... (変更なし)
     const [config, setConfig] = useState({
         title: '',
         startDate: getTodayDateString(),
@@ -510,9 +589,7 @@ const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences }) => {
     );
 };
 
-// --- EventCard (変更なし) ---
 const formatDateForIcon = (dateStr) => {
-    // ... (変更なし)
     if (!dateStr) return { month: '---', day: '--' };
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return { month: '---', day: '--' };
@@ -521,7 +598,6 @@ const formatDateForIcon = (dateStr) => {
 };
 
 const isEventActive = (event) => {
-    // ... (変更なし)
     const { startDate, startTime } = event.eventConfig;
     if (!startDate || !startTime) return false;
     const start = new Date(`${startDate}T${startTime}`);
@@ -531,7 +607,6 @@ const isEventActive = (event) => {
 };
 
 const EventCard = ({ event, onDeleteClick, onClick }) => {
-    // ... (変更なし)
     const floorCount = event.floors ? Object.keys(event.floors).length : 0;
     const displayFloors = (floorCount === 0 && event.timetable) ? '1 Floor' : `${floorCount} Floors`;
     const { month, day } = formatDateForIcon(event.eventConfig.startDate);
@@ -588,7 +663,6 @@ const EventCard = ({ event, onDeleteClick, onClick }) => {
     );
 };
 
-// --- DashboardPage (変更あり: isPerfMonitorVisible, onTogglePerfMonitorを追加) ---
 export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, isPerfMonitorVisible, onTogglePerfMonitor }) => {
     const [events, setEvents] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -600,20 +674,27 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
     const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
     const [viewLimit, setViewLimit] = useState(100);
     const [userProfile, setUserProfile] = useState(null);
+    const [viewingTarget, setViewingTarget] = useState(null);
+
     const navigate = useNavigate();
 
     useEffect(() => {
         if (!user) return;
         setIsLoading(true);
-        const q = query(collection(db, "timetables"), where("ownerUid", "==", user.uid), orderBy("createdAt", "desc"), limit(viewLimit));
+        const targetUid = viewingTarget ? viewingTarget.uid : user.uid;
+        const q = query(collection(db, "timetables"), where("ownerUid", "==", targetUid), orderBy("createdAt", "desc"), limit(viewLimit));
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const userEvents = [];
             querySnapshot.forEach((doc) => { userEvents.push({ id: doc.id, ...doc.data() }); });
             setEvents(userEvents);
             setIsLoading(false);
-        }, (error) => { console.error("イベント読込エラー:", error); setIsLoading(false); });
+        }, (error) => {
+            console.error("イベント読込エラー:", error);
+            if (viewingTarget) alert(`読み込みエラー: ${error.message}\nFirestoreセキュリティルールにより拒否された可能性があります。`);
+            setIsLoading(false);
+        });
         return () => unsubscribe();
-    }, [user, viewLimit]);
+    }, [user, viewLimit, viewingTarget]);
 
     useEffect(() => {
         if (!user) return;
@@ -643,19 +724,15 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
 
     const handleSetupComplete = async (modalConfig) => {
         if (isCreating || !user) return;
-        setIsSetupModalOpen(false);
-        setIsCreating(true);
+        if (viewingTarget) { if (!window.confirm("現在サポートモード中です。新規イベントは「あなた（管理者）」のアカウントで作成されます。よろしいですか？")) return; }
+        setIsSetupModalOpen(false); setIsCreating(true);
         try {
             const floorsConfig = {};
             if (modalConfig.isMultiFloor) {
-                const mainFloorId = `floor_${Date.now()}_main`;
-                const subFloorId = `floor_${Date.now()}_sub`;
+                const mainFloorId = `floor_${Date.now()}_main`; const subFloorId = `floor_${Date.now()}_sub`;
                 floorsConfig[mainFloorId] = { name: "Main Floor", order: 0, timetable: [], vjTimetable: [] };
                 floorsConfig[subFloorId] = { name: "Sub Floor", order: 1, timetable: [], vjTimetable: [] };
-            } else {
-                const defaultFloorId = `floor_${Date.now()}`;
-                floorsConfig[defaultFloorId] = { name: "Main Floor", order: 0, timetable: [], vjTimetable: [] };
-            }
+            } else { const defaultFloorId = `floor_${Date.now()}`; floorsConfig[defaultFloorId] = { name: "Main Floor", order: 0, timetable: [], vjTimetable: [] }; }
             const newEventDoc = { ownerUid: user.uid, createdAt: Timestamp.now(), eventConfig: { title: modalConfig.title, startDate: modalConfig.startDate, startTime: modalConfig.startTime, vjFeatureEnabled: modalConfig.vjEnabled }, floors: floorsConfig };
             const docRef = await addDoc(collection(db, "timetables"), newEventDoc);
             navigate(`/edit/${docRef.id}`);
@@ -664,82 +741,50 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
 
     const handleDeleteEvent = async () => {
         if (!deleteTarget) return;
+        if (viewingTarget) { alert("サポートモード（閲覧中）のため、イベントの削除はできません。"); setDeleteTarget(null); return; }
         try { await deleteDoc(doc(db, "timetables", deleteTarget.id)); setDeleteTarget(null); } catch (error) { console.error("削除失敗:", error); alert("削除に失敗しました。"); }
     };
 
     const handleDevDeleteAll = async () => {
         if (!window.confirm("全削除しますか？")) return;
-        try {
-            const batch = writeBatch(db);
-            events.forEach(e => batch.delete(doc(db, "timetables", e.id)));
-            await batch.commit();
-            alert("完了");
-        } catch (e) { alert("失敗"); }
+        try { const batch = writeBatch(db); events.forEach(e => batch.delete(doc(db, "timetables", e.id))); await batch.commit(); alert("完了"); } catch (e) { alert("失敗"); }
+    };
+
+    const handleViewUser = (targetUser) => {
+        if (targetUser.id === user.uid) { setViewingTarget(null); } else { setViewingTarget({ uid: targetUser.id, displayName: targetUser.displayName, email: targetUser.email }); }
     };
 
     if (isLoading && events.length === 0) return <LoadingSpinner />;
 
     return (
         <>
+            {viewingTarget && (<div className="bg-amber-500 text-white px-4 py-2 flex items-center justify-between sticky top-0 z-50 shadow-md"><div className="flex items-center gap-2 text-sm font-bold"><InfoIcon className="w-5 h-5" /><span>閲覧中: {viewingTarget.displayName} ({viewingTarget.email})</span></div><button onClick={() => setViewingTarget(null)} className="bg-white/20 hover:bg-white/30 text-white text-xs px-3 py-1.5 rounded-full transition-colors font-bold">終了して戻る</button></div>)}
             <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto pb-32">
-                <header className="flex flex-row justify-between items-center mb-12 animate-fade-in-up relative z-30">
-                    <div className="flex flex-col items-start select-none">
-                        <h1 className="text-xl md:text-2xl font-bold tracking-widest text-on-surface">DJ TIMEKEEPER <span className="text-brand-primary">PRO</span></h1>
-                        <span className="text-[10px] font-bold tracking-[0.3em] text-on-surface-variant uppercase">Dashboard</span>
-                    </div>
-                    <div className="relative">
-                        <button onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)} className="flex items-center gap-3 group focus:outline-none" title="アカウントメニューを開く">
-                            {user?.photoURL ? <img src={user.photoURL} alt="User" className="w-12 h-12 rounded-full border-2 border-surface-container shadow-md group-hover:scale-105 transition-transform group-hover:shadow-lg" /> : <div className="w-12 h-12 rounded-full bg-brand-primary flex items-center justify-center text-white font-bold text-xl shadow-md group-hover:scale-105 transition-transform group-hover:shadow-lg">{user?.displayName?.[0] || "U"}</div>}
-                        </button>
-                        {isAccountMenuOpen && (
-                            <>
-                                <div className="fixed inset-0 z-40" onClick={() => setIsAccountMenuOpen(false)} />
-                                <div className="absolute top-full right-0 mt-3 w-64 bg-surface-container rounded-2xl shadow-2xl border border-on-surface/10 p-2 z-50 animate-fade-in origin-top-right">
-                                    <div className="px-4 py-3 border-b border-on-surface/10 mb-2">
-                                        <p className="font-bold text-sm text-on-surface truncate">{userProfile?.displayName || user?.displayName || 'Guest User'}</p>
-                                        <p className="text-xs text-on-surface-variant truncate opacity-70">{user?.email}</p>
-                                    </div>
-                                    <button onClick={() => { setIsSettingsOpen(true); setIsAccountMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-background transition-colors text-left text-on-surface"><SettingsIcon className="w-5 h-5 text-on-surface-variant" /><span className="font-bold text-sm">アプリ設定</span></button>
-                                    <button onClick={() => { onLogout(); setIsAccountMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-500/10 text-red-500 transition-colors text-left mt-1"><LogOutIcon className="w-5 h-5" /><span className="font-bold text-sm">ログアウト</span></button>
-                                </div>
-                            </>
-                        )}
-                    </div>
+                <header className="flex flex-row justify-between items-center mb-12 animate-fade-in-up relative z-30 gap-4">
+                    <div className="flex flex-col items-start select-none flex-shrink-0"><h1 className="text-xl md:text-2xl font-bold tracking-widest text-on-surface">DJ TIMEKEEPER <span className="text-brand-primary">PRO</span></h1><span className="text-[10px] font-bold tracking-[0.3em] text-on-surface-variant uppercase">Dashboard</span></div>
+                    <div className="flex items-center gap-4 md:gap-6"><div className="relative"><button onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)} className="flex items-center gap-3 group focus:outline-none" title="アカウントメニューを開く">{user?.photoURL ? <img src={user.photoURL} alt="User" className="w-10 h-10 md:w-12 md:h-12 rounded-full border-2 border-surface-container shadow-md group-hover:scale-105 transition-transform group-hover:shadow-lg" /> : <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-brand-primary flex items-center justify-center text-white font-bold text-xl shadow-md group-hover:scale-105 transition-transform group-hover:shadow-lg">{user?.displayName?.[0] || "U"}</div>}</button>{isAccountMenuOpen && (<><div className="fixed inset-0 z-40" onClick={() => setIsAccountMenuOpen(false)} /><div className="absolute top-full right-0 mt-3 w-64 bg-surface-container rounded-2xl shadow-2xl border border-on-surface/10 p-2 z-50 animate-fade-in origin-top-right"><div className="px-4 py-3 border-b border-on-surface/10 mb-2"><p className="font-bold text-sm text-on-surface truncate">{userProfile?.displayName || user?.displayName || 'Guest User'}</p><p className="text-xs text-on-surface-variant truncate opacity-70">{user?.email}</p></div><button onClick={() => { setIsSettingsOpen(true); setIsAccountMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-background transition-colors text-left text-on-surface"><SettingsIcon className="w-5 h-5 text-on-surface-variant" /><span className="font-bold text-sm">アプリ設定</span></button><button onClick={() => { onLogout(); setIsAccountMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-500/10 text-red-500 transition-colors text-left mt-1"><LogOutIcon className="w-5 h-5" /><span className="font-bold text-sm">ログアウト</span></button></div></>)}</div></div>
                 </header>
+
                 {events.length > 0 ? (
                     <div className="space-y-12">
-                        {nowEvents.length > 0 && (
-                            <section className="animate-fade-in-up opacity-0">
-                                <div className="flex items-center gap-2 mb-4 text-red-500"><span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span><h2 className="text-lg font-bold tracking-widest">NOW ON AIR</h2></div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{nowEvents.map(event => <EventCard key={event.id} event={event} onDeleteClick={(id, title) => setDeleteTarget({ id, title })} onClick={() => navigate(`/edit/${event.id}`)} />)}</div>
-                            </section>
-                        )}
-                        {upcomingEvents.length > 0 && (
-                            <section className="animate-fade-in-up opacity-0" style={{ animationDelay: '0.1s' }}>
-                                <h2 className="text-lg font-bold text-on-surface-variant mb-4 tracking-widest flex items-center gap-2"><span className="text-brand-primary">●</span> UPCOMING</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{upcomingEvents.map(event => <EventCard key={event.id} event={event} onDeleteClick={(id, title) => setDeleteTarget({ id, title })} onClick={() => navigate(`/edit/${event.id}`)} />)}</div>
-                            </section>
-                        )}
-                        {pastEvents.length > 0 && (
-                            <section className="animate-fade-in-up opacity-0" style={{ animationDelay: '0.2s' }}>
-                                <h2 className="text-lg font-bold text-on-surface-variant/50 mb-4 tracking-widest">ARCHIVE</h2>
-                                <div className="transition-opacity duration-300"><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{pastEvents.map(event => <EventCard key={event.id} event={event} onDeleteClick={(id, title) => setDeleteTarget({ id, title })} onClick={() => navigate(`/edit/${event.id}`)} />)}</div></div>
-                            </section>
-                        )}
+                        {nowEvents.length > 0 && (<section className="animate-fade-in-up opacity-0"><div className="flex items-center gap-2 mb-4 text-red-500"><span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span><h2 className="text-lg font-bold tracking-widest">NOW ON AIR</h2></div><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{nowEvents.map(event => <EventCard key={event.id} event={event} onDeleteClick={(id, title) => setDeleteTarget({ id, title })} onClick={() => navigate(`/edit/${event.id}`)} />)}</div></section>)}
+                        {upcomingEvents.length > 0 && (<section className="animate-fade-in-up opacity-0" style={{ animationDelay: '0.1s' }}><h2 className="text-lg font-bold text-on-surface-variant mb-4 tracking-widest flex items-center gap-2"><span className="text-brand-primary">●</span> UPCOMING</h2><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{upcomingEvents.map(event => <EventCard key={event.id} event={event} onDeleteClick={(id, title) => setDeleteTarget({ id, title })} onClick={() => navigate(`/edit/${event.id}`)} />)}</div></section>)}
+                        {pastEvents.length > 0 && (<section className="animate-fade-in-up opacity-0" style={{ animationDelay: '0.2s' }}><h2 className="text-lg font-bold text-on-surface-variant/50 mb-4 tracking-widest">ARCHIVE</h2><div className="transition-opacity duration-300"><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{pastEvents.map(event => <EventCard key={event.id} event={event} onDeleteClick={(id, title) => setDeleteTarget({ id, title })} onClick={() => navigate(`/edit/${event.id}`)} />)}</div></div></section>)}
                     </div>
                 ) : (
-                    <div className="flex flex-col items-center justify-center py-20 text-center opacity-70">
-                        <div className="w-24 h-24 bg-surface-container rounded-full flex items-center justify-center mb-6"><LayersIcon className="w-10 h-10 text-on-surface-variant" /></div>
-                        <p className="text-xl font-bold text-on-surface mb-2">イベントがありません</p>
-                        <p className="text-sm text-on-surface-variant">右下のボタンから、最初のイベントを作成しましょう！</p>
-                    </div>
+                    <div className="flex flex-col items-center justify-center py-20 text-center opacity-70"><div className="w-24 h-24 bg-surface-container rounded-full flex items-center justify-center mb-6"><LayersIcon className="w-10 h-10 text-on-surface-variant" /></div><p className="text-xl font-bold text-on-surface mb-2">イベントがありません</p><p className="text-sm text-on-surface-variant">{viewingTarget ? 'このユーザーはまだイベントを作成していません。' : '右下のボタンから、最初のイベントを作成しましょう！'}</p></div>
                 )}
-                <button onClick={handleCreateClick} disabled={isCreating} className="fixed bottom-8 right-8 z-30 flex items-center gap-3 bg-brand-primary hover:bg-brand-primary/90 text-white font-bold py-4 px-6 rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-wait group">
-                    <PlusIcon className="w-6 h-6 transition-transform group-hover:rotate-90" /><span className="text-lg pr-1 hidden sm:inline">{isCreating ? '作成中...' : '新規イベント'}</span>
+
+                {/* ▼▼▼ 修正: 淡い光エフェクト (shadow-[0_0_15px...]) を追加 ▼▼▼ */}
+                <button onClick={handleCreateClick} disabled={isCreating || !!viewingTarget} className="fixed bottom-8 right-8 z-30 flex items-center gap-3 bg-brand-primary hover:bg-brand-primary/90 text-white font-bold py-4 px-6 rounded-full shadow-2xl shadow-[0_0_15px_rgba(var(--color-brand-primary),0.5)] transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-wait group hover:shadow-[0_0_25px_rgba(var(--color-brand-primary),0.7)]">
+                    <PlusIcon className="w-6 h-6 transition-transform group-hover:rotate-90" />
+                    <span className="text-lg pr-1 hidden sm:inline">{isCreating ? '作成中...' : '新規イベント'}</span>
                 </button>
+                {/* ▲▲▲ 修正ここまで ▲▲▲ */}
+
             </div>
             <EventSetupModal isOpen={isSetupModalOpen} onClose={() => setIsSetupModalOpen(false)} onCreate={handleSetupComplete} defaultPreferences={userProfile?.preferences} />
-            <DashboardSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} theme={theme} toggleTheme={toggleTheme} onLogout={onLogout} user={user} userProfile={userProfile} />
+            <DashboardSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} theme={theme} toggleTheme={toggleTheme} onLogout={onLogout} user={user} userProfile={userProfile} onViewUser={handleViewUser} />
             <ConfirmModal isOpen={!!deleteTarget} title="イベントを削除" message={`イベント「${deleteTarget?.title || '無題'}」を削除します。復元はできません。本当によろしいですか？`} onConfirm={handleDeleteEvent} onCancel={() => setDeleteTarget(null)} />
             {isDevMode && (<><button onClick={() => setIsDevPanelOpen(p => !p)} className="fixed bottom-8 left-8 z-[998] w-12 h-12 bg-zinc-800 text-brand-primary border border-brand-primary rounded-full shadow-lg grid place-items-center hover:bg-zinc-700 transition-colors"><PowerIcon className="w-6 h-6" /></button>{isDevPanelOpen && <DevControls location="dashboard" onClose={() => setIsDevPanelOpen(false)} onDeleteAllEvents={handleDevDeleteAll} onCrashApp={() => { throw new Error("Dashboard Crash Test"); }} isPerfMonitorVisible={isPerfMonitorVisible} onTogglePerfMonitor={onTogglePerfMonitor} />}</>)}
         </>
