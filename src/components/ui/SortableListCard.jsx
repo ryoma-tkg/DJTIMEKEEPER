@@ -31,7 +31,7 @@ export const SortableListCard = ({
 
     // ボーダー設定
     const borderClass = isPlaying
-        ? 'border-2'
+        ? 'border'
         : 'border border-on-surface/10 dark:border-white/5';
 
     // 動的スタイル生成
