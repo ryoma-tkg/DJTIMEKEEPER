@@ -1,7 +1,18 @@
 // [src/components/common.jsx]
 import React, { memo, useState, useEffect } from 'react';
 
-// カラーパレット
+// UIコンポーネントの再エクスポート
+export { BaseModal } from './ui/BaseModal';
+export { ToggleSwitch } from './ui/Toggle';
+export { CustomTimeInput } from './ui/TimeInput';
+export { LoadingScreen } from './ui/Loading';
+export { Button } from './ui/Button';
+export { SortableListCard } from './ui/SortableListCard';
+export { Input } from './ui/Input';
+export { Label } from './ui/Label';
+
+export const APP_VERSION = 'v2.2.0';
+
 export const VIVID_COLORS = [
     '#EF4444', '#F97316', '#F59E0B', '#EAB308',
     '#84CC16', '#22C55E', '#10B981', '#14B8A6',
@@ -9,7 +20,7 @@ export const VIVID_COLORS = [
     '#8B5CF6', '#A855F7', '#D946EF', '#EC4899'
 ];
 
-// --- アイコン ---
+// --- アイコン定義 ---
 export const PlayIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>);
 export const PlusIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>);
 export const TrashIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>);
@@ -38,45 +49,14 @@ export const CalendarIcon = ({ className }) => (<svg xmlns="http://www.w3.org/20
 export const LayersIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>);
 export const PlusCircleIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>);
 export const LogOutIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>);
-// --- アイコンここまで ---
+// ▼▼▼ 追加 ▼▼▼
+export const ActivityIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>);
+export const DownloadIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>);
+// ▲▲▲ 追加ここまで ▲▲▲
+export const SearchIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>);
 
-export const ToggleSwitch = ({ checked, onChange, label, icon: Icon, disabled = false }) => (
-    <div className="flex items-center justify-between py-3">
-        <div className="flex items-center gap-3">
-            {Icon && (
-                <div className="p-2 rounded-full bg-surface-container text-on-surface-variant">
-                    <Icon className="w-5 h-5" />
-                </div>
-            )}
-            <span className="font-bold text-on-surface">{label}</span>
-        </div>
-        <button
-            onClick={() => !disabled && onChange(!checked)}
-            disabled={disabled}
-            className={`
-                relative w-12 h-7 rounded-full transition-colors duration-300 ease-in-out focus:outline-none
-                ${checked ? 'bg-brand-primary' : 'bg-zinc-300 dark:bg-zinc-600'}
-                ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-            `}
-        >
-            <span
-                className={`
-                    absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-300 ease-in-out
-                    ${checked ? 'translate-x-5' : 'translate-x-0'}
-                `}
-            />
-        </button>
-    </div>
-);
 
 // --- 共通コンポーネント ---
-export const LoadingScreen = ({ text = "読み込み中..." }) => (
-    <div className="flex flex-col items-center justify-center h-screen bg-surface-background">
-        <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner mb-4"></div>
-        <p className="text-lg text-on-surface-variant">{text}</p>
-    </div>
-);
-
 export const SimpleImage = memo(({ src, className, alt = "" }) => {
     if (!src) return null;
     return <img src={src} alt={alt} className={className} />;
@@ -113,47 +93,27 @@ export const parseTime = (timeStr) => {
     return date;
 };
 
-export const CustomTimeInput = ({ value, onChange }) => {
-    const adjustTime = (minutes) => {
-        const date = parseTime(value);
-        date.setMinutes(date.getMinutes() + minutes);
-        onChange(date.toTimeString().slice(0, 5));
-    };
-    const buttonClasses = "px-3 py-3 rounded-lg bg-surface-background hover:bg-zinc-700 text-sm font-semibold w-12";
-    return (
-        <div className="flex items-center gap-1.5">
-            <button type="button" onClick={() => adjustTime(-15)} className={`${buttonClasses} hidden sm:block`}>-15</button>
-            <button type="button" onClick={() => adjustTime(-5)} className={buttonClasses}>-5</button>
-            <input type="time" value={value} onChange={(e) => onChange(e.target.value)} className="bg-surface-background text-on-surface p-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-primary text-center font-mono font-bold text-base" />
-            <button type="button" onClick={() => adjustTime(5)} className={buttonClasses}>+5</button>
-            <button type="button" onClick={() => adjustTime(15)} className={`${buttonClasses} hidden sm:block`}>+15</button>
-        </div>
-    );
-};
+import { BaseModal } from './ui/BaseModal';
 
-// ▼▼▼ 【修正】 デザイン思想に合わせてリニューアル ▼▼▼
 export const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
     if (!isOpen) return null;
     return (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in" onClick={onCancel}>
-            <div
-                className="bg-surface-container rounded-3xl p-6 w-full max-w-sm shadow-2xl relative animate-modal-in flex flex-col items-center text-center gap-4"
-                onClick={(e) => e.stopPropagation()}
-            >
-                {/* アイコンを目立たせる */}
+        <BaseModal
+            isOpen={isOpen}
+            onClose={onCancel}
+            maxWidthClass="max-w-sm"
+            hasCloseButton={false}
+        >
+            <div className="flex flex-col items-center text-center gap-4">
                 <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0">
                     <AlertTriangleIcon className="w-8 h-8 text-red-500" />
                 </div>
-
-                {/* テキストもセンター揃えで */}
                 <div>
                     <h3 className="text-xl font-bold text-on-surface mb-2">{title}</h3>
                     <p className="text-sm text-on-surface-variant leading-relaxed">
                         {message}
                     </p>
                 </div>
-
-                {/* ボタン配置をグリッドに変更し、より押しやすく */}
                 <div className="grid grid-cols-2 gap-3 w-full mt-2">
                     <button
                         onClick={onCancel}
@@ -169,10 +129,9 @@ export const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) =>
                     </button>
                 </div>
             </div>
-        </div>
+        </BaseModal>
     );
 };
-// ▲▲▲ 修正ここまで ▲▲▲
 
 export const ToastNotification = ({ message, isVisible, className = '' }) => {
     const [internalMessage, setInternalMessage] = useState(message);

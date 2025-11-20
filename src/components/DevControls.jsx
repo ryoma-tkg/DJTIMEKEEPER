@@ -1,5 +1,5 @@
 // [src/components/DevControls.jsx]
-import React, { useEffect } from 'react';
+import React, { useState } from 'react';
 import {
     SettingsIcon,
     ResetIcon,
@@ -10,146 +10,253 @@ import {
     BugIcon,
     LogInIcon,
     XIcon,
-    TrashIcon
+    TrashIcon,
+    LayersIcon,
+    ActivityIcon,
+    VIVID_COLORS,
+    parseDateTime
 } from './common';
+// PerformanceMonitorのインポートは削除（App.jsxに移動したため）
 
-const DevButton = ({ onClick, children, className = '', title = '', disabled = false }) => (
+const DevButton = ({ onClick, children, className = '', title = '', disabled = false, active = false }) => (
     <button
         onClick={onClick}
         title={title}
         disabled={disabled}
-        className={`bg-surface-container hover:bg-surface-background text-on-surface font-semibold py-2 px-3 rounded-md text-xs transition-colors shadow-lg flex items-center justify-center gap-1.5 ${className} disabled:opacity-50 disabled:cursor-not-allowed`}
+        className={`
+            font-semibold py-2 px-3 rounded-md text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 
+            disabled:opacity-50 disabled:cursor-not-allowed active:scale-95
+            ${active
+                ? 'bg-brand-primary text-white ring-2 ring-brand-primary ring-offset-1 ring-offset-surface-container'
+                : 'bg-surface-container hover:bg-surface-background text-on-surface border border-on-surface/10'
+            }
+            ${className}
+        `}
     >
         {children}
     </button>
 );
 
 export const DevControls = ({
-    // 共通
-    location = 'editor', // 'editor' | 'dashboard'
+    location = 'editor',
     onClose,
     onCrashApp,
 
-    // Editor用 (デフォルト値を {} に設定し、undefinedエラーを回避)
     mode,
     setMode,
     timeOffset,
     onTimeJump,
     onTimeReset,
-    eventConfig = {}, // ★ここが重要：デフォルト値を空オブジェクトにする
-    timetable,
-    vjTimetable,
+    eventConfig = {},
+    timetable = [],
+    vjTimetable = [],
+    setTimetable,
+    setVjTimetable,
     onToggleVjFeature,
-    onLoadDummyData,
     onSetStartNow,
-    onFinishEvent,
     imagesLoaded,
 
-    // Dashboard用
-    onDeleteAllEvents
+    onDeleteAllEvents,
+    // ▼▼▼ 追加: 親から受け取るモニター制御 ▼▼▼
+    isPerfMonitorVisible,
+    onTogglePerfMonitor
 }) => {
-
     const isDashboard = location === 'dashboard';
+    const [isDebugLayout, setIsDebugLayout] = useState(false);
 
-    // ★ propsを使わず、個別の値を使ってログを出す
-    const handleLogState = () => {
-        console.log("--- [DevMode] State Log ---");
-        if (isDashboard) {
-            console.log("Location: Dashboard");
-        } else {
-            console.log("Location: Editor");
-            console.log("Event Config:", eventConfig);
-            console.log("Timetable:", timetable);
-            console.log("VJ Timetable:", vjTimetable);
-            console.log("Time Offset:", timeOffset);
+    const handleLoadSmartDummy = () => {
+        if (!window.confirm('現在のタイムテーブルを上書きしてダミーデータを生成しますか？')) return;
+
+        const count = 5;
+        const duration = 60;
+        const newTimetable = [];
+        const newVjTimetable = [];
+
+        for (let i = 0; i < count; i++) {
+            newTimetable.push({
+                id: Date.now() + i,
+                name: `DJ Dummy ${i + 1}`,
+                duration: duration,
+                color: VIVID_COLORS[Math.floor(Math.random() * VIVID_COLORS.length)],
+                imageUrl: `https://picsum.photos/seed/${Date.now() + i}/200`,
+                isBuffer: false
+            });
         }
-        console.log("---------------------------");
+
+        if (eventConfig.vjFeatureEnabled) {
+            for (let i = 0; i < count; i++) {
+                newVjTimetable.push({
+                    id: Date.now() + i + 100,
+                    name: `VJ Artist ${i + 1}`,
+                    duration: duration
+                });
+            }
+        }
+
+        setTimetable && setTimetable(newTimetable);
+        setVjTimetable && setVjTimetable(newVjTimetable);
     };
 
-    // デバッグ用: マウント時に一度だけ場所をログ出力
-    useEffect(() => {
-        console.log(`[DevControls] Mounted in ${location}`);
-    }, [location]);
+    const handleClearFloor = () => {
+        if (!window.confirm('このフロアのデータを全て削除しますか？')) return;
+        setTimetable && setTimetable([]);
+        setVjTimetable && setVjTimetable([]);
+    };
+
+    const handleJumpToNextTransition = () => {
+        if (!timetable.length || !eventConfig.startDate) return;
+
+        const now = new Date(new Date().getTime() + timeOffset);
+        const startTimeDate = parseDateTime(eventConfig.startDate, eventConfig.startTime);
+
+        let currentEndTime = new Date(startTimeDate);
+        let foundTarget = null;
+
+        for (const item of timetable) {
+            const duration = parseFloat(item.duration) || 0;
+            const itemEndTime = new Date(currentEndTime.getTime() + duration * 60000);
+
+            if (itemEndTime > now) {
+                foundTarget = itemEndTime;
+                break;
+            }
+            currentEndTime = itemEndTime;
+        }
+
+        if (foundTarget) {
+            const targetTime = foundTarget.getTime() - 30 * 1000;
+            const currentOffsetMs = timeOffset;
+            const newOffsetMs = targetTime - new Date().getTime();
+            const jumpMinutes = (newOffsetMs - currentOffsetMs) / 60000;
+            onTimeJump(jumpMinutes);
+        } else {
+            alert("次の転換ポイントが見つかりませんでした");
+        }
+    };
+
+    const toggleDebugLayout = () => {
+        if (isDebugLayout) {
+            document.body.classList.remove('debug-layout');
+        } else {
+            document.body.classList.add('debug-layout');
+        }
+        setIsDebugLayout(!isDebugLayout);
+    };
+
+    const handleLogState = () => {
+        console.group("🛠 [DevControls] State Inspection");
+        console.log("Location:", location);
+        if (!isDashboard) {
+            console.log("Event Config:", eventConfig);
+            console.log("Timetable (DJ):", timetable);
+            console.log("Timetable (VJ):", vjTimetable);
+            console.log("Time Offset (ms):", timeOffset);
+            const now = new Date(new Date().getTime() + timeOffset);
+            console.log("Virtual Now:", now.toLocaleString());
+        }
+        console.groupEnd();
+    };
 
     return (
-        <div className="fixed bottom-4 right-4 z-[999] bg-surface-container/80 backdrop-blur-md border border-on-surface/10 rounded-xl shadow-2xl p-3 text-on-surface text-left w-[280px] animate-fade-in-up">
+        <div className="fixed bottom-4 right-4 z-[9999] bg-surface-container/90 backdrop-blur-xl border border-on-surface/10 rounded-2xl shadow-2xl p-4 text-on-surface text-left w-[300px] animate-fade-in-up overflow-hidden">
 
-            <div className="flex items-center justify-between gap-2 mb-2 border-b border-on-surface/10 pb-2">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-on-surface/10">
                 <div className="flex items-center gap-2">
-                    <SettingsIcon className="w-4 h-4 text-brand-primary" />
-                    <h3 className="font-bold text-sm text-brand-primary">開発者パネル</h3>
+                    <div className="p-1.5 bg-brand-primary/10 rounded-lg">
+                        <SettingsIcon className="w-4 h-4 text-brand-primary" />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-sm leading-none">Developer Tools</h3>
+                        <p className="text-[10px] text-on-surface-variant font-mono opacity-70 mt-0.5">for DJ Timekeeper Pro</p>
+                    </div>
                 </div>
-                <button
-                    onClick={onClose}
-                    title="閉じる"
-                    className="p-1 -m-1 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface"
-                >
+                <button onClick={onClose} className="p-1.5 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface transition-colors">
                     <XIcon className="w-4 h-4" />
                 </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
-
-                {/* --- Dashboard 専用コントロール --- */}
+            <div className="space-y-4">
                 {isDashboard && (
-                    <>
-                        <DevButton
-                            onClick={onDeleteAllEvents}
-                            title="自分が作成したすべてのイベントを削除します"
-                            className="col-span-3 bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                        >
-                            <TrashIcon className="w-4 h-4" /> 全イベント削除
+                    <div className="grid grid-cols-1 gap-2">
+                        {/* ▼▼▼ Dashboardにもモニターボタン追加 ▼▼▼ */}
+                        <DevButton onClick={onTogglePerfMonitor} active={isPerfMonitorVisible}>
+                            <ActivityIcon className="w-4 h-4" /> System Monitor
                         </DevButton>
-                    </>
+                        <DevButton onClick={onDeleteAllEvents} className="bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/20">
+                            <TrashIcon className="w-4 h-4" /> 全イベント削除 (Danger)
+                        </DevButton>
+                    </div>
                 )}
 
-                {/* --- Editor 専用コントロール --- */}
                 {!isDashboard && (
                     <>
-                        <DevButton
-                            onClick={() => setMode(mode === 'live' ? 'edit' : 'live')}
-                            disabled={mode !== 'live' && !imagesLoaded}
-                            className="col-span-3 bg-brand-primary/20 text-brand-primary hover:bg-brand-primary/30"
-                        >
-                            {mode === 'live' ? '編集モードへ' : (imagesLoaded ? 'Liveモードへ' : '画像読込中...')}
-                        </DevButton>
-
-                        <div className="col-span-3 text-center bg-surface-background rounded-md py-1.5 px-2">
-                            <p className="text-xs text-on-surface-variant">時間オフセット</p>
-                            <p className="font-mono font-bold text-sm tabular-nums">
-                                {timeOffset ? (timeOffset / (1000 * 60)).toFixed(1) : '0.0'} min
-                            </p>
+                        {/* ▼▼▼ Editorでのレイアウト変更: 縦並び & Monitorが上 ▼▼▼ */}
+                        <div className="flex flex-col gap-2">
+                            <DevButton onClick={onTogglePerfMonitor} active={isPerfMonitorVisible}>
+                                <ActivityIcon className="w-4 h-4" /> System Monitor
+                            </DevButton>
+                            <div className="grid grid-cols-2 gap-2">
+                                <DevButton
+                                    onClick={() => setMode(mode === 'live' ? 'edit' : 'live')}
+                                    disabled={mode !== 'live' && !imagesLoaded}
+                                    className={mode === 'live' ? 'bg-brand-primary/20 text-brand-primary border-brand-primary/30' : ''}
+                                >
+                                    {mode === 'live' ? 'Edit Mode' : 'Live Mode'}
+                                </DevButton>
+                                <DevButton onClick={toggleDebugLayout} active={isDebugLayout}>
+                                    <LayersIcon className="w-4 h-4" /> UI Debug
+                                </DevButton>
+                            </div>
                         </div>
 
-                        <DevButton onClick={() => onTimeJump && onTimeJump(-10)}>-10m</DevButton>
-                        <DevButton onClick={() => onTimeJump && onTimeJump(10)}>+10m</DevButton>
-                        <DevButton onClick={() => onTimeJump && onTimeJump(60)}>+60m</DevButton>
+                        <div className="bg-surface-background/50 rounded-xl p-2 border border-on-surface/5">
+                            <div className="flex justify-between items-center mb-2 px-1">
+                                <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Time Travel</span>
+                                <span className="font-mono font-bold text-xs tabular-nums text-brand-primary">
+                                    {timeOffset ? (timeOffset / 60000).toFixed(1) + ' min' : '±0.0'}
+                                </span>
+                            </div>
+                            <div className="grid grid-cols-4 gap-1">
+                                <DevButton onClick={() => onTimeJump(-10)}>-10m</DevButton>
+                                <DevButton onClick={() => onTimeJump(10)}>+10m</DevButton>
+                                <DevButton onClick={() => onTimeJump(60)}>+1h</DevButton>
+                                <DevButton onClick={onTimeReset} className="text-red-400"><ResetIcon className="w-4 h-4" /></DevButton>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 mt-2">
+                                <DevButton onClick={onSetStartNow} className="text-[10px]">
+                                    <ClockIcon className="w-3 h-3" /> Start Now
+                                </DevButton>
+                                <DevButton onClick={handleJumpToNextTransition} className="text-[10px]">
+                                    <SkipForwardIcon className="w-3 h-3" /> Next DJ -30s
+                                </DevButton>
+                            </div>
+                        </div>
 
-                        <DevButton onClick={onLoadDummyData} className="col-span-2">
-                            <SparklesIcon className="w-4 h-4" /> ダミー読込
-                        </DevButton>
+                        <div className="space-y-2">
+                            <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Data & Features</p>
+                            <div className="grid grid-cols-2 gap-2">
+                                <DevButton onClick={handleLoadSmartDummy}>
+                                    <SparklesIcon className="w-4 h-4 text-amber-500" /> Smart Data
+                                </DevButton>
+                                <DevButton onClick={handleClearFloor} className="text-red-400 hover:bg-red-500/10">
+                                    <TrashIcon className="w-4 h-4" /> Clear Floor
+                                </DevButton>
+                                <DevButton onClick={onToggleVjFeature} active={eventConfig?.vjFeatureEnabled}>
+                                    <VideoIcon className="w-4 h-4" /> VJ Mode
+                                </DevButton>
+                                <DevButton onClick={handleLogState}>
+                                    <LogInIcon className="w-4 h-4" /> Log State
+                                </DevButton>
+                            </div>
+                        </div>
 
-                        {/* eventConfig?.vjFeatureEnabled で安全にアクセス */}
-                        <DevButton onClick={onToggleVjFeature} className={eventConfig?.vjFeatureEnabled ? 'text-brand-primary' : ''}>
-                            <VideoIcon className="w-4 h-4" /> VJ
-                        </DevButton>
-
-                        <DevButton onClick={onSetStartNow}><ClockIcon className="w-4 h-4" /> 今ｽﾀｰﾄ</DevButton>
-                        <DevButton onClick={onFinishEvent}><SkipForwardIcon className="w-4 h-4" /> 強制終了</DevButton>
-                        <DevButton onClick={onTimeReset} className="text-red-400 hover:bg-red-500/20">
-                            <ResetIcon className="w-4 h-4" />
-                        </DevButton>
+                        <div className="pt-2 border-t border-on-surface/10">
+                            <DevButton onClick={onCrashApp} className="w-full bg-red-500/10 text-red-500 hover:bg-red-500/20 border-transparent">
+                                <BugIcon className="w-4 h-4" /> Force Crash
+                            </DevButton>
+                        </div>
                     </>
                 )}
-
-                {/* --- 共通コントロール --- */}
-                <DevButton onClick={handleLogState} className="col-span-2">
-                    <LogInIcon className="w-4 h-4" /> ステート記録
-                </DevButton>
-                <DevButton onClick={onCrashApp} className="text-red-400 hover:bg-red-500/20">
-                    <BugIcon className="w-4 h-4" /> ｸﾗｯｼｭ
-                </DevButton>
-
             </div>
         </div>
     );

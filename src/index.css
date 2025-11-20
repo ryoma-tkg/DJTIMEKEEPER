@@ -141,3 +141,8 @@ body {
 .dragging-no-select .cursor-grab {
   cursor: grabbing !important;
 }
+
+body.debug-layout * {
+  outline: 1px solid rgba(255, 0, 0, 0.15) !important;
+  background-color: rgba(255, 0, 0, 0.02) !important;
+}

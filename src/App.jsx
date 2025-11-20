@@ -1,45 +1,26 @@
-// [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-phase3-dev/src/App.jsx]
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Routes, Route, useNavigate, Navigate, Link, useParams } from 'react-router-dom'; // ★ useParams をインポート
+// [src/App.jsx]
+import React, { useState, useEffect, Suspense, lazy } from 'react';
+import { Routes, Route, useNavigate, Navigate, Link, useParams } from 'react-router-dom';
 
 import {
     auth,
     db,
-    // storage, // (App.jsx では不要)
     googleProvider,
     onAuthStateChanged,
     signInWithPopup,
     signOut
 } from './firebase';
-import { doc, getDoc } from 'firebase/firestore'; // ★ getDoc をインポート
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { LoadingScreen } from './components/common';
+import { PerformanceMonitor } from './components/PerformanceMonitor';
 
-// ▼▼▼ ページコンポーネントをインポート ▼▼▼
-import { LoginPage } from './components/LoginPage';
-import { DashboardPage } from './components/DashboardPage';
-import { EditorPage } from './components/EditorPage';
-import { LivePage } from './components/LivePage';
-// ▲▲▲ ここまで ▲▲▲
+// 遅延ロード
+const LoginPage = lazy(() => import('./components/LoginPage').then(module => ({ default: module.LoginPage })));
+const DashboardPage = lazy(() => import('./components/DashboardPage').then(module => ({ default: module.DashboardPage })));
+const EditorPage = lazy(() => import('./components/EditorPage').then(module => ({ default: module.EditorPage })));
+const LivePage = lazy(() => import('./components/LivePage').then(module => ({ default: module.LivePage })));
 
-// (古いコンポーネントはもう使わない)
-import {
-    AlertTriangleIcon,
-    PowerIcon
-} from './components/common';
-
-// (ローディングコンポーネント - 変更なし)
-const LoadingScreen = ({ text = "読み込み中..." }) => (
-    <div className="flex flex-col items-center justify-center h-screen bg-surface-background">
-        <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner mb-4"></div>
-        <p className="text-lg text-on-surface-variant">{text}</p>
-    </div>
-);
-
-
-// ▼▼▼ 【!!! 新設 !!!】 eventId から最初の floorId を見つけてリダイレクトするコンポーネント ▼▼▼
-
-/**
- * (EditorPage用) /edit/:eventId へのアクセスを /edit/:eventId/:floorId にリダイレクトする
- */
+// --- Redirector コンポーネント ---
 const EditorRedirector = () => {
     const { eventId } = useParams();
     const [targetFloorId, setTargetFloorId] = useState(null);
@@ -52,23 +33,17 @@ const EditorRedirector = () => {
 
             if (docSnap.exists()) {
                 const data = docSnap.data();
-                // (新データ構造 floors があるか？)
                 if (data.floors && Object.keys(data.floors).length > 0) {
-                    // floors マップを order 順でソートし、最初のIDを取得
                     const firstFloorId = Object.keys(data.floors).sort(
                         (a, b) => (data.floors[a].order || 0) - (data.floors[b].order || 0)
                     )[0];
                     setTargetFloorId(firstFloorId);
                     setStatus('found');
-                }
-                // (旧データ構造 timetable があるか？)
-                else if (data.timetable) {
-                    // 旧データの場合は 'default' という仮想のフロアIDを使う
+                } else if (data.timetable) {
                     setTargetFloorId('default');
                     setStatus('found');
-                }
-                else {
-                    setStatus('not-found'); // フロア情報がない
+                } else {
+                    setStatus('not-found');
                 }
             } else {
                 setStatus('not-found');
@@ -77,26 +52,17 @@ const EditorRedirector = () => {
         fetchFirstFloor();
     }, [eventId]);
 
-    if (status === 'loading') {
-        return <LoadingScreen text="フロア情報を検索中..." />;
-    }
-    if (status === 'not-found') {
-        return <Navigate to="/" replace />; // 
-    }
-    // /edit/:eventId/:floorId へリダイレクト
+    if (status === 'loading') return <LoadingScreen text="フロア情報を検索中..." />;
+    if (status === 'not-found') return <Navigate to="/" replace />;
     return <Navigate to={`/edit/${eventId}/${targetFloorId}`} replace />;
 };
 
-/**
- * (LivePage用) /live/:eventId へのアクセスを /live/:eventId/:floorId にリダイレクトする
- */
 const LiveRedirector = () => {
     const { eventId } = useParams();
     const [targetFloorId, setTargetFloorId] = useState(null);
     const [status, setStatus] = useState('loading');
 
     useEffect(() => {
-        // (EditorRedirector と全く同じロジック)
         const fetchFirstFloor = async () => {
             const docRef = doc(db, 'timetables', eventId);
             const docSnap = await getDoc(docRef);
@@ -111,8 +77,7 @@ const LiveRedirector = () => {
                 } else if (data.timetable) {
                     setTargetFloorId('default');
                     setStatus('found');
-                }
-                else {
+                } else {
                     setStatus('not-found');
                 }
             } else {
@@ -122,28 +87,29 @@ const LiveRedirector = () => {
         fetchFirstFloor();
     }, [eventId]);
 
-    if (status === 'loading') {
-        return <LoadingScreen text="フロア情報を検索中..." />;
-    }
-    if (status === 'not-found') {
-        return <Navigate to="/" replace />; // 
-    }
-    // /live/:eventId/:floorId へリダイレクト
+    if (status === 'loading') return <LoadingScreen text="フロア情報を検索中..." />;
+    if (status === 'not-found') return <Navigate to="/" replace />;
     return <Navigate to={`/live/${eventId}/${targetFloorId}`} replace />;
 };
-// ▲▲▲ 【!!! 新設 !!!】 リダイレクトコンポーネントここまで ▲▲▲
 
 
 const App = () => {
-    // (認証まわり、テーマ管理、開発者モード管理 - 変更なし)
     const [user, setUser] = useState(null);
     const [authStatus, setAuthStatus] = useState('loading');
     const [isLoggingIn, setIsLoggingIn] = useState(false);
     const navigate = useNavigate();
     const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
-    const ADMIN_USER_ID = "GLGPpy6IlyWbGw15OwBPzRdCPZI2";
+
+    // 管理者ID
+    const ADMIN_USER_IDS = [
+        "GLGPpy6IlyWbGw15OwBPzRdCPZI2",
+    ];
+
     const [isDevMode, setIsDevMode] = useState(false);
-    useEffect(() => { /* ... (テーマ適用ロジック - 変更なし) ... */
+    // モニター表示管理
+    const [isPerfMonitorVisible, setIsPerfMonitorVisible] = useState(false);
+
+    useEffect(() => {
         if (theme === 'dark') {
             document.documentElement.classList.add('dark');
             localStorage.setItem('theme', 'dark');
@@ -152,36 +118,74 @@ const App = () => {
             localStorage.setItem('theme', 'light');
         }
     }, [theme]);
-    const toggleTheme = () => { /* ... (変更なし) ... */
+
+    const toggleTheme = () => {
         setTheme(prevTheme => (prevTheme === 'dark' ? 'light' : 'dark'));
     };
-    const toggleDevMode = () => { /* ... (変更なし) ... */
-        if (user && user.uid === ADMIN_USER_ID) {
+
+    const toggleDevMode = () => {
+        if (user && ADMIN_USER_IDS.includes(user.uid)) {
             setIsDevMode(prev => !prev);
         }
     };
-    useEffect(() => { /* ... (認証ロジック - 変更なし) ... */
-        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
                 setUser(firebaseUser);
                 setAuthStatus('authed');
-                if (firebaseUser.uid === ADMIN_USER_ID) {
+
+                if (ADMIN_USER_IDS.includes(firebaseUser.uid)) {
                     console.warn("管理者モードで起動しました。");
                     setIsDevMode(true);
                 } else {
                     setIsDevMode(false);
                 }
-                console.log("ログイン成功:", firebaseUser.uid);
+
+                try {
+                    const userDocRef = doc(db, "users", firebaseUser.uid);
+                    const userSnap = await getDoc(userDocRef);
+
+                    if (!userSnap.exists()) {
+                        await setDoc(userDocRef, {
+                            uid: firebaseUser.uid,
+                            email: firebaseUser.email,
+                            displayName: firebaseUser.displayName,
+                            photoURL: firebaseUser.photoURL,
+                            role: 'free',
+                            createdAt: serverTimestamp(),
+                            lastLoginAt: serverTimestamp(),
+                            preferences: {
+                                theme: localStorage.getItem('theme') || 'dark',
+                                defaultStartTime: '22:00',
+                                defaultVjEnabled: false,
+                                defaultMultiFloor: false,
+                            }
+                        });
+                        console.log("[Auth] User profile created.");
+                    } else {
+                        await updateDoc(userDocRef, {
+                            email: firebaseUser.email,
+                            displayName: firebaseUser.displayName,
+                            photoURL: firebaseUser.photoURL,
+                            lastLoginAt: serverTimestamp()
+                        });
+                        console.log("[Auth] User profile synced.");
+                    }
+                } catch (error) {
+                    console.error("[Auth] User sync failed:", error);
+                }
+
             } else {
                 setUser(null);
                 setAuthStatus('no-auth');
                 setIsDevMode(false);
-                console.log("ログアウト、または未ログイン");
             }
         });
         return () => unsubscribe();
     }, []);
-    const handleLogin = async () => { /* ... (変更なし) ... */
+
+    const handleLogin = async () => {
         if (isLoggingIn) return;
         setIsLoggingIn(true);
         try {
@@ -193,116 +197,119 @@ const App = () => {
             setIsLoggingIn(false);
         }
     };
-    const handleLogout = async () => { /* ... (変更なし) ... */
+
+    const handleLogout = async () => {
         await signOut(auth);
         navigate('/login');
     };
-    // (認証読み込み中 - 変更なし)
+
     if (authStatus === 'loading') {
         return <LoadingScreen text="認証情報を確認中..." />;
     }
 
-    // ▼▼▼ 【!!! 修正 !!!】 メインの return (ルーティング) ▼▼▼
     return (
         <>
-            <Routes>
-                {/* --- ルート: / (変更なし) --- */}
-                <Route
-                    path="/"
-                    element={
-                        authStatus === 'authed' ? (
-                            <DashboardPage
-                                user={user}
-                                onLogout={handleLogout}
-                                // ▼▼▼ 追加 ▼▼▼
+            {/* 管理者モード時のみ、モニターコンポーネントを常駐させる */}
+            {isDevMode && (
+                <PerformanceMonitor
+                    visible={isPerfMonitorVisible}
+                    onClose={() => setIsPerfMonitorVisible(false)}
+                />
+            )}
+
+            <Suspense fallback={<LoadingScreen text="読み込み中..." />}>
+                <Routes>
+                    <Route
+                        path="/"
+                        element={
+                            authStatus === 'authed' ? (
+                                <DashboardPage
+                                    user={user}
+                                    onLogout={handleLogout}
+                                    theme={theme}
+                                    toggleTheme={toggleTheme}
+                                    isDevMode={isDevMode}
+                                    onToggleDevMode={toggleDevMode}
+                                    isPerfMonitorVisible={isPerfMonitorVisible}
+                                    onTogglePerfMonitor={() => setIsPerfMonitorVisible(p => !p)}
+                                />
+                            ) : (
+                                <Navigate to="/login" replace />
+                            )
+                        }
+                    />
+
+                    <Route
+                        path="/login"
+                        element={
+                            authStatus === 'authed' ? (
+                                <Navigate to="/" replace />
+                            ) : (
+                                <LoginPage onLoginClick={handleLogin} isLoggingIn={isLoggingIn} />
+                            )
+                        }
+                    />
+
+                    <Route
+                        path="/edit/:eventId/:floorId"
+                        element={
+                            authStatus === 'authed' ? (
+                                <EditorPage
+                                    user={user}
+                                    isDevMode={isDevMode}
+                                    onToggleDevMode={toggleDevMode}
+                                    theme={theme}
+                                    toggleTheme={toggleTheme}
+                                    isPerfMonitorVisible={isPerfMonitorVisible}
+                                    onTogglePerfMonitor={() => setIsPerfMonitorVisible(p => !p)}
+                                />
+                            ) : (
+                                <Navigate to="/login" replace />
+                            )
+                        }
+                    />
+
+                    <Route
+                        path="/edit/:eventId"
+                        element={
+                            authStatus === 'authed' ? (
+                                <EditorRedirector />
+                            ) : (
+                                <Navigate to="/login" replace />
+                            )
+                        }
+                    />
+
+                    <Route
+                        path="/live/:eventId/:floorId"
+                        element={
+                            <LivePage
                                 theme={theme}
                                 toggleTheme={toggleTheme}
-                                isDevMode={isDevMode}
-                                onToggleDevMode={toggleDevMode}
-                            // ▲▲▲ ここまで ▲▲▲
                             />
-                        ) : (
-                            <Navigate to="/login" replace />
-                        )
-                    }
-                />
+                        }
+                    />
 
-                {/* --- ログインページ: /login (変更なし) --- */}
-                <Route
-                    path="/login"
-                    element={
-                        authStatus === 'authed' ? (
-                            <Navigate to="/" replace />
-                        ) : (
-                            <LoginPage onLoginClick={handleLogin} isLoggingIn={isLoggingIn} />
-                        )
-                    }
-                />
+                    <Route
+                        path="/live/:eventId"
+                        element={
+                            <LiveRedirector />
+                        }
+                    />
 
-                {/* --- 編集ページ (フロアIDあり): /edit/:eventId/:floorId --- */}
-                <Route
-                    path="/edit/:eventId/:floorId" // ★ :floorId を追加
-                    element={
-                        authStatus === 'authed' ? (
-                            <EditorPage
-                                user={user}
-                                isDevMode={isDevMode}
-                                onToggleDevMode={toggleDevMode}
-                                theme={theme}
-                                toggleTheme={toggleTheme}
-                            />
-                        ) : (
-                            <Navigate to="/login" replace />
-                        )
-                    }
-                />
-
-                {/* --- 編集ページ (フロアIDなし): /edit/:eventId --- */}
-                <Route
-                    path="/edit/:eventId" // ★ フロアIDなしのルート
-                    element={
-                        authStatus === 'authed' ? (
-                            <EditorRedirector /> // ★ リダイレクト用コンポーネントを呼ぶ
-                        ) : (
-                            <Navigate to="/login" replace />
-                        )
-                    }
-                />
-
-                {/* --- ライブページ (フロアIDあり): /live/:eventId/:floorId --- */}
-                <Route
-                    path="/live/:eventId/:floorId" // ★ :floorId を追加
-                    element={
-                        <LivePage
-                            theme={theme}
-                            toggleTheme={toggleTheme}
-                        />
-                    }
-                />
-
-                {/* --- ライブページ (フロアIDなし): /live/:eventId --- */}
-                <Route
-                    path="/live/:eventId" // ★ フロアIDなしのルート
-                    element={
-                        <LiveRedirector /> // ★ リダイレクト用コンポーネントを呼ぶ
-                    }
-                />
-
-                {/* --- 404 Not Found (変更なし) --- */}
-                <Route
-                    path="*"
-                    element={
-                        <div className="p-8">
-                            <h1>404 - ページが見つかりません</h1>
-                            <Link to="/">ダッシュボードに戻る</Link>
-                        </div>
-                    }
-                />
-
-            </Routes>
+                    <Route
+                        path="*"
+                        element={
+                            <div className="p-8">
+                                <h1>404 - ページが見つかりません</h1>
+                                <Link to="/">ダッシュボードに戻る</Link>
+                            </div>
+                        }
+                    />
+                </Routes>
+            </Suspense>
         </>
     );
 };
-// ▲▲▲ 【!!! 修正 !!!】 ルーティングここまで ▲▲▲
 
 export default App;

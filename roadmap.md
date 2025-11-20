@@ -1,114 +1,105 @@
-# [ryoma-tkg/djtimekeeper/DJTIMEKEEPER-phase3-dev/roadmap.md]
-🚀 リリースに向けたマイルストーン
-フェーズ1: リファクタリング＆バグ修正 (✅ 完了)
-アプリ（シングルイベント版）の完成度を高めるフェーズ。
+# Roadmap to Release
 
-✅ UI/UX改善: SP版のレイアウト崩れ修正、PC/SPのヘッダー整理、ライトモード対応。
-✅ ロジックの分離: useStorageUpload、useDragAndDrop、useTimetable などのカスタムフック化。
-✅ コンポーネント分離: ImageEditModal や DjItem のファイル分離。
-✅ バグ修正: 初期の時間計算ロジック修正、クラッシュバグ対応。
+**Last Updated: 2025-11-20**
 
-フェーズ2: アプリ内 機能拡充 (✅ 完了)
-アプリ単体としての使い勝手を向上させるフェーズ。
+## 🚀 Milestones
 
-✅ 1. Liveモード タイマー表示切替機能
-✅ 2. 「設定」モーダルの実装 (編集モード)
-✅ 3. 閲覧者（Liveモード）向け設定の実装
-✅ 4. 「VJ名」フィールドの追加 (VJタイムテーブル機能として実装)
+### Phase 1: Refactoring & Bug Fixes (✅ Completed)
+Initial stabilization of the single-event application.
+* ✅ UI/UX improvements (Mobile layout, Header).
+* ✅ Logic separation (Custom hooks).
+* ✅ Component separation.
+* ✅ Core bug fixes (Time calculation).
 
-フェーズ2.5: コアロジック改修 (時間バグの根本修正) (✅ 完了)
-時間計算のロジックを根本から見直すフェーズ。
+### Phase 2: Feature Expansion (✅ Completed)
+Enhancing usability as a single-event app.
+* ✅ Live Mode Timer Toggle.
+* ✅ Settings Modal (Editor).
+* ✅ Viewer Settings (Live Mode).
+* ✅ VJ Name Field.
 
-✅ 1. 「イベント開始日」の導入
-✅ 2. 推測ロジックの排除 (24h超えのイベントに対応)
-✅ 3. `STANDBY` ロジックの明確化 (イベント3時間前)
+### Phase 2.5: Core Logic Overhaul (✅ Completed)
+Fundamental fix for time calculation logic.
+* ✅ "Event Start Date" introduction.
+* ✅ Support for 24h+ events.
+* ✅ Explicit `STANDBY` logic (3 hours prior).
 
-フェーズ2.6: UI/UX ブラッシュアップ (✅ 完了)
-既存機能の見た目や使い心地をプロレベルに引き上げるフェーズ。
+### Phase 2.6: UI/UX Polish (✅ Completed)
+Elevating the look and feel to a professional standard.
+* ✅ Live Mode VJ Bar UI/UX.
+* ✅ UPCOMING Display layout fixes.
+* ✅ Editor Mode auto-height cards.
 
-✅ 1. 【LIVEモード】VJバーのUI/UX修正 (ガタつき、フォント、中央揃え)
-✅ 2. 【UPCOMING】DJ/VJスタンバイ表示のレイアウト崩れ修正、中央揃え対応。
-✅ 3. 【編集モード】DJ/VJ カードの高さ自動調整 (完了)
+### Phase 2.7: Live Mode Animation Separation (✅ Completed)
+Decoupling DJ and VJ animations.
+* ✅ `VjDisplay` component separation.
+* ✅ Independent fade-in/out logic.
 
-フェーズ2.7: Liveモード VJアニメーション分離 (✅ 完了)
-VJのアニメーションをDJから完全に分離するフェーズ。
+### Phase 2.8: Developer Mode (✅ Completed)
+Accelerating testing and debugging.
+* ✅ Floating DevControls panel.
+* ✅ Time jump, Dummy data load, Crash test.
 
-✅ 1. `LiveView` をリファクタリングし、`VjDisplay` コンポーネントを新設。
-✅ 2. DJとVJのアニメーション（フェードイン/アウト）を完全に分離。
-✅ 3. DJが切り替わってもVJの再生が続いている場合、VJバーがアニメーションしないように修正。
-✅ 4. `UPCOMING` → `ON AIR` 遷移時、DJ/VJが同時にアニメーションするように修正。
+### Phase 2.85: Smartphone UI Polish (✅ Completed)
+Optimization for modern mobile devices.
+* ✅ `sp:` breakpoint (390px).
+* ✅ Live Mode font/icon sizing adjustment.
+* ✅ Cross-fade background animation.
 
-フェーズ2.8: 開発者モード実装 (✅ 完了)
-テストとデバッグを高速化するための機能を追加するフェーズ。
+### Phase 3: Web Service Architecture (✅ Completed)
+Transition to a multi-tenant, multi-floor SaaS platform.
+* ✅ **Authentication (Google):** Replaced anonymous auth with Google Auth.
+* ✅ **Data Model Restructuring:** Migrated to `timetables` collection with `ownerUid`.
+* ✅ **Routing & Access Control:** `react-router-dom` integration.
+* ✅ **Multi-Floor Management:** `FloorManagerModal` implementation.
 
-✅ 1. 閲覧者モードでは表示されない、フローティングON/OFFボタンを実装。
-✅ 2. 開発者パネル（`DevControls`）を新設し、設定モーダルから機能を分離。
-✅ 3. 機能: モード切替（Edit/Live）、タイムジャンプ（+10m, +60m, -10m, Reset）。
-✅ 4. 機能: ダミーデータ読込（画像なし）、イベント開始時間を「今」にセット、VJ機能トグル、強制終了。
-✅ 5. 機能: ステートログ出力、エラー境界クラッシュテスト。
+### Phase 3.5: UI/UX Overhaul & Polish (✅ Completed)
+Comprehensive design update focusing on "Tactile Feel" and "Modern Professional" aesthetics.
+* ✅ **Dashboard:** Event cards with "Glow" effects and depth.
+* ✅ **Editor:** Intuitive drag-and-drop with "Snap" physics (no flying glitches).
+* ✅ **Animation:** Unified `cubic-bezier` physics and specialized transition logic.
+* ✅ **Setup Flow:** New "Event Setup Modal" for granular creation settings.
 
-フェーズ2.85: SP版UIブラッシュアップ (✅ 完了)
-LiveモードのSP版表示を、モダンなスマホサイズ（iPhone 15等）に最適化するフェーズ。
+### Phase 3.9: Codebase Refactoring & Optimization (✅ Completed)
+* ✅ **Modal Standardization (`BaseModal`)**
+* ✅ **List Card Generalization (`SortableListCard`)**
+* ✅ **UI Component Pruning**
+* ✅ **Security Enhancement (`firestore.rules`)**
+* ✅ **UI Design Polish**
 
-✅ 1. `sp:` カスタムブレークポイント(390px)を導入。
-✅ 2. `UPCOMING` `ON AIR` 画面のフォントサイズ・アイコンサイズを `sp:` に対応。
-✅ 3. `STANDBY` 時のタイムライン非表示、`UPCOMING` 時のハイライト削除。
-✅ 4. 【編集モード】再生中のVJカードにハイライトを追加。
-✅ 5. 【Liveモード】背景グラデーションのクロスフェードアニメーション実装。
+### Phase 4: Communication & Performance Optimization (✅ Completed)
+**"Smart & Thrifty" - コスト削減とUX向上の両立**
+* ✅ **Storage Cache Strategy:** Added `Cache-Control` (1 year) to uploads.
+* ✅ **Firestore Read Optimization:** Implemented dashboard pagination (`limit`) & `persistentLocalCache`.
+* ✅ **Code Splitting:** Applied `React.lazy` & `Suspense` for route-based splitting.
+* ✅ **Security Hardening:** Strict `firestore.rules` (Validation & List query constraints).
 
-フェーズ2.9: リファクタリング (✅ 完了)
-コードの可読性と保守性を高めるフェーズ。
+---
 
-フェーズ3-0: 開発環境の分離（ブランチ戦略） (✅ 完了)
-フェーズ3の巨大な改修に備え、本番環境（main）と開発環境（staging）を分離する。
+### Phase 5: User Management & Personalization (✅ Completed)
+**"Identity & Preferences" - ユーザー体験の個別化と基盤強化**
+* ✅ **User Database Architecture:** `users` collection setup & security rules.
+* ✅ **Authentication Flow Upgrade:** Automatic user profile creation/sync on login.
+* ✅ **Enhanced Settings Modal:** Default preferences (start time, VJ, floors), account deletion.
 
-✅ 1. ブランチの分離:
-✅ 2. ステージング環境の構築: (Firebase Hosting プレビューチャンネル)
+### Phase 5.5: Admin Tools & UX Improvements (✅ Completed)
+**"Professional Control" - 管理機能の強化とUXの洗練**
+* ✅ **Admin Support Mode:** Administrators can search and access other users' dashboards for support.
+* ✅ **Performance Monitor:** Real-time tracking of FPS, Memory, Network, and DOM nodes with detailed logging.
+* ✅ **Dashboard UI Overhaul:** Replaced FAB with inline "Create Event" card and header actions for better usability.
+* ✅ **Navigation Logic:** Improved browser-back behavior for seamless transitions between Dashboard, Edit, and Live modes.
+---
 
-👉 (← イマココっす！)
-フェーズ3: Webサービス化（リリースの基盤） (🚧 作業中)
-現在の「シングルイベント版」から、複数ユーザー・複数イベントに対応した「マルチテナント」構造に変更するフェーズ。
+### Phase 6: Release & Monetization (Future)
+**Public Launch**
 
-1. 認証の導入 (Google / Email): (✅ 完了)
-   - Firebase 匿名認証を廃止し、Google認証を導入。
-   - `App.jsx` を認証状態（`authed`, `no-auth`）で表示を切り替える「門番」として改修。
-   - `LoginPage.jsx` を新設。
-   - 開発者モード（`DevControls`）を、特定の `ownerUid` を持つ管理者アカウントのみが表示・利用できるようにアクセス制御を行う。
+1.  **Public Real-time Page:** `/public/:timetableId` (View-only).
+2.  **Pro Features:** CSV Import/Export.
+3.  **Monetization:** Stripe integration.
+4.  **Image Export:** Implement one-click image download of the timetable using `html2canvas`.
 
-2. データ構造の変更 (マルチテナント化): (✅ 完了)
-   - Firestoreの `artifacts/{appId}/public/sharedTimetable` 構造を廃止。
-   - 新たに `timetables` コレクションを作成。
-   - 各ドキュメントに `ownerUid` を持たせ、データとユーザーを紐付け。
 
-3. ルーティングとアクセス制御 (react-router-dom): (🚧 作業中)
-   - `react-router-dom` を導入し、ハッシュ（`#`）ベースのURLを廃止する。
-   - `App.jsx` からロジックを分離:
-     - `DashboardPage.jsx` を新設: ログイン後の `/`。イベント一覧の表示と新規作成を行う。
-     - `EditorPage.jsx` を新設: `/edit/:eventId`。旧`App.jsx` が持っていた `TimetableEditor` と関連ロジック（DB読み書き、`useTimetable` 等）をここへ移行。
-     - `LivePage.jsx` を新設: `/live/:eventId`。旧`App.jsx` が持っていた `LiveView` と関連ロジックをここへ移行。
-   - URLを `/edit/:eventId`（編集モード）と `/live/:eventId`（閲覧モード）に完全に分離。
-   - `/edit/:eventId`: アクセス時、`ownerUid` と `user.uid` を照合。一致しない場合は `/live/...` にリダイレクトする。
-   - **【未解決の問題】:**
-     - **ローカル環境でのルーティングエラー:**
-       - **症状:** `http://localhost:5173/` にアクセスすると、`App is not defined` というエラーで画面が真っ白になる。
-       - **原因:** `vite.config.js` の `base` が `'/DJTIMEKEEPER/'` のままになっているため、`main.jsx` の `BrowserRouter`（`base: '/'` 想定）と設定が競合している。
-       - **対策:** `vite.config.js` の `base` を `'/'` に修正し、サーバーを再起動する必要がある。
-
-4. (引き継ぎレポート案) 複数フロア管理機能 (NEW!)
-   - 1つのイベント（timetable ドキュメント）が複数のフロア（例: 'Floor A', 'Floor B'）を持てるようにデータ構造を拡張する。
-   - UI（編集モード、Liveモード）もフロア切り替えに対応させる。
-
-フェーズ4: リリースとPro機能
-いよいよアプリを「サービス」としてリリースするフェーズ。
-
-1. (引き継ぎレポート案) 「公開用・自動更新ページ」の実装
-   - `/public/:timetableId` のような、誰でも見れる（編集はできない）リアルタイム更新ページを作成する。これがPro機能のキラーコンテンツ。
-
-2. (引き継ぎレポート案) マネタイズ対応
-   - Stripeなどを導入し、Proプラン（サブスク）の仕組みを作る。
-
-3. (引き継ぎレポート案) その他のPro機能
-   - 画像書き出し（html2canvas）
-   - CSVインポート
-   - プリセット保存
-   - DJ登録機能
+### Future Ideas & Candidates (💡 New!)
+**次期開発候補・ユーザー要望**
+* **Co-Editing (共同編集):** イベント単位で他のユーザーを招待し、複数人でリアルタイムにタイムテーブルを編集できる機能。
+* **Venue Info (会場登録):** イベント名の下に会場名や場所情報を登録・表示できる機能。
