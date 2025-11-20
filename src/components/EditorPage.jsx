@@ -1,6 +1,6 @@
 // [src/components/EditorPage.jsx]
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'; // useLocation追加
 import { db, storage } from '../firebase';
 import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 
@@ -10,7 +10,6 @@ import { DevControls } from './DevControls';
 import { useImagePreloader } from '../hooks/useImagePreloader';
 import { PowerIcon, LoadingScreen } from './common';
 
-// デフォルト設定
 const getDefaultEventConfig = () => ({
     title: 'DJ Timekeeper Pro',
     startDate: new Date().toISOString().split('T')[0],
@@ -18,24 +17,23 @@ const getDefaultEventConfig = () => ({
     vjFeatureEnabled: false
 });
 
-// ▼▼▼ isPerfMonitorVisible, onTogglePerfMonitor を props に追加 ▼▼▼
 export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleTheme, isPerfMonitorVisible, onTogglePerfMonitor }) => {
     const { eventId, floorId } = useParams();
     const navigate = useNavigate();
+    const location = useLocation(); // URLの状態監視用
     const dbRef = useRef(db);
     const storageRef = useRef(storage);
 
-    // state
     const [eventData, setEventData] = useState(null);
     const [eventConfig, setEventConfig] = useState(getDefaultEventConfig());
     const [floors, setFloors] = useState({});
-
-    // 現在選択中のフロア情報
     const [currentFloorId, setCurrentFloorId] = useState(floorId);
     const [timetable, setTimetable] = useState([]);
     const [vjTimetable, setVjTimetable] = useState([]);
 
-    const [mode, setMode] = useState('edit');
+    // ▼▼▼ モード管理をURLハッシュに連動 ▼▼▼
+    const [mode, setMode] = useState(location.hash === '#live' ? 'live' : 'edit');
+
     const [pageStatus, setPageStatus] = useState('loading');
     const [timeOffset, setTimeOffset] = useState(0);
     const [isDevPanelOpen, setIsDevPanelOpen] = useState(false);
@@ -43,6 +41,27 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
     const imageUrlsToPreload = useMemo(() => timetable.map(dj => dj.imageUrl), [timetable]);
     const { loadedUrls, allLoaded: imagesLoaded } = useImagePreloader(imageUrlsToPreload);
     const docRef = useMemo(() => doc(dbRef.current, 'timetables', eventId), [eventId]);
+
+    // URLハッシュ変更検知
+    useEffect(() => {
+        setMode(location.hash === '#live' ? 'live' : 'edit');
+    }, [location.hash]);
+
+    // モード変更ハンドラ (ナビゲーション履歴を使う)
+    const handleSetMode = (newMode) => {
+        if (newMode === 'live') {
+            // Liveモードへ: ハッシュを付与（履歴に追加される）
+            navigate(`#live`);
+        } else {
+            // Editモードへ: 履歴を戻る（ブラウザバックと同じ挙動）
+            // もし直接 #live で開いていた場合は履歴がないので、明示的にハッシュを消す
+            if (window.history.length > 1) {
+                navigate(-1);
+            } else {
+                navigate(location.pathname);
+            }
+        }
+    };
 
     // 1. データ読み込み
     useEffect(() => {
@@ -54,10 +73,12 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
-                if (data.ownerUid !== user.uid) {
+                // ▼▼▼ 【修正】 管理者(isDevMode)なら他人のイベントも編集可能にする ▼▼▼
+                if (data.ownerUid !== user.uid && !isDevMode) {
                     navigate(`/live/${eventId}`, { replace: true });
                     return;
                 }
+
                 setEventData(data);
                 setEventConfig(prev => ({ ...prev, ...(data.eventConfig || {}) }));
                 setFloors(data.floors || {});
@@ -93,7 +114,7 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
             setPageStatus('offline');
         });
         return () => unsubscribe();
-    }, [user, eventId, docRef, navigate]);
+    }, [user, eventId, docRef, navigate, isDevMode]); // isDevModeを依存に追加
 
     // URL同期 & データ更新
     useEffect(() => {
@@ -137,10 +158,6 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
             console.error(error);
             setPageStatus('offline');
         }
-    };
-
-    const handleSetMode = (newMode) => {
-        setMode(newMode);
     };
 
     const handleSelectFloor = (newFloorId) => {
@@ -232,7 +249,6 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                                 onCrashApp={() => { throw new Error('Test'); }}
                                 imagesLoaded={imagesLoaded}
                                 onClose={() => setIsDevPanelOpen(false)}
-                                // ▼▼▼ 追加: モニター制御を渡す ▼▼▼
                                 isPerfMonitorVisible={isPerfMonitorVisible}
                                 onTogglePerfMonitor={onTogglePerfMonitor}
                             />
