@@ -1,25 +1,27 @@
-/* Tailwindの基本を読み込むっす */
+/* [src/index.css] */
 @tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-/* ★★★ ライトモードを「青みがかった薄いグレー」ベースに修正っす！ ★★★ */
+/* デザインシステム定義 (Version 3.1.0) */
 :root {
-  /* ライトモードのカラーセット (ハイコントラスト版) */
+  /* ライトモード (青みがかった薄いグレーベース) */
   --color-brand-primary: 0 123 255;
-  /* #007bff (変更なし) */
+  /* #007bff */
   --color-brand-secondary: 0 123 255;
-  /* #007bff (変更なし) */
+  /* #007bff */
   --color-surface-background: 248 250 252;
-  /* #f8fafc (slate-50) - ★青みがかったごく薄いグレー */
+  /* #f8fafc (Slate 50) */
   --color-surface-container: 255 255 255;
-  /* #ffffff (white) - ★カードやモーダルは白 */
+  /* #ffffff */
   --color-on-surface: 15 23 42;
-  /* #0f172a (slate-900) - ★コントラストUP */
+  /* #0f172a (Slate 900) */
   --color-on-surface-variant: 100 116 139;
-  /* #64748b (slate-500) - ★コントラストUP */
+  /* #64748b (Slate 500) */
 }
 
 html.dark {
-  /* ダークモードのカラーセット (変更なし) */
+  /* ダークモード (Zincベース) */
   --color-brand-primary: 0 145 255;
   /* #0091ff */
   --color-brand-secondary: 0 145 255;
@@ -34,13 +36,6 @@ html.dark {
   /* #a1a1aa (Zinc 400) */
 }
 
-/* ★★★ 修正ここまで ★★★ */
-
-
-@tailwind components;
-@tailwind utilities;
-
-/* index.htmlの<style>タグにあったカスタムCSSをコピペするっす */
 html,
 body {
   font-family: 'IBM Plex Sans JP', sans-serif;
@@ -50,67 +45,82 @@ body {
 
 body {
   font-family: 'Montserrat', 'IBM Plex Sans JP', sans-serif;
-  /* ここで定義した変数を使って色を適用するっす */
   @apply bg-surface-background text-on-surface;
 }
 
-.mask-gradient {
-  -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
-  mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+/* カスタムユーティリティ */
+@layer utilities {
+
+  /* スクロールバー非表示 (クロスブラウザ対応) */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+  }
+
+  /* カスタムスクロールバー (サイドバーなど用) */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.3);
+    /* gray-400/30 */
+    border-radius: 3px;
+  }
+
+  .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.5);
+  }
+
+  /* マスク画像 (フェードアウト用) */
+  .mask-gradient {
+    -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+    mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+  }
 }
 
-/* ドラッグ中のアイテム本体のスタイル (リッチ化) */
+/* コンポーネントスタイル */
 .dragging-item {
   @apply ring-2 ring-brand-primary bg-surface-container;
-  /* 青い枠線で「掴んでる感」を強調 */
   opacity: 0.95;
   transform: scale(1.05);
-  /* 1.03 -> 1.05 に拡大率アップ */
   box-shadow: 0 20px 30px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-  /* シャドウを調整 */
   border-radius: 1rem;
   cursor: grabbing;
   z-index: 50;
-  /* 他の要素より確実に前に出るように */
 }
 
-/* 全てのDJアイテムラッパー（リスト項目） */
 .dj-list-item {
   position: relative;
   transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
   z-index: 1;
 }
 
-
-/* / * 上側に線を表示 * /
+/* ドロップインジケーター */
 .drop-indicator-before::before {
   content: '';
   position: absolute;
   left: 0;
   right: 0;
   height: 4px;
-  background-color: rgb(var(--color-brand-primary)); / 
+  background-color: rgb(var(--color-brand-primary));
   border-radius: 2px;
   top: -6px;
   pointer-events: none;
 }
 
-/ * 下側に線を表示 * /
-.drop-indicator-after::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background-color: rgb(var(--color-brand-primary)); / 
-  border-radius: 2px;
-  bottom: -6px;
-  pointer-events: none;
-}
-*/
-
-
-/* ▼▼▼ Safari 14 互換性対応 ▼▼▼ */
+/* Safari 14 互換性対応 */
 @layer utilities {
   @supports not (aspect-ratio: 1 / 1) {
     .aspect-square {
@@ -128,8 +138,6 @@ body {
     }
   }
 }
-
-/* ▲▲▲ Safari 14 互換性対応 ▲▲▲ */
 
 .dragging-no-select {
   -webkit-user-select: none;

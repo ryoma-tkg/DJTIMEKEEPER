@@ -1,10 +1,12 @@
 // [src/components/ui/SortableListCard.jsx]
 import React, { useState } from 'react';
-import { GripIcon, TrashIcon, CopyIcon, AlertTriangleIcon } from '../common';
+import { GripIcon, TrashIcon, CopyIcon, ClockIcon } from '../common';
 import { Input } from './Input';
 
 /**
- * DJ/VJアイテム共通のリストカードコンポーネント
+ * DJ/VJアイテム共通のリストカードコンポーネント (Tactile Design v3.1)
+ * Mobile: Stack Layout (Header[Actions] / Body[Name] / Footer[Time])
+ * Desktop: Row Layout (Grip / Icon / Name[Flex] / Time / Actions[Vertical])
  */
 export const SortableListCard = ({
     item,
@@ -15,60 +17,40 @@ export const SortableListCard = ({
     onRemove,
     onCopy,
     iconNode,
-    actionNode,
+    actionNode, // カラーピッカー等のカスタムアクション
     labelName = "Name"
 }) => {
     const [isHovered, setIsHovered] = useState(false);
 
-    // バリデーションチェック
+    // バリデーション
     const isNameError = !item.name || item.name.trim() === '';
-    const isDurationError = item.duration === '' || item.duration === 0; // 0も警告対象にするならこちら
 
-    // ドラッグ中のスタイル
+    // ドラッグ中のスタイル (Lift up)
     const draggingClass = isDragging
-        ? 'dragging-item shadow-[0_20px_30px_-5px_rgba(0,0,0,0.3)] scale-105 z-50'
-        : 'transition-all duration-300 cubic-bezier(0.4, 0, 0.2, 1)';
+        ? 'dragging-item shadow-2xl scale-105 z-50 ring-2 ring-brand-primary'
+        : 'shadow-sm hover:shadow-md hover:border-on-surface/20 transition-all duration-300 cubic-bezier(0.4, 0, 0.2, 1)';
 
-    // ボーダー設定
-    const borderClass = isPlaying
-        ? 'border'
-        : 'border border-on-surface/10 dark:border-white/5';
-
-    // 動的スタイル生成
-    let dynamicStyle = {
-        '--tw-ring-color': isPlaying ? (item.color || 'rgb(var(--color-brand-primary))') : 'transparent'
-    };
-
+    // ON AIR / 通常時のボーダーと影
+    let dynamicStyle = {};
     if (!isDragging) {
         if (isPlaying) {
             const baseColor = item.color || '#007bff';
-            const glowColorHover = `${baseColor}66`;
-            const glowColorRest = `${baseColor}40`;
-
             dynamicStyle = {
                 borderColor: baseColor,
-                transform: 'translateY(0)',
                 boxShadow: isHovered
-                    ? `0 20px 30px -5px rgba(0, 0, 0, 0.2), 0 0 35px 5px ${glowColorHover}`
-                    : `0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 0 20px 0px ${glowColorRest}`,
-                zIndex: isHovered ? 10 : 1,
+                    ? `0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 0 20px 0px ${baseColor}40` // Glow effect
+                    : `0 4px 6px -2px rgba(0, 0, 0, 0.05), 0 0 10px 0px ${baseColor}20`
             };
         } else {
             dynamicStyle = {
-                transform: 'translateY(0)',
-                boxShadow: isHovered
-                    ? '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-                    : '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                borderColor: 'transparent' // 通常はボーダー透明（bg-surface-containerが背景）
             };
         }
     }
 
     const handleDurationChange = (e) => {
         const val = e.target.value;
-        if (val === '') {
-            onUpdate('duration', '');
-            return;
-        }
+        if (val === '') { onUpdate('duration', ''); return; }
         if (val.endsWith('.') || (val.includes('.') && val.endsWith('0'))) {
             onUpdate('duration', val);
         } else {
@@ -79,85 +61,146 @@ export const SortableListCard = ({
     return (
         <div
             className={`
-                bg-surface-container rounded-2xl flex items-stretch gap-4 p-4 
-                ${borderClass} ${draggingClass}
+                group relative bg-surface-container rounded-2xl 
+                border border-on-surface/10 dark:border-white/5
+                p-3 md:p-3 md:pr-4 overflow-visible
+                ${draggingClass}
             `}
             style={dynamicStyle}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
-            {/* 1. ドラッグハンドル */}
-            <div
-                className="cursor-grab touch-none p-3 -m-3 flex items-center self-stretch text-on-surface-variant hover:text-on-surface transition-colors"
-                onPointerDown={onPointerDown}
-            >
-                <GripIcon className="w-6 h-6 shrink-0" />
-            </div>
+            {/* --- Mobile Layout (Stack) --- */}
+            <div className="md:hidden flex flex-col gap-3">
+                {/* Row 1: Header (Grip, Icon, Actions) */}
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div
+                            className="flex-shrink-0 cursor-grab touch-none text-on-surface-variant/30 hover:text-on-surface-variant p-2 -ml-2"
+                            onPointerDown={onPointerDown}
+                        >
+                            <GripIcon className="w-5 h-5" />
+                        </div>
+                        <div className="flex-shrink-0">
+                            {iconNode}
+                        </div>
+                    </div>
 
-            {/* 2. アイコンエリア */}
-            <div className="shrink-0 self-center">
-                {iconNode || <div className="w-4" />}
-            </div>
+                    {/* Actions (Horizontal) */}
+                    <div className="flex items-center gap-3">
+                        {actionNode}
+                        {onCopy && (
+                            <button onClick={onCopy} className="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant/70 hover:text-brand-primary hover:bg-brand-primary/5 transition-colors active:scale-95">
+                                <CopyIcon className="w-5 h-5" />
+                            </button>
+                        )}
+                        <button onClick={onRemove} className="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant/70 hover:text-red-500 hover:bg-red-500/10 transition-colors active:scale-95">
+                            <TrashIcon className="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
 
-            {/* 3. 入力フォームエリア */}
-            <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                <div className="flex flex-col">
-                    <label className="text-xs text-on-surface-variant mb-1 font-bold ml-1">{labelName}</label>
-                    {/* ▼▼▼ 修正: error プロップを使用 (メッセージを渡す) ▼▼▼ */}
+                {/* Row 2: Name Input (Full Width) */}
+                <div>
                     <Input
                         value={item.name}
                         onChange={(e) => onUpdate('name', e.target.value)}
+                        placeholder={labelName}
                         className="font-bold text-lg"
-                        error={isNameError ? "必須" : null}
+                        isError={isNameError}
                     />
                 </div>
 
-                <div className="flex flex-col">
-                    <label className="text-xs text-on-surface-variant mb-1 font-bold ml-1">Duration (min)</label>
-                    {/* ▼▼▼ 修正: error プロップを使用 ▼▼▼ */}
-                    <Input
-                        type="number"
-                        value={item.duration}
-                        step="1"
-                        min="0"
-                        onFocus={(e) => e.target.select()}
-                        onChange={handleDurationChange}
-                        className="font-mono font-bold text-lg"
-                        isError={isDurationError}
-                    />
-                </div>
-
-                <div className="flex flex-col md:col-span-2">
-                    <label className="text-xs text-on-surface-variant mb-1 font-bold ml-1">Time Slot</label>
-                    <div className="bg-surface-background/50 p-2 rounded-lg w-full text-center font-semibold text-on-surface-variant font-mono text-sm tracking-wider border border-on-surface/5">
-                        <span>{item.startTime}</span>
-                        <span className="mx-2 opacity-50">-</span>
-                        <span>{item.endTime}</span>
+                {/* Row 3: Time Controls (Footer) */}
+                <div className="flex items-center justify-between gap-3 bg-surface-background/50 rounded-xl p-2 border border-on-surface/5">
+                    <div className="flex items-center gap-2">
+                        <div className="w-20">
+                            <Input
+                                type="number"
+                                value={item.duration}
+                                step="1"
+                                min="0"
+                                onChange={handleDurationChange}
+                                className="font-mono font-bold text-center h-10"
+                                wrapperClassName="m-0"
+                            />
+                        </div>
+                        <span className="text-xs font-bold text-on-surface-variant select-none">min</span>
+                    </div>
+                    <div className="w-px h-5 bg-on-surface/10"></div>
+                    <div className="flex items-center gap-1.5 text-sm font-mono font-medium text-on-surface-variant select-none h-10 whitespace-nowrap">
+                        <ClockIcon className="w-4 h-4 opacity-60" />
+                        <span>{item.startTime} - {item.endTime}</span>
                     </div>
                 </div>
             </div>
 
-            {/* 4. アクションエリア */}
-            <div className="flex flex-col gap-2 shrink-0 self-stretch justify-center">
-                {actionNode}
-
-                {onCopy && (
-                    <button
-                        onClick={onCopy}
-                        className="w-9 h-9 flex items-center justify-center rounded-full text-on-surface-variant hover:text-brand-primary hover:bg-surface-background transition-colors active:scale-95"
-                        title="複製"
-                    >
-                        <CopyIcon className="w-5 h-5" />
-                    </button>
-                )}
-
-                <button
-                    onClick={onRemove}
-                    className="w-9 h-9 flex items-center justify-center rounded-full text-on-surface-variant hover:text-red-500 hover:bg-red-500/10 transition-colors active:scale-95"
-                    title="削除"
+            {/* --- Desktop Layout (Row) --- */}
+            <div className="hidden md:flex w-full items-center gap-4">
+                {/* Left: Grip & Icon */}
+                <div
+                    className="flex-shrink-0 cursor-grab touch-none text-on-surface-variant/30 hover:text-on-surface-variant p-2 -ml-2"
+                    onPointerDown={onPointerDown}
                 >
-                    <TrashIcon className="w-5 h-5" />
-                </button>
+                    <GripIcon className="w-5 h-5" />
+                </div>
+                <div className="flex-shrink-0">
+                    {iconNode}
+                </div>
+
+                {/* Center: Name (Flexible) */}
+                <div className="flex-grow-[2] min-w-0">
+                    <Input
+                        value={item.name}
+                        onChange={(e) => onUpdate('name', e.target.value)}
+                        placeholder={labelName}
+                        className="font-bold text-lg h-12"
+                        isError={isNameError}
+                    />
+                </div>
+
+                {/* Right: Time & Actions */}
+                <div className="flex-shrink-0 flex items-center gap-6">
+                    {/* Time Controls */}
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                            <div className="w-20">
+                                <Input
+                                    type="number"
+                                    value={item.duration}
+                                    step="1"
+                                    min="0"
+                                    onChange={handleDurationChange}
+                                    className="font-mono font-bold text-center h-10"
+                                />
+                            </div>
+                            <span className="text-xs font-bold text-on-surface-variant select-none">min</span>
+                        </div>
+                        <div className="w-px h-8 bg-on-surface/10"></div>
+                        <div className="flex flex-col items-center justify-center text-xs font-mono font-bold text-on-surface-variant select-none w-24">
+                            <span>{item.startTime}</span>
+                            <span className="opacity-50 text-[10px]">to</span>
+                            <span>{item.endTime}</span>
+                        </div>
+                    </div>
+
+                    {/* Actions (Vertical Divider + Buttons) */}
+                    <div className="flex-shrink-0 flex items-center gap-3 pl-4 border-l border-on-surface/5 h-14">
+                        <div className="flex flex-col gap-2 justify-center items-center">
+                            {actionNode} {/* Color Picker */}
+                        </div>
+                        <div className="flex flex-col gap-1 justify-center">
+                            {onCopy && (
+                                <button onClick={onCopy} className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant/70 hover:text-brand-primary hover:bg-brand-primary/5 transition-colors active:scale-95" title="複製">
+                                    <CopyIcon className="w-3.5 h-3.5" />
+                                </button>
+                            )}
+                            <button onClick={onRemove} className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant/70 hover:text-red-500 hover:bg-red-500/10 transition-colors active:scale-95" title="削除">
+                                <TrashIcon className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );

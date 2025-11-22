@@ -1,16 +1,18 @@
 // [src/components/common.jsx]
-import React, { memo, useState, useEffect } from 'react';
+import React, { memo } from 'react';
 
-// UIコンポーネントの再エクスポート
+// --- UI Component Exports (New Standard) ---
 export { BaseModal } from './ui/BaseModal';
-export { ToggleSwitch } from './ui/Toggle';
-export { CustomTimeInput } from './ui/TimeInput';
 export { LoadingScreen } from './ui/Loading';
-export { Button } from './ui/Button';
 export { SortableListCard } from './ui/SortableListCard';
-export { Input } from './ui/Input';
+export { CustomTimeInput } from './ui/TimeInput';
 export { Label } from './ui/Label';
+export { Button } from './ui/Button';
+export { Input } from './ui/Input';
+export { Toggle, ToggleSwitch } from './ui/Toggle';
+export { Badge } from './ui/Badge';
 
+// --- Constants ---
 export const APP_VERSION = 'v2.2.0';
 
 export const VIVID_COLORS = [
@@ -20,7 +22,7 @@ export const VIVID_COLORS = [
     '#8B5CF6', '#A855F7', '#D946EF', '#EC4899'
 ];
 
-// --- アイコン定義 ---
+// --- Icons (Keeping them here for now) ---
 export const PlayIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>);
 export const PlusIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>);
 export const TrashIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>);
@@ -49,84 +51,28 @@ export const CalendarIcon = ({ className }) => (<svg xmlns="http://www.w3.org/20
 export const LayersIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>);
 export const PlusCircleIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>);
 export const LogOutIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>);
-// ▼▼▼ 追加 ▼▼▼
 export const ActivityIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>);
 export const DownloadIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>);
-// ▲▲▲ 追加ここまで ▲▲▲
 export const SearchIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>);
 
+// --- Utility Functions ---
+export const SimpleImage = memo(({ src, className, alt = "" }) => { if (!src) return null; return <img src={src} alt={alt} className={className} />; });
+export const getTodayDateString = () => { const now = new Date(); const jstOffset = 9 * 60; const localOffset = now.getTimezoneOffset(); const jstNow = new Date(now.getTime() + (jstOffset + localOffset) * 60 * 1000); return jstNow.toISOString().split('T')[0]; };
+export const parseDateTime = (dateStr, timeStr) => { if (!dateStr || !timeStr) { return new Date(); } try { const [hours, minutes] = timeStr.split(':').map(Number); const date = new Date(dateStr); date.setHours(hours, minutes, 0, 0); return date; } catch (e) { console.error("parseDateTime failed:", e); return new Date(); } };
+export const parseTime = (timeStr) => { const date = new Date(); if (!timeStr) return date; const [hours, minutes] = timeStr.split(':').map(Number); date.setHours(hours, minutes, 0, 0); return date; };
 
-// --- 共通コンポーネント ---
-export const SimpleImage = memo(({ src, className, alt = "" }) => {
-    if (!src) return null;
-    return <img src={src} alt={alt} className={className} />;
-});
-
-export const getTodayDateString = () => {
-    const now = new Date();
-    const jstOffset = 9 * 60;
-    const localOffset = now.getTimezoneOffset();
-    const jstNow = new Date(now.getTime() + (jstOffset + localOffset) * 60 * 1000);
-    return jstNow.toISOString().split('T')[0];
-};
-
-export const parseDateTime = (dateStr, timeStr) => {
-    if (!dateStr || !timeStr) {
-        return new Date();
-    }
-    try {
-        const [hours, minutes] = timeStr.split(':').map(Number);
-        const date = new Date(dateStr);
-        date.setHours(hours, minutes, 0, 0);
-        return date;
-    } catch (e) {
-        console.error("parseDateTime failed:", e);
-        return new Date();
-    }
-};
-
-export const parseTime = (timeStr) => {
-    const date = new Date();
-    if (!timeStr) return date;
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    date.setHours(hours, minutes, 0, 0);
-    return date;
-};
-
+// --- Helper Modals ---
 import { BaseModal } from './ui/BaseModal';
-
 export const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
     if (!isOpen) return null;
     return (
-        <BaseModal
-            isOpen={isOpen}
-            onClose={onCancel}
-            maxWidthClass="max-w-sm"
-            hasCloseButton={false}
-        >
+        <BaseModal isOpen={isOpen} onClose={onCancel} maxWidthClass="max-w-sm" hasCloseButton={false}>
             <div className="flex flex-col items-center text-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0">
-                    <AlertTriangleIcon className="w-8 h-8 text-red-500" />
-                </div>
-                <div>
-                    <h3 className="text-xl font-bold text-on-surface mb-2">{title}</h3>
-                    <p className="text-sm text-on-surface-variant leading-relaxed">
-                        {message}
-                    </p>
-                </div>
+                <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0"><AlertTriangleIcon className="w-8 h-8 text-red-500" /></div>
+                <div><h3 className="text-xl font-bold text-on-surface mb-2">{title}</h3><p className="text-sm text-on-surface-variant leading-relaxed">{message}</p></div>
                 <div className="grid grid-cols-2 gap-3 w-full mt-2">
-                    <button
-                        onClick={onCancel}
-                        className="py-3 px-4 rounded-xl bg-surface-background hover:bg-on-surface/5 text-on-surface font-bold transition-colors"
-                    >
-                        キャンセル
-                    </button>
-                    <button
-                        onClick={onConfirm}
-                        className="py-3 px-4 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold shadow-lg shadow-red-500/30 transition-all hover:scale-105 active:scale-95"
-                    >
-                        実行する
-                    </button>
+                    <Button onClick={onCancel} variant="secondary">キャンセル</Button>
+                    <Button onClick={onConfirm} variant="danger">実行する</Button>
                 </div>
             </div>
         </BaseModal>
@@ -134,40 +80,9 @@ export const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) =>
 };
 
 export const ToastNotification = ({ message, isVisible, className = '' }) => {
-    const [internalMessage, setInternalMessage] = useState(message);
-    const [animationClass, setAnimationClass] = useState('');
-
-    useEffect(() => {
-        if (isVisible) {
-            setInternalMessage(message);
-            setAnimationClass('animate-toast-in');
-        } else if (internalMessage) {
-            setAnimationClass('animate-toast-out');
-        }
-    }, [isVisible, message, internalMessage]);
-
+    const [internalMessage, setInternalMessage] = React.useState(message);
+    const [animationClass, setAnimationClass] = React.useState('');
+    React.useEffect(() => { if (isVisible) { setInternalMessage(message); setAnimationClass('animate-toast-in'); } else if (internalMessage) { setAnimationClass('animate-toast-out'); } }, [isVisible, message, internalMessage]);
     if (!internalMessage) return null;
-
-    return (
-        <div
-            className={`
-                fixed left-1/2 z-50
-                bg-surface-container/90 
-                text-on-surface font-semibold 
-                py-3 px-5 rounded-full shadow-lg
-                flex items-center gap-2
-                ${animationClass}
-                ${className} 
-            `}
-            onAnimationEnd={() => {
-                if (!isVisible) {
-                    setInternalMessage('');
-                    setAnimationClass('');
-                }
-            }}
-        >
-            <InfoIcon className="w-5 h-5 text-on-surface-variant" />
-            <span>{internalMessage}</span>
-        </div>
-    );
+    return (<div className={`fixed left-1/2 z-50 bg-surface-container/90 text-on-surface font-semibold py-3 px-5 rounded-full shadow-lg flex items-center gap-2 ${animationClass} ${className}`} onAnimationEnd={() => { if (!isVisible) { setInternalMessage(''); setAnimationClass(''); } }}><InfoIcon className="w-5 h-5 text-on-surface-variant" /><span>{internalMessage}</span></div>);
 };

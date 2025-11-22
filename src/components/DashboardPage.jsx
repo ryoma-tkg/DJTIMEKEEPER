@@ -1,5 +1,5 @@
 // [src/components/DashboardPage.jsx]
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { db, storage } from '../firebase';
 import { collection, addDoc, deleteDoc, doc, query, where, onSnapshot, Timestamp, writeBatch, orderBy, limit, updateDoc, getDocs, getDoc } from 'firebase/firestore';
@@ -17,24 +17,27 @@ import {
     TrashIcon,
     ConfirmModal,
     PowerIcon,
-    ToggleSwitch,
     CustomTimeInput,
     CalendarIcon,
     VideoIcon,
     BaseModal,
-    Button,
-    Input,
-    Label,
+    Button, // 新しいButton
+    Input,  // 新しいInput
+    Label,  // 新しいLabel
+    Badge,  // 新しいBadge
+    Toggle, // 新しいToggle
     AlertTriangleIcon,
     UserIcon,
     SearchIcon,
     InfoIcon,
     LoadingScreen as LoadingSpinner,
-    APP_VERSION
+    APP_VERSION,
+    CopyIcon,
+    ClockIcon
 } from './common';
 import { DevControls } from './DevControls';
 
-// --- DashboardSettingsModal (サポートモード検索機能を追加) ---
+// --- DashboardSettingsModal (リニューアル) ---
 const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout, user, userProfile, onViewUser }) => {
     const [activeTab, setActiveTab] = useState('account');
     const [displayName, setDisplayName] = useState(user?.displayName || '');
@@ -271,10 +274,13 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
         );
     };
 
-    const SectionHeader = ({ title, description }) => (
-        <div className="mb-6 pb-2 border-b border-on-surface/5">
-            <h3 className="text-base font-bold text-on-surface">{title}</h3>
-            {description && <p className="text-xs text-on-surface-variant mt-1 leading-relaxed opacity-80">{description}</p>}
+    // フッターコンテンツ
+    const footerContent = (
+        <div className="flex justify-end gap-3">
+            <Button onClick={onClose} variant="ghost">キャンセル</Button>
+            <Button onClick={handleSave} variant="primary" disabled={isSaving || isDeletingAccount}>
+                {isSaving ? '保存中...' : '設定を保存'}
+            </Button>
         </div>
     );
 
@@ -322,17 +328,21 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                             {activeTab === 'account' && (
                                 <div className="animate-fade-in space-y-10">
                                     <section>
-                                        <SectionHeader title="プロフィール" description="アプリ内で表示されるあなたの公開情報です。" />
+                                        <div className="mb-6 pb-2 border-b border-on-surface/5">
+                                            <h3 className="text-base font-bold text-on-surface">プロフィール</h3>
+                                            <p className="text-xs text-on-surface-variant mt-1 leading-relaxed opacity-80">アプリ内で表示されるあなたの公開情報です。</p>
+                                        </div>
                                         <div className="flex items-start gap-6">
                                             <div className="w-20 h-20 rounded-full bg-surface-background border border-on-surface/10 shadow-sm overflow-hidden flex items-center justify-center shrink-0">
                                                 {user?.photoURL ? <img src={user.photoURL} alt="User" className="w-full h-full object-cover" /> : <UserIcon className="w-10 h-10 text-on-surface-variant/50" />}
                                             </div>
                                             <div className="flex-grow max-w-md space-y-5">
-                                                <div>
-                                                    <Label>表示名 (ニックネーム)</Label>
-                                                    <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="DJ Name" />
-                                                    <p className="text-xs text-on-surface-variant mt-1.5">イベント作成者として表示される名前です。</p>
-                                                </div>
+                                                <Input
+                                                    label="表示名 (ニックネーム)"
+                                                    value={displayName}
+                                                    onChange={(e) => setDisplayName(e.target.value)}
+                                                    placeholder="DJ Name"
+                                                />
                                                 <div>
                                                     <Label>メールアドレス</Label>
                                                     <div className="text-sm font-mono text-on-surface-variant border-b border-dashed border-on-surface/20 pb-1 inline-block">{user?.email}</div>
@@ -341,7 +351,7 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                                         </div>
                                     </section>
                                     <section>
-                                        <SectionHeader title="セッション" />
+                                        <div className="mb-6 pb-2 border-b border-on-surface/5"><h3 className="text-base font-bold text-on-surface">セッション</h3></div>
                                         <button onClick={onLogout} className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-on-surface-variant hover:text-on-surface hover:bg-surface-background rounded-lg transition-colors border border-on-surface/10">
                                             <LogOutIcon className="w-4 h-4" />
                                             <span>アカウントからログアウト</span>
@@ -364,30 +374,36 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                             {activeTab === 'event' && (
                                 <div className="animate-fade-in space-y-10">
                                     <section>
-                                        <SectionHeader title="デフォルトの時間設定" description="「新規イベント作成」時に自動的にセットされる開始時間を指定します。" />
+                                        <div className="mb-6 pb-2 border-b border-on-surface/5">
+                                            <h3 className="text-base font-bold text-on-surface">デフォルトの時間設定</h3>
+                                            <p className="text-xs text-on-surface-variant mt-1 leading-relaxed opacity-80">「新規イベント作成」時に自動的にセットされる開始時間を指定します。</p>
+                                        </div>
                                         <div className="max-w-xs pl-1">
                                             <Label>開始時間</Label>
                                             <CustomTimeInput value={preferences.defaultStartTime} onChange={(v) => setPreferences(p => ({ ...p, defaultStartTime: v }))} />
                                         </div>
                                     </section>
                                     <section>
-                                        <SectionHeader title="機能の有効化" description="イベント作成時に、以下の機能を最初からONにしておくか設定します。" />
-                                        <div className="space-y-4 max-w-xl pl-1">
-                                            <div className="flex items-start justify-between gap-4 p-3 hover:bg-surface-background rounded-lg transition-colors">
-                                                <div>
-                                                    <div className="font-bold text-sm text-on-surface flex items-center gap-2"><VideoIcon className="w-4 h-4 text-brand-primary" />VJタイムテーブル機能</div>
-                                                    <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">DJとは別に、VJ（Visual Jockey）用のタイムテーブルも管理できるようになります。</p>
-                                                </div>
-                                                <ToggleSwitch checked={preferences.defaultVjEnabled} onChange={(val) => setPreferences(p => ({ ...p, defaultVjEnabled: val }))} />
-                                            </div>
+                                        <div className="mb-6 pb-2 border-b border-on-surface/5">
+                                            <h3 className="text-base font-bold text-on-surface">機能の有効化</h3>
+                                            <p className="text-xs text-on-surface-variant mt-1 leading-relaxed opacity-80">イベント作成時に、以下の機能を最初からONにしておくか設定します。</p>
+                                        </div>
+                                        <div className="space-y-2 max-w-xl pl-1">
+                                            <Toggle
+                                                checked={preferences.defaultVjEnabled}
+                                                onChange={(val) => setPreferences(p => ({ ...p, defaultVjEnabled: val }))}
+                                                label="VJタイムテーブル機能"
+                                                icon={VideoIcon}
+                                                description="DJとは別に、VJ（Visual Jockey）用のタイムテーブルも管理できるようになります。"
+                                            />
                                             <div className="border-t border-on-surface/5 my-2"></div>
-                                            <div className="flex items-start justify-between gap-4 p-3 hover:bg-surface-background rounded-lg transition-colors">
-                                                <div>
-                                                    <div className="font-bold text-sm text-on-surface flex items-center gap-2"><LayersIcon className="w-4 h-4 text-brand-primary" />複数フロア機能</div>
-                                                    <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">メインフロア以外に、サブフロアやラウンジなど複数のステージを持つイベントを作成する場合にONにします。</p>
-                                                </div>
-                                                <ToggleSwitch checked={preferences.defaultMultiFloor} onChange={(val) => setPreferences(p => ({ ...p, defaultMultiFloor: val }))} />
-                                            </div>
+                                            <Toggle
+                                                checked={preferences.defaultMultiFloor}
+                                                onChange={(val) => setPreferences(p => ({ ...p, defaultMultiFloor: val }))}
+                                                label="複数フロア機能"
+                                                icon={LayersIcon}
+                                                description="メインフロア以外に、サブフロアやラウンジなど複数のステージを持つイベントを作成する場合にONにします。"
+                                            />
                                         </div>
                                     </section>
                                 </div>
@@ -395,27 +411,26 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                             {activeTab === 'app' && (
                                 <div className="animate-fade-in space-y-10">
                                     <section>
-                                        <SectionHeader title="表示設定" description="このデバイスでのアプリの見た目をカスタマイズします。" />
+                                        <div className="mb-6 pb-2 border-b border-on-surface/5">
+                                            <h3 className="text-base font-bold text-on-surface">表示設定</h3>
+                                            <p className="text-xs text-on-surface-variant mt-1 leading-relaxed opacity-80">このデバイスでのアプリの見た目をカスタマイズします。</p>
+                                        </div>
                                         <div className="max-w-xl pl-1">
-                                            <div className="flex items-center justify-between p-3 hover:bg-surface-background rounded-lg transition-colors">
-                                                <div>
-                                                    <div className="font-bold text-sm text-on-surface flex items-center gap-2">
-                                                        {theme === 'dark' ? <MoonIcon className="w-4 h-4 text-brand-primary" /> : <SunIcon className="w-4 h-4 text-brand-primary" />}ダークモード
-                                                    </div>
-                                                    <p className="text-xs text-on-surface-variant mt-1">画面の配色を暗いトーンに変更します。</p>
-                                                </div>
-                                                <ToggleSwitch checked={theme === 'dark'} onChange={toggleTheme} />
-                                            </div>
+                                            <Toggle
+                                                checked={theme === 'dark'}
+                                                onChange={toggleTheme}
+                                                label="ダークモード"
+                                                icon={theme === 'dark' ? MoonIcon : SunIcon}
+                                                description="画面の配色を暗いトーンに変更します。"
+                                            />
                                             <div className="border-t border-on-surface/5 my-2"></div>
-                                            <div className="flex items-center justify-between p-3 hover:bg-surface-background rounded-lg transition-colors">
-                                                <div>
-                                                    <div className="font-bold text-sm text-on-surface flex items-center gap-2">
-                                                        {isWakeLockEnabled ? <SunIcon className="w-4 h-4 text-brand-primary" /> : <MoonIcon className="w-4 h-4 text-on-surface-variant" />}LIVEモードのスリープ防止
-                                                    </div>
-                                                    <p className="text-xs text-on-surface-variant mt-1">LIVEモードを表示中、デバイスが自動的にスリープしないようにします。</p>
-                                                </div>
-                                                <ToggleSwitch checked={isWakeLockEnabled} onChange={handleWakeLockToggle} />
-                                            </div>
+                                            <Toggle
+                                                checked={isWakeLockEnabled}
+                                                onChange={handleWakeLockToggle}
+                                                label="LIVEモードのスリープ防止"
+                                                icon={isWakeLockEnabled ? SunIcon : MoonIcon}
+                                                description="LIVEモードを表示中、デバイスが自動的にスリープしないようにします。"
+                                            />
                                         </div>
                                     </section>
                                 </div>
@@ -424,17 +439,21 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                             {activeTab === 'admin_support' && isAdmin && (
                                 <div className="animate-fade-in space-y-10">
                                     <section>
-                                        <SectionHeader title="ユーザーサポート (ダッシュボード閲覧)" description="ユーザーのEmailまたはUIDで検索し、そのユーザーとしてダッシュボードを表示します。" />
+                                        <div className="mb-6 pb-2 border-b border-on-surface/5">
+                                            <h3 className="text-base font-bold text-on-surface">ユーザーサポート (ダッシュボード閲覧)</h3>
+                                            <p className="text-xs text-on-surface-variant mt-1 leading-relaxed opacity-80">ユーザーのEmailまたはUIDで検索し、そのユーザーとしてダッシュボードを表示します。</p>
+                                        </div>
                                         <div className="max-w-md space-y-4 pl-1">
-                                            <div>
-                                                <Label>ユーザーのEmail / UID</Label>
-                                                <div className="flex gap-2">
-                                                    <Input value={supportSearchEmail} onChange={(e) => { setSupportSearchEmail(e.target.value); setSupportSearchStatus(''); }} placeholder="user@example.com" />
-                                                    <Button onClick={handleSupportSearch} disabled={!supportSearchEmail || supportSearchStatus === 'searching'} className="flex-shrink-0" variant="secondary">
-                                                        <SearchIcon className="w-4 h-4" />
-                                                        {supportSearchStatus === 'searching' ? '検索中...' : '検索'}
-                                                    </Button>
-                                                </div>
+                                            <Input
+                                                label="ユーザーのEmail / UID"
+                                                value={supportSearchEmail}
+                                                onChange={(e) => { setSupportSearchEmail(e.target.value); setSupportSearchStatus(''); }}
+                                                placeholder="user@example.com"
+                                            />
+                                            <div className="flex justify-end">
+                                                <Button onClick={handleSupportSearch} disabled={!supportSearchEmail || supportSearchStatus === 'searching'} variant="secondary" icon={SearchIcon}>
+                                                    {supportSearchStatus === 'searching' ? '検索中...' : '検索'}
+                                                </Button>
                                             </div>
 
                                             {supportSearchStatus === 'not-found' && (<div className="p-3 bg-red-500/10 text-red-500 rounded-lg text-sm font-bold flex items-center gap-2"><span>⚠️ ユーザーが見つかりませんでした。</span></div>)}
@@ -462,14 +481,21 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                             {activeTab === 'admin_role' && isSuperAdmin && (
                                 <div className="animate-fade-in space-y-10">
                                     <section>
-                                        <SectionHeader title="新しい管理者の追加" description="指定したメールアドレスのユーザーに管理者権限を付与します。" />
+                                        <div className="mb-6 pb-2 border-b border-on-surface/5">
+                                            <h3 className="text-base font-bold text-on-surface">新しい管理者の追加</h3>
+                                            <p className="text-xs text-on-surface-variant mt-1 leading-relaxed opacity-80">指定したメールアドレスのユーザーに管理者権限を付与します。</p>
+                                        </div>
                                         <div className="max-w-md space-y-4 pl-1">
-                                            <div>
-                                                <Label>対象ユーザーのメールアドレス</Label>
-                                                <div className="flex gap-2">
-                                                    <Input value={targetEmail} onChange={(e) => { setTargetEmail(e.target.value); setAdminSearchStatus(''); }} placeholder="admin@example.com" />
-                                                    <Button onClick={handleGrantAdmin} disabled={!targetEmail || adminSearchStatus === 'searching'} className="flex-shrink-0">{adminSearchStatus === 'searching' ? '検索中...' : '権限を付与'}</Button>
-                                                </div>
+                                            <Input
+                                                label="対象ユーザーのメールアドレス"
+                                                value={targetEmail}
+                                                onChange={(e) => { setTargetEmail(e.target.value); setAdminSearchStatus(''); }}
+                                                placeholder="admin@example.com"
+                                            />
+                                            <div className="flex justify-end">
+                                                <Button onClick={handleGrantAdmin} disabled={!targetEmail || adminSearchStatus === 'searching'}>
+                                                    {adminSearchStatus === 'searching' ? '検索中...' : '権限を付与'}
+                                                </Button>
                                             </div>
                                             {adminSearchStatus === 'success' && (<div className="p-3 bg-green-500/10 text-green-500 rounded-lg text-sm font-bold flex items-center gap-2"><span>✅ 権限を付与しました！</span></div>)}
                                             {adminSearchStatus === 'not-found' && (<div className="p-3 bg-red-500/10 text-red-500 rounded-lg text-sm font-bold flex items-center gap-2"><span>⚠️ ユーザーが見つかりませんでした。</span></div>)}
@@ -478,7 +504,10 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                                         </div>
                                     </section>
                                     <section>
-                                        <SectionHeader title="現在の管理者一覧" description="現在、管理者権限を持っているユーザーのリストです。" />
+                                        <div className="mb-6 pb-2 border-b border-on-surface/5">
+                                            <h3 className="text-base font-bold text-on-surface">現在の管理者一覧</h3>
+                                            <p className="text-xs text-on-surface-variant mt-1 leading-relaxed opacity-80">現在、管理者権限を持っているユーザーのリストです。</p>
+                                        </div>
                                         <div className="max-w-lg space-y-3 pl-1">
                                             {adminList.length > 0 ? (
                                                 adminList.map((admin) => (
@@ -504,8 +533,7 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
                             )}
                         </div>
                         <div className="p-4 px-8 border-t border-on-surface/5 flex justify-end gap-3 bg-surface-container/95 backdrop-blur-sm z-10 flex-shrink-0">
-                            <Button onClick={onClose} variant="ghost">キャンセル</Button>
-                            <Button onClick={handleSave} variant="primary" disabled={isSaving || isDeletingAccount} className="min-w-[100px] shadow-lg shadow-brand-primary/20">{isSaving ? '保存中...' : '設定を保存'}</Button>
+                            {footerContent}
                         </div>
                     </main>
                 </div>
@@ -558,17 +586,15 @@ const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences }) => {
         <BaseModal isOpen={isOpen} onClose={onClose} title="新規イベント作成" footer={footerContent} isScrollable={true} maxWidthClass="max-w-md">
             <div className="space-y-6">
                 <div className="space-y-4">
-                    <div>
-                        <Label>イベント名</Label>
-                        <Input
-                            value={config.title}
-                            onChange={(e) => setConfig({ ...config, title: e.target.value })}
-                            placeholder="イベント名を入力..."
-                            autoFocus
-                            isError={isTitleError}
-                            error={hasAttemptedSubmit && isTitleError ? "イベント名を入力してください" : null}
-                        />
-                    </div>
+                    <Input
+                        label="イベント名"
+                        value={config.title}
+                        onChange={(e) => setConfig({ ...config, title: e.target.value })}
+                        placeholder="イベント名を入力..."
+                        autoFocus
+                        isError={isTitleError}
+                        error={hasAttemptedSubmit && isTitleError ? "イベント名を入力してください" : null}
+                    />
                     <div className="space-y-3">
                         <div><Label>開催日</Label><Input type="date" value={config.startDate} onChange={(e) => setConfig({ ...config, startDate: e.target.value })} icon={CalendarIcon} className="font-mono text-sm" /></div>
                         <div><Label>開始時間</Label><CustomTimeInput value={config.startTime} onChange={(v) => setConfig({ ...config, startTime: v })} /></div>
@@ -578,9 +604,9 @@ const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences }) => {
                 <div className="space-y-2">
                     <Label>オプション設定</Label>
                     <div className="bg-surface-background/50 rounded-xl px-4 py-2 space-y-2">
-                        <ToggleSwitch checked={config.vjEnabled} onChange={(val) => setConfig({ ...config, vjEnabled: val })} label="VJタイムテーブル機能" icon={VideoIcon} />
+                        <Toggle checked={config.vjEnabled} onChange={(val) => setConfig({ ...config, vjEnabled: val })} label="VJタイムテーブル機能" icon={VideoIcon} />
                         <div className="border-t border-on-surface/5"></div>
-                        <ToggleSwitch checked={config.isMultiFloor} onChange={(val) => setConfig({ ...config, isMultiFloor: val })} label="複数フロアを使用" icon={LayersIcon} />
+                        <Toggle checked={config.isMultiFloor} onChange={(val) => setConfig({ ...config, isMultiFloor: val })} label="複数フロアを使用" icon={LayersIcon} />
                     </div>
                     <p className="text-xs text-on-surface-variant/60 px-2">※ 複数フロアをONにすると、初期状態で2つのフロアが作成されます。</p>
                 </div>
@@ -606,58 +632,117 @@ const isEventActive = (event) => {
     return now >= start && now < end;
 };
 
+// --- Event Card (New Design) ---
 const EventCard = ({ event, onDeleteClick, onClick }) => {
     const floorCount = event.floors ? Object.keys(event.floors).length : 0;
     const displayFloors = (floorCount === 0 && event.timetable) ? '1 Floor' : `${floorCount} Floors`;
     const { month, day } = formatDateForIcon(event.eventConfig.startDate);
     const isActive = isEventActive(event);
-    const [isHovered, setIsHovered] = useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const menuRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+                setIsMenuOpen(false);
+            }
+        };
+        if (isMenuOpen) document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isMenuOpen]);
+
+    const gradientClass = isActive ? 'from-red-500/5' : 'from-brand-primary/5';
 
     return (
         <div
             onClick={onClick}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-            style={isActive ? {
-                boxShadow: isHovered
-                    ? `0 20px 30px -5px rgb(0 0 0 / 0.2), 0 0 35px 5px rgb(var(--color-brand-primary) / 0.4)`
-                    : `0 10px 25px -5px rgb(0 0 0 / 0.1), 0 0 20px 0px rgb(var(--color-brand-primary) / 0.25)`,
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-            } : undefined}
             className={`
-                group relative bg-surface-container rounded-3xl p-5 
-                transition-all duration-300 cursor-pointer overflow-hidden flex flex-col h-full
-                hover:-translate-y-1 border
-                ${isActive ? 'border-brand-primary z-10' : 'border-on-surface/10 dark:border-white/5 shadow-lg hover:shadow-2xl'}
+                group relative bg-surface-container rounded-3xl p-6 
+                transition-all duration-300 cursor-pointer overflow-visible flex flex-col h-full
+                hover:-translate-y-1
+                ${isActive
+                    ? 'border border-red-500/40 shadow-[0_0_30px_-5px_rgba(239,68,68,0.3)]'
+                    : 'border border-on-surface/10 dark:border-white/10 shadow-sm hover:shadow-xl hover:border-on-surface/20'
+                }
             `}
         >
-            <div className={`absolute inset-0 bg-gradient-to-br from-brand-primary/5 to-transparent opacity-0 transition-opacity duration-500 ${isActive ? 'opacity-100' : 'group-hover:opacity-100'}`} />
-            <button onClick={(e) => { e.stopPropagation(); onDeleteClick(event.id, event.eventConfig.title); }} className="absolute top-4 right-4 p-2 text-on-surface-variant/50 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors z-10" title="イベントを削除"><TrashIcon className="w-5 h-5" /></button>
+            <div className={`absolute inset-0 bg-gradient-to-br ${gradientClass} to-transparent opacity-0 transition-opacity duration-500 pointer-events-none rounded-3xl ${isActive ? 'opacity-100' : 'group-hover:opacity-100'}`} />
 
-            <div className="flex items-start gap-5 relative z-0 flex-grow">
-                <div className={`flex flex-col items-center justify-center w-16 h-16 bg-surface-background rounded-2xl shadow-inner border flex-shrink-0 ${isActive ? 'border-brand-primary text-brand-primary' : 'border-on-surface/10 dark:border-white/5 text-on-surface'}`}>
-                    <span className="text-[10px] font-bold tracking-widest uppercase leading-none mb-1 opacity-80">{month}</span>
-                    <span className="text-2xl font-bold leading-none font-mono">{day}</span>
+            {/* Menu */}
+            <div className="absolute top-4 right-4 z-20" ref={menuRef}>
+                <button
+                    onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }}
+                    className={`
+                        w-8 h-8 rounded-full flex items-center justify-center transition-colors
+                        ${isMenuOpen ? 'bg-surface-background text-on-surface' : 'text-on-surface-variant/50 hover:text-on-surface hover:bg-surface-background/50'}
+                    `}
+                >
+                    {/* More Icon Vertical */}
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                        <circle cx="12" cy="12" r="1"></circle>
+                        <circle cx="12" cy="5" r="1"></circle>
+                        <circle cx="12" cy="19" r="1"></circle>
+                    </svg>
+                </button>
+                {isMenuOpen && (
+                    <div className="absolute right-0 top-full mt-2 w-32 bg-surface-container rounded-xl shadow-xl border border-on-surface/10 overflow-hidden animate-fade-in z-30">
+                        <button
+                            className="w-full text-left px-4 py-3 text-xs font-bold text-red-500 hover:bg-red-500/10 flex items-center gap-2"
+                            onClick={(e) => { e.stopPropagation(); onDeleteClick(event.id, event.eventConfig.title); setIsMenuOpen(false); }}
+                        >
+                            <TrashIcon className="w-3 h-3" /> 削除
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            <div className="flex items-start gap-5 mb-6 flex-grow relative z-0">
+                <div className={`
+                    flex flex-col items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-2xl shadow-inner border shrink-0 transition-all
+                    ${isActive
+                        ? 'bg-red-500/5 border-red-500/20 text-red-500'
+                        : 'bg-surface-background border-on-surface/5 dark:border-white/10 text-on-surface-variant'
+                    }
+                `}>
+                    <span className="text-[10px] font-bold tracking-widest uppercase leading-none mb-1 opacity-70">{month}</span>
+                    <span className="text-xl md:text-2xl font-bold leading-none font-mono">{day}</span>
                 </div>
                 <div className="flex-1 min-w-0 pt-1 flex flex-col">
                     {isActive && (
-                        <div className="flex items-center gap-2 mb-2 animate-fade-in">
-                            <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-primary opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-brand-primary"></span></span>
-                            <span className="text-[10px] font-bold text-brand-primary tracking-widest uppercase">NOW ON AIR</span>
+                        <div className="mb-2">
+                            <Badge status="onAir" label="NOW ON AIR" />
                         </div>
                     )}
-                    <h3 className={`text-xl font-bold truncate transition-colors mb-2 leading-snug ${isActive ? 'text-brand-primary' : 'text-on-surface group-hover:text-brand-primary'}`}>{event.eventConfig.title || '無題のイベント'}</h3>
-                    <div className="flex items-center gap-3 text-xs font-bold text-on-surface-variant">
-                        <div className="flex items-center gap-1 bg-surface-background px-2 py-1 rounded-md"><LayersIcon className="w-3 h-3" /><span>{displayFloors}</span></div>
-                        {event.eventConfig.startTime && (<span className="font-mono opacity-70">START {event.eventConfig.startTime}</span>)}
+                    <h3 className={`text-base md:text-lg font-bold truncate mb-1 font-sans transition-colors ${isActive ? 'text-on-surface' : 'text-on-surface group-hover:text-brand-primary'}`}>{event.eventConfig.title || '無題のイベント'}</h3>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-bold text-on-surface-variant">
+                        <div className="flex items-center gap-1.5">
+                            <LayersIcon className="w-3 h-3" />
+                            <span>{displayFloors}</span>
+                        </div>
+                        {event.eventConfig.startTime && (
+                            <div className="flex items-center gap-1.5">
+                                <ClockIcon className="w-3 h-3" />
+                                <span className="font-mono">START {event.eventConfig.startTime}</span>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
-            <div className="mt-5 pt-4 border-t border-on-surface/10 dark:border-white/5 w-full relative z-0">
-                <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-on-surface-variant/50 group-hover:text-brand-primary transition-colors">編集モードを開く</span>
-                    <Link to={`/live/${event.id}`} target="_blank" onClick={(e) => e.stopPropagation()} className={`flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full transition-colors ${isActive ? 'bg-brand-primary text-white shadow-md hover:bg-brand-primary/90' : 'bg-surface-background hover:bg-brand-primary hover:text-white text-on-surface-variant'}`}><span className={`w-2 h-2 rounded-full ${isActive ? 'bg-white' : 'bg-red-500'} animate-pulse`} />LIVE LINK</Link>
-                </div>
+
+            <div className="mt-auto pt-4 border-t border-on-surface/5 dark:border-white/5 flex justify-between items-center relative z-0">
+                <span className="text-xs font-bold text-on-surface-variant/50 group-hover:text-brand-primary group-hover:opacity-100 transition-all duration-300">Open Editor</span>
+                <Link to={`/live/${event.id}`} target="_blank" onClick={(e) => e.stopPropagation()}
+                    className={`
+                        flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all
+                        ${isActive
+                            ? 'bg-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.5)] hover:bg-red-600 hover:shadow-[0_0_20px_rgba(239,68,68,0.7)] border-transparent'
+                            : 'bg-surface-background text-on-surface-variant hover:text-brand-primary hover:bg-brand-primary/10 border border-on-surface/5'
+                        }
+                    `}
+                >
+                    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-white animate-pulse' : 'bg-on-surface-variant/50'}`} />
+                    LIVE LINK
+                </Link>
             </div>
         </div>
     );
@@ -775,12 +860,19 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
                     <div className="flex flex-col items-center justify-center py-20 text-center opacity-70"><div className="w-24 h-24 bg-surface-container rounded-full flex items-center justify-center mb-6"><LayersIcon className="w-10 h-10 text-on-surface-variant" /></div><p className="text-xl font-bold text-on-surface mb-2">イベントがありません</p><p className="text-sm text-on-surface-variant">{viewingTarget ? 'このユーザーはまだイベントを作成していません。' : '右下のボタンから、最初のイベントを作成しましょう！'}</p></div>
                 )}
 
-                {/* ▼▼▼ 修正: 淡い光エフェクト (shadow-[0_0_15px...]) を追加 ▼▼▼ */}
-                <button onClick={handleCreateClick} disabled={isCreating || !!viewingTarget} className="fixed bottom-8 right-8 z-30 flex items-center gap-3 bg-brand-primary hover:bg-brand-primary/90 text-white font-bold py-4 px-6 rounded-full shadow-2xl shadow-[0_0_15px_rgba(var(--color-brand-primary),0.5)] transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-wait group hover:shadow-[0_0_25px_rgba(var(--color-brand-primary),0.7)]">
-                    <PlusIcon className="w-6 h-6 transition-transform group-hover:rotate-90" />
-                    <span className="text-lg pr-1 hidden sm:inline">{isCreating ? '作成中...' : '新規イベント'}</span>
-                </button>
-                {/* ▲▲▲ 修正ここまで ▲▲▲ */}
+                {/* Floating Action Button (New Design) */}
+                <div className="fixed bottom-8 right-8 z-30">
+                    <Button
+                        onClick={handleCreateClick}
+                        disabled={isCreating || !!viewingTarget}
+                        variant="primary"
+                        size="lg"
+                        icon={PlusIcon}
+                        className="shadow-2xl"
+                    >
+                        {isCreating ? '作成中...' : '新規イベント'}
+                    </Button>
+                </div>
 
             </div>
             <EventSetupModal isOpen={isSetupModalOpen} onClose={() => setIsSetupModalOpen(false)} onCreate={handleSetupComplete} defaultPreferences={userProfile?.preferences} />
