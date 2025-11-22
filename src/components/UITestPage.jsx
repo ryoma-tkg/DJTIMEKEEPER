@@ -28,7 +28,7 @@ const PaletteIcon = ({ className }) => (
     </svg>
 );
 
-// --- Design System Definitions (v4.2.0 - Corrected Logic) ---
+// --- Design System Definitions (v4.7.0 - Responsive & Final Polish) ---
 
 // 1. Buttons
 const NewButton = ({
@@ -37,7 +37,8 @@ const NewButton = ({
     children,
     className = '',
     icon: Icon,
-    disabled = false
+    disabled = false,
+    onClick
 }) => {
     const sizes = {
         sm: "text-xs py-2 px-4 min-h-[36px] gap-1.5",
@@ -92,7 +93,7 @@ const NewButton = ({
     };
     const sizeClass = variant === 'icon' ? iconSizes[size] : sizes[size];
     return (
-        <button disabled={disabled} className={`${base} ${sizeClass} ${styles[variant]} ${className}`}>
+        <button disabled={disabled} onClick={onClick} className={`${base} ${sizeClass} ${styles[variant]} ${className}`}>
             {Icon && <Icon className={iconSvgSizes[size]} />}
             {children}
         </button>
@@ -154,45 +155,70 @@ const NewToggle = ({ label, checked = false, onChange, icon: Icon, description }
     </div>
 );
 
-// 4. DJ/VJ Card
+// 4. DJ/VJ Card (★修正: SP対応 - 縦積みレイアウト)
 const NewSortableCard = ({ initialName, initialDuration, time, color, isDragging }) => {
     const [name, setName] = useState(initialName);
     const [duration, setDuration] = useState(initialDuration);
 
     return (
         <div className={`
-            group relative flex items-center gap-4 p-3 pr-4 rounded-2xl bg-surface-container
+            group relative flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4 p-3 md:p-3 md:pr-4 rounded-2xl bg-surface-container
             border border-on-surface/10 dark:border-white/10 overflow-visible
             transition-all duration-300
             ${isDragging ? 'scale-105 shadow-2xl z-50 ring-2 ring-brand-primary' : 'shadow-sm hover:shadow-md hover:border-on-surface/20'}
         `}>
-            <div className="flex-shrink-0 cursor-grab touch-none text-on-surface-variant/30 hover:text-on-surface-variant p-2">
-                <GripIcon className="w-5 h-5" />
-            </div>
-            <button
-                className="flex-shrink-0 w-14 h-14 rounded-full bg-surface-background border border-on-surface/10 hover:border-brand-primary transition-colors overflow-hidden relative group/icon shadow-inner -ml-1"
-                title="アイコンを変更"
-            >
-                <div className="w-full h-full flex items-center justify-center text-on-surface-variant/20 group-hover/icon:text-brand-primary/50">
-                    <UserIcon className="w-7 h-7" />
+            {/* Top Row (Mobile) / Left Side (Desktop) */}
+            <div className="flex items-center w-full md:w-auto gap-3">
+                <div className="flex-shrink-0 cursor-grab touch-none text-on-surface-variant/30 hover:text-on-surface-variant p-2 -ml-2 md:ml-0">
+                    <GripIcon className="w-5 h-5" />
                 </div>
-            </button>
-            <div className="flex-grow min-w-0 flex flex-col justify-center gap-3 py-1">
-                <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="
-                        w-full bg-surface-background text-lg font-bold text-on-surface
-                        rounded-lg px-3 py-1.5
-                        border border-on-surface/5 focus:border-brand-primary/50
-                        focus:outline-none focus:ring-2 focus:ring-brand-primary/20
-                        transition-all placeholder-on-surface-variant/30 truncate shadow-inner
-                        h-10
-                    "
-                    placeholder="Artist Name"
-                />
-                <div className="flex items-center gap-4 pl-0">
+                <button
+                    className="flex-shrink-0 w-12 h-12 md:w-14 md:h-14 rounded-full bg-surface-background border border-on-surface/10 hover:border-brand-primary transition-colors overflow-hidden relative group/icon shadow-inner"
+                    title="アイコンを変更"
+                >
+                    <div className="w-full h-full flex items-center justify-center text-on-surface-variant/20 group-hover/icon:text-brand-primary/50">
+                        <UserIcon className="w-6 h-6 md:w-7 md:h-7" />
+                    </div>
+                </button>
+                <div className="flex-grow md:hidden">
+                    <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="
+                            w-full bg-surface-background text-lg font-bold text-on-surface
+                            rounded-lg px-3 py-2
+                            border border-on-surface/5 focus:border-brand-primary/50
+                            focus:outline-none focus:ring-2 focus:ring-brand-primary/20
+                            transition-all placeholder-on-surface-variant/30 truncate shadow-inner
+                        "
+                        placeholder="Artist Name"
+                    />
+                </div>
+            </div>
+
+            {/* Bottom Row (Mobile) / Center & Right (Desktop) */}
+            <div className="flex flex-grow items-center justify-between w-full md:w-auto gap-3 pl-2 md:pl-0">
+                {/* Desktop Name Input (Hidden on Mobile) */}
+                <div className="hidden md:block flex-grow min-w-0">
+                    <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="
+                            w-full bg-surface-background text-lg font-bold text-on-surface
+                            rounded-lg px-3 py-1.5
+                            border border-on-surface/5 focus:border-brand-primary/50
+                            focus:outline-none focus:ring-2 focus:ring-brand-primary/20
+                            transition-all placeholder-on-surface-variant/30 truncate shadow-inner
+                            h-10
+                        "
+                        placeholder="Artist Name"
+                    />
+                </div>
+
+                {/* Time Controls */}
+                <div className="flex items-center gap-3 md:gap-4">
                     <div className="flex items-center gap-2">
                         <div className="relative group/duration">
                             <input
@@ -213,34 +239,35 @@ const NewSortableCard = ({ initialName, initialDuration, time, color, isDragging
                         <span className="text-xs font-bold text-on-surface-variant select-none">min</span>
                     </div>
                     <div className="w-px h-5 bg-on-surface/10"></div>
-                    <div className="flex items-center gap-1.5 text-sm font-mono font-medium text-on-surface-variant select-none h-10">
+                    <div className="flex items-center gap-1.5 text-sm font-mono font-medium text-on-surface-variant select-none h-10 whitespace-nowrap">
                         <ClockIcon className="w-4 h-4 opacity-60" />
                         {time}
                     </div>
                 </div>
-            </div>
-            <div className="flex-shrink-0 flex items-center gap-2 pl-3 border-l border-on-surface/5 dark:border-white/5 h-full">
-                <button
-                    className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-background transition-all active:scale-95 mr-1"
-                    title="カラーを変更"
-                >
-                    <div className="w-7 h-7 rounded-full shadow-sm ring-2 ring-white/20 dark:ring-black/20" style={{ backgroundColor: color }}></div>
-                </button>
-                <div className="flex flex-col gap-2">
-                    <button className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant/70 hover:text-brand-primary hover:bg-brand-primary/5 transition-colors active:scale-95" title="複製">
-                        <CopyIcon className="w-4 h-4" />
+
+                {/* Actions */}
+                <div className="flex-shrink-0 flex items-center gap-2 pl-3 border-l border-on-surface/5 dark:border-white/5 h-10">
+                    <button
+                        className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-background transition-all active:scale-95 mr-1"
+                        title="カラーを変更"
+                    >
+                        <div className="w-6 h-6 md:w-7 md:h-7 rounded-full shadow-sm ring-2 ring-white/20 dark:ring-black/20" style={{ backgroundColor: color }}></div>
                     </button>
-                    <button className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant/70 hover:text-red-500 hover:bg-red-500/10 transition-colors active:scale-95" title="削除">
-                        <TrashIcon className="w-4 h-4" />
-                    </button>
+                    <div className="flex flex-col gap-1 md:gap-2">
+                        <button className="w-8 h-8 md:w-8 md:h-8 rounded-full flex items-center justify-center text-on-surface-variant/70 hover:text-brand-primary hover:bg-brand-primary/5 transition-colors active:scale-95" title="複製">
+                            <CopyIcon className="w-4 h-4" />
+                        </button>
+                        <button className="w-8 h-8 md:w-8 md:h-8 rounded-full flex items-center justify-center text-on-surface-variant/70 hover:text-red-500 hover:bg-red-500/10 transition-colors active:scale-95" title="削除">
+                            <TrashIcon className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     );
 };
 
-// 5. Dashboard Event Card
-// ★修正: 縦幅の固定(min-h)を削除し、自然な高さへ。
+// 5. Dashboard Event Card (★修正: 青グラデーション＆Open Editorハイライト)
 const NewEventCard = ({ title, date, floors, startTime, isActive }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef(null);
@@ -255,17 +282,22 @@ const NewEventCard = ({ title, date, floors, startTime, isActive }) => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isMenuOpen]);
 
+    // ★修正: アクティブ以外は青色のグラデーション
+    const gradientClass = isActive
+        ? 'from-red-500/5'
+        : 'from-brand-primary/5';
+
     return (
         <div className={`
             group relative bg-surface-container rounded-3xl p-6
             transition-all duration-300 cursor-pointer overflow-visible flex flex-col
             hover:-translate-y-1
             ${isActive
-                ? 'border-2 border-red-500 shadow-lg shadow-red-500/20'
+                ? 'border border-red-500/40 shadow-[0_0_30px_-5px_rgba(239,68,68,0.3)]'
                 : 'border border-on-surface/10 dark:border-white/10 shadow-sm hover:shadow-xl hover:border-on-surface/20'
             }
         `}>
-            <div className={`absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent opacity-0 transition-opacity duration-500 pointer-events-none rounded-3xl ${isActive ? 'opacity-100' : 'group-hover:opacity-100'}`} />
+            <div className={`absolute inset-0 bg-gradient-to-br ${gradientClass} to-transparent opacity-0 transition-opacity duration-500 pointer-events-none rounded-3xl ${isActive ? 'opacity-100' : 'group-hover:opacity-100'}`} />
 
             <div className="absolute top-4 right-4 z-20" ref={menuRef}>
                 <button
@@ -297,14 +329,14 @@ const NewEventCard = ({ title, date, floors, startTime, isActive }) => {
 
             <div className="flex items-start gap-5 mb-6 flex-grow relative z-0">
                 <div className={`
-                    flex flex-col items-center justify-center w-16 h-16 rounded-2xl shadow-inner border shrink-0
+                    flex flex-col items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-2xl shadow-inner border shrink-0 transition-all
                     ${isActive
-                        ? 'bg-red-500/10 border-red-500/30 text-red-500'
+                        ? 'bg-red-500/5 border-red-500/20 text-red-500'
                         : 'bg-surface-background border-on-surface/5 dark:border-white/10 text-on-surface-variant'
                     }
                 `}>
                     <span className="text-[10px] font-bold tracking-widest uppercase leading-none mb-1 opacity-70">{date.month}</span>
-                    <span className="text-2xl font-bold leading-none font-mono">{date.day}</span>
+                    <span className="text-xl md:text-2xl font-bold leading-none font-mono">{date.day}</span>
                 </div>
 
                 <div className="flex-1 min-w-0 pt-1">
@@ -317,7 +349,7 @@ const NewEventCard = ({ title, date, floors, startTime, isActive }) => {
                             <span className="text-[10px] font-bold text-red-500 tracking-widest uppercase">NOW ON AIR</span>
                         </div>
                     )}
-                    <h3 className={`text-lg font-bold truncate mb-1 font-sans transition-colors ${isActive ? 'text-red-500' : 'text-on-surface group-hover:text-brand-primary'}`}>{title}</h3>
+                    <h3 className={`text-base md:text-lg font-bold truncate mb-1 font-sans transition-colors ${isActive ? 'text-on-surface' : 'text-on-surface group-hover:text-brand-primary'}`}>{title}</h3>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-bold text-on-surface-variant">
                         <div className="flex items-center gap-1.5">
                             <LayersIcon className="w-3 h-3" />
@@ -332,13 +364,15 @@ const NewEventCard = ({ title, date, floors, startTime, isActive }) => {
             </div>
 
             <div className="mt-auto pt-4 border-t border-on-surface/5 dark:border-white/5 flex justify-between items-center relative z-0">
-                <span className="text-xs font-bold text-on-surface-variant/50 group-hover:text-on-surface-variant transition-colors">Open Editor</span>
+                {/* ★修正: OPEN EDITOR ホバーハイライト */}
+                <span className="text-xs font-bold text-on-surface-variant/50 group-hover:text-brand-primary group-hover:opacity-100 transition-all duration-300">Open Editor</span>
                 <button
                     className={`
                         flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all
                         ${isActive
-                            ? 'bg-red-500 text-white shadow-md hover:bg-red-600'
-                            : 'bg-surface-background text-on-surface-variant hover:text-red-500 hover:bg-red-500/10 border border-on-surface/5'}
+                            ? 'bg-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.5)] hover:bg-red-600 hover:shadow-[0_0_20px_rgba(239,68,68,0.7)] border-transparent'
+                            : 'bg-surface-background text-on-surface-variant hover:text-brand-primary hover:bg-brand-primary/10 border border-on-surface/5'
+                        }
                     `}
                     onClick={(e) => e.stopPropagation()}
                 >
@@ -350,7 +384,7 @@ const NewEventCard = ({ title, date, floors, startTime, isActive }) => {
     );
 };
 
-// 6. List Item (変更なし)
+// 6. List Item (★修正: ゴミ箱を常時表示)
 const NewListItem = ({ label, onDelete }) => (
     <div className="flex items-center gap-3 p-3 rounded-xl bg-surface-background border border-on-surface/10 dark:border-white/10 hover:border-brand-primary/50 transition-all group shadow-sm">
         <div className="cursor-grab text-on-surface-variant/30 hover:text-on-surface-variant p-1">
@@ -361,7 +395,7 @@ const NewListItem = ({ label, onDelete }) => (
             defaultValue={label}
             className="flex-grow bg-transparent font-bold text-on-surface focus:outline-none"
         />
-        <button onClick={onDelete} className="p-2 rounded-full text-on-surface-variant/50 hover:text-red-500 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100">
+        <button onClick={onDelete} className="p-2 rounded-full text-on-surface-variant hover:text-red-500 hover:bg-red-500/10 transition-colors">
             <TrashIcon className="w-4 h-4" />
         </button>
     </div>
@@ -395,6 +429,18 @@ const CategoryHeader = ({ title }) => (
     <h3 className="text-lg font-bold text-on-surface mb-4 border-b border-on-surface/10 pb-2">
         {title}
     </h3>
+);
+
+// --- 14. Tactile Spinner (★新規追加) ---
+const TactileSpinner = () => (
+    <div className="relative w-16 h-16 flex items-center justify-center">
+        {/* 外周のレール（彫り込み） */}
+        <div className="absolute inset-0 border-4 border-surface-container rounded-full shadow-inner opacity-80"></div>
+        {/* 光る実体（回転） */}
+        <div className="absolute inset-0 border-4 border-brand-primary border-t-transparent rounded-full animate-spin shadow-[0_0_15px_rgba(var(--color-brand-primary),0.5)]"></div>
+        {/* 中心核 */}
+        <div className="w-2 h-2 bg-brand-primary rounded-full shadow-[0_0_10px_rgba(var(--color-brand-primary),0.8)] animate-pulse"></div>
+    </div>
 );
 
 // --- Demo Components for Previews ---
@@ -469,37 +515,41 @@ const FloorManagerModalPreview = () => (
     </div>
 );
 
+// ★修正: Dashboard Settings Modal (SP最適化 - 上下分割 & メニューグリッド)
 const DashboardSettingsModalPreview = () => (
-    <div className="bg-surface-container rounded-2xl w-full max-w-4xl shadow-2xl border border-on-surface/10 flex flex-col md:flex-row mx-auto overflow-hidden h-[550px] relative">
+    <div className="bg-surface-container rounded-2xl w-full max-w-4xl shadow-2xl border border-on-surface/10 flex flex-col md:flex-row mx-auto overflow-hidden h-auto md:h-[550px] relative">
         <button className="absolute top-4 right-4 p-2 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface transition-colors z-10">
             <XIcon className="w-5 h-5" />
         </button>
-        <aside className="w-64 bg-surface-background border-r border-on-surface/5 flex flex-col p-6">
-            <div className="flex items-center gap-3 mb-8 px-2">
+        {/* Sidebar */}
+        <aside className="w-full md:w-64 bg-surface-background border-b md:border-b-0 md:border-r border-on-surface/5 flex flex-col p-6 flex-shrink-0">
+            <div className="flex items-center gap-3 mb-6 md:mb-8 px-2">
                 <div className="w-10 h-10 rounded-full bg-brand-primary flex items-center justify-center text-white font-bold text-lg">U</div>
                 <span className="font-bold text-sm">User Name</span>
             </div>
-            <div className="flex flex-col gap-2">
-                <button className="flex items-center gap-3 text-left px-3 py-3 rounded-lg bg-on-surface/5 font-bold text-sm text-on-surface">
+            {/* Menu List (SP: Grid, PC: Stack) */}
+            <div className="grid grid-cols-2 md:flex md:flex-col gap-2">
+                <button className="flex items-center gap-2 md:gap-3 text-left px-3 py-3 rounded-lg bg-on-surface/5 font-bold text-xs md:text-sm text-on-surface justify-center md:justify-start">
                     <UserIcon className="w-4 h-4" />
-                    アカウント管理
+                    アカウント
                 </button>
-                <button className="flex items-center gap-3 text-left px-3 py-3 rounded-lg text-on-surface-variant hover:bg-on-surface/5 text-sm transition-colors">
+                <button className="flex items-center gap-2 md:gap-3 text-left px-3 py-3 rounded-lg text-on-surface-variant hover:bg-on-surface/5 text-xs md:text-sm transition-colors justify-center md:justify-start">
                     <SettingsIcon className="w-4 h-4" />
-                    イベント初期設定
+                    初期設定
                 </button>
-                <button className="flex items-center gap-3 text-left px-3 py-3 rounded-lg text-on-surface-variant hover:bg-on-surface/5 text-sm transition-colors">
+                <button className="flex items-center gap-2 md:gap-3 text-left px-3 py-3 rounded-lg text-on-surface-variant hover:bg-on-surface/5 text-xs md:text-sm transition-colors justify-center md:justify-start">
                     <SettingsIcon className="w-4 h-4" />
                     アプリ設定
                 </button>
             </div>
-            <div className="mt-auto pt-4 border-t border-on-surface/10">
+            <div className="hidden md:block mt-auto pt-4 border-t border-on-surface/10">
                 <p className="text-[10px] text-on-surface-variant/50 text-center">DJ Timekeeper Pro v3.3.0</p>
             </div>
         </aside>
-        <main className="flex-1 flex flex-col min-w-0">
-            <div className="p-10 flex-1 overflow-y-auto custom-scrollbar">
-                <div className="space-y-10">
+        {/* Main Content */}
+        <main className="flex-1 flex flex-col min-w-0 h-[400px] md:h-auto">
+            <div className="p-5 md:p-10 flex-1 overflow-y-auto custom-scrollbar">
+                <div className="space-y-8 md:space-y-10">
                     <section>
                         <h3 className="text-lg font-bold text-on-surface mb-1">プロフィール</h3>
                         <p className="text-xs text-on-surface-variant mb-6 opacity-80">アプリ内で表示されるあなたの公開情報です。</p>
@@ -535,7 +585,7 @@ const DashboardSettingsModalPreview = () => (
                     </section>
                 </div>
             </div>
-            <div className="p-6 border-t border-on-surface/5 bg-surface-background/30 flex justify-end gap-3">
+            <div className="p-4 md:p-6 border-t border-on-surface/5 bg-surface-background/30 flex justify-end gap-3">
                 <NewButton variant="ghost" size="sm">キャンセル</NewButton>
                 <NewButton variant="primary" size="sm">設定を保存</NewButton>
             </div>
@@ -603,15 +653,11 @@ const NewTabs = ({ items, activeId, onChange }) => (
     </div>
 );
 
-// 10. Status Badge (★修正: 色分けの明確化)
+// 10. Status Badge (★修正: ON AIRを赤枠+発光+赤文字に変更)
 const NewBadge = ({ status, label }) => {
-    // ON AIR: 赤 (注目)
-    // UPCOMING: 青 (予定)
-    // FINISHED: グレー (終了)
-    // STANDBY: アンバー (待機)
     const styles = {
-        onAir: "bg-red-500/10 text-red-500 border-red-500/20 animate-pulse",
-        upcoming: "bg-brand-primary/10 text-brand-primary border-brand-primary/20", // 青
+        onAir: "bg-surface-container border border-red-500 text-red-500 shadow-[0_0_10px_rgba(239,68,68,0.4)]",
+        upcoming: "bg-brand-primary/10 text-brand-primary border-brand-primary/20",
         finished: "bg-on-surface/5 text-on-surface-variant border-on-surface/10",
         standby: "bg-amber-500/10 text-amber-500 border-amber-500/20"
     };
@@ -627,9 +673,9 @@ const NewBadge = ({ status, label }) => {
     );
 };
 
-// 11. Empty State
+// 11. Empty State (★修正: 透明度を削除し、ボタンをくっきりと表示)
 const NewEmptyState = ({ icon: Icon, title, description, action }) => (
-    <div className="flex flex-col items-center justify-center py-12 px-4 text-center opacity-80 hover:opacity-100 transition-opacity">
+    <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
         <div className="w-20 h-20 bg-surface-container rounded-full flex items-center justify-center mb-4 shadow-sm border border-on-surface/5">
             <Icon className="w-8 h-8 text-on-surface-variant" />
         </div>
@@ -740,7 +786,7 @@ export const UITestPage = ({ theme, toggleTheme }) => {
                 <header className="mb-12 flex items-center justify-between">
                     <div>
                         <h1 className="text-3xl font-bold text-on-surface mb-2 tracking-tight font-sans">UI Design Catalog</h1>
-                        <p className="text-on-surface-variant font-medium font-sans">v4.2.0 | Corrected Logic</p>
+                        <p className="text-on-surface-variant font-medium font-sans">v4.7.0 | Responsive & Final Polish</p>
                     </div>
                     <div className="flex gap-4">
                         <button onClick={toggleTheme} className="px-4 py-2 bg-surface-container rounded-xl shadow-sm border border-on-surface/10 dark:border-white/10 flex items-center gap-2 hover:bg-surface-background transition-colors">
@@ -818,8 +864,8 @@ export const UITestPage = ({ theme, toggleTheme }) => {
                     </div>
                 </Section>
 
-                {/* 3. Sortable Items (DJ/VJ) */}
-                <Section title="3. Sortable Items (DJ/VJ)" description="左端を揃え、入力エリアの視認性を高めたデザイン。">
+                {/* 3. Sortable Items (DJ/VJ) - SP最適化済み */}
+                <Section title="3. Sortable Items (DJ/VJ)" description="モバイルでは2段組みになり、入力エリアを確保するレスポンシブデザイン。">
                     <div className="space-y-4 max-w-2xl">
                         <NewSortableCard
                             initialName="DJ TAKUYA"
@@ -858,7 +904,6 @@ export const UITestPage = ({ theme, toggleTheme }) => {
                 </Section>
 
                 {/* 5. Dashboard Cards */}
-                {/* ★修正: max-w-4xl (6. Screen Previews と合わせる) */}
                 <Section title="5. Dashboard Cards" description="開始時間を追加し、情報を充実させたイベントカード。">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
                         <NewEventCard
@@ -884,7 +929,6 @@ export const UITestPage = ({ theme, toggleTheme }) => {
                     <div className="mb-12">
                         <CategoryHeader title="Dashboard View" />
                         <PreviewContainer>
-                            {/* ★修正: max-w-4xl & mx-auto で Section 5 と完全にサイズを同期 */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
                                 <NewEventCard title="Saturday Night Fever" date={{ month: 'NOV', day: '22' }} floors={2} startTime="22:00" isActive={false} />
                                 <NewEventCard title="Countdown Party 2025" date={{ month: 'DEC', day: '31' }} floors={3} startTime="20:00" isActive={true} />
@@ -934,7 +978,7 @@ export const UITestPage = ({ theme, toggleTheme }) => {
                             </div>
                         </div>
                     </div>
-                    {/* Demo Modal Trigger for verification */}
+                    {/* Demo Modal Trigger */}
                     <div className="mt-8 text-center">
                         <NewButton variant="primary" size="md" onClick={() => setIsDemoModalOpen(true)}>Open Demo Modal (Portal)</NewButton>
                     </div>
@@ -1000,7 +1044,7 @@ export const UITestPage = ({ theme, toggleTheme }) => {
                     />
                 </Section>
 
-                {/* 10. Status Badges */}
+                {/* 10. Status Badges (★修正: 変更反映済み) */}
                 <Section title="10. Status Badges" description="イベントの状態を一目で伝えるバッジ。">
                     <div className="flex flex-wrap gap-4">
                         <NewBadge status="onAir" label="ON AIR" />
@@ -1010,7 +1054,7 @@ export const UITestPage = ({ theme, toggleTheme }) => {
                     </div>
                 </Section>
 
-                {/* 11. Empty States */}
+                {/* 11. Empty States (★修正: 透過度削除) */}
                 <Section title="11. Empty States" description="データがない時のプレースホルダー。">
                     <PreviewContainer>
                         <NewEmptyState
@@ -1036,6 +1080,36 @@ export const UITestPage = ({ theme, toggleTheme }) => {
                             selectedColor={selectedColor}
                             onSelect={setSelectedColor}
                         />
+                    </div>
+                </Section>
+
+                {/* 13. Layout & Gutters (★新規追加) */}
+                <Section title="13. Layout & Gutters" description="サイト全体のラッパーとマージンルール（レスポンシブ対応）。">
+                    <div className="space-y-8">
+                        <div>
+                            <h4 className="text-sm font-bold text-on-surface mb-4">Global Page Wrapper</h4>
+                            <div className="bg-black/20 p-4 rounded-lg border border-on-surface/10 text-xs font-mono overflow-x-auto text-on-surface">
+                                {`<div className="min-h-screen bg-surface-background p-4 md:p-8 max-w-7xl mx-auto pb-32">`}
+                            </div>
+                            <div className="mt-4 grid grid-cols-1 gap-4">
+                                <div className="border border-dashed border-brand-primary/50 bg-brand-primary/5 p-4 rounded-lg text-center relative">
+                                    <span className="text-brand-primary font-bold text-xs block mb-2">max-w-7xl (1280px) mx-auto</span>
+                                    <div className="border border-dashed border-red-500/50 bg-red-500/5 p-4 rounded mx-4 md:mx-8 relative">
+                                        <span className="text-red-500 font-bold text-xs">p-4 (Mobile) / p-8 (Tablet+)</span>
+                                        <div className="bg-surface-container h-20 rounded shadow-sm border border-on-surface/10 flex items-center justify-center mt-2">
+                                            <span className="text-on-surface-variant font-bold">Content Area</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </Section>
+
+                {/* 14. Tactile Spinner (★新規追加) */}
+                <Section title="14. Tactile Spinner" description="物理的な質量と発光を感じさせるローディングアニメーション。">
+                    <div className="flex items-center justify-center p-12 bg-surface-background/50 rounded-3xl">
+                        <TactileSpinner />
                     </div>
                 </Section>
 
