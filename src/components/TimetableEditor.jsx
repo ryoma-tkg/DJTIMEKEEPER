@@ -31,6 +31,7 @@ import {
     ToastNotification,
     AlertTriangleIcon,
     MoonIcon,
+    SunIcon,
 
     // Constants & Helpers
     VIVID_COLORS,

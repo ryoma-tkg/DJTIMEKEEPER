@@ -21,11 +21,11 @@ import {
     CalendarIcon,
     VideoIcon,
     BaseModal,
-    Button, // 新しいButton
-    Input,  // 新しいInput
-    Label,  // 新しいLabel
-    Badge,  // 新しいBadge
-    Toggle, // 新しいToggle
+    Button,
+    Input,
+    Label,
+    Badge,
+    Toggle,
     AlertTriangleIcon,
     UserIcon,
     SearchIcon,
@@ -37,7 +37,7 @@ import {
 } from './common';
 import { DevControls } from './DevControls';
 
-// --- DashboardSettingsModal (リニューアル) ---
+// --- DashboardSettingsModal (Catalog Design) ---
 const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout, user, userProfile, onViewUser }) => {
     const [activeTab, setActiveTab] = useState('account');
     const [displayName, setDisplayName] = useState(user?.displayName || '');
@@ -274,272 +274,218 @@ const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout,
         );
     };
 
-    // フッターコンテンツ
-    const footerContent = (
-        <div className="flex justify-end gap-3">
-            <Button onClick={onClose} variant="ghost">キャンセル</Button>
-            <Button onClick={handleSave} variant="primary" disabled={isSaving || isDeletingAccount}>
-                {isSaving ? '保存中...' : '設定を保存'}
-            </Button>
-        </div>
-    );
-
     return (
-        <>
-            <BaseModal isOpen={isOpen} onClose={onClose} maxWidthClass="max-w-4xl" isScrollable={false} noPadding={true} hasCloseButton={false} footer={null}>
-                <div className="flex flex-col md:flex-row h-[70vh] md:h-[550px]">
-                    <aside className="w-full md:w-64 bg-surface-background border-b md:border-b-0 md:border-r border-on-surface/10 flex flex-col flex-shrink-0">
-                        <div className="p-4 pt-6 pb-2">
-                            <div className="flex items-center gap-3 mb-4 px-2">
-                                <div className="w-6 h-6 rounded-full bg-on-surface/10 flex items-center justify-center shrink-0 overflow-hidden">
-                                    {user?.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover" /> : <UserIcon className="w-4 h-4 text-on-surface-variant" />}
-                                </div>
-                                <span className="text-sm font-bold text-on-surface truncate opacity-80">{user?.displayName || 'User'}</span>
+        <BaseModal isOpen={isOpen} onClose={onClose} maxWidthClass="max-w-4xl" isScrollable={false} noPadding={true} hasCloseButton={false} footer={null}>
+            <div className="flex flex-col md:flex-row h-[70vh] md:h-[550px]">
+                <aside className="w-full md:w-64 bg-surface-background border-b md:border-b-0 md:border-r border-on-surface/5 flex flex-col flex-shrink-0">
+                    <div className="p-4 pt-6 pb-2">
+                        <div className="flex items-center gap-3 mb-4 px-2">
+                            <div className="w-10 h-10 rounded-full bg-brand-primary flex items-center justify-center text-white font-bold text-lg shadow-sm">
+                                {user?.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover rounded-full" /> : (user?.displayName?.[0] || "U")}
                             </div>
-                            <div className="text-[10px] font-bold text-on-surface-variant/50 uppercase tracking-wider px-2 mb-1">Settings</div>
+                            <span className="font-bold text-sm text-on-surface truncate">{user?.displayName || 'User Name'}</span>
                         </div>
-                        <div className="flex-1 px-3 flex flex-col gap-1 overflow-y-auto">
-                            <MenuButton id="account" label="アカウント管理" icon={UserIcon} />
-                            <MenuButton id="event" label="イベント初期設定" icon={SettingsIcon} />
-                            <MenuButton id="app" label="アプリ設定" icon={SettingsIcon} />
+                        <div className="text-[10px] font-bold text-on-surface-variant/50 uppercase tracking-wider px-2 mb-1">Settings</div>
+                    </div>
+                    <div className="flex-1 px-3 flex flex-col gap-1 overflow-y-auto">
+                        <MenuButton id="account" label="アカウント管理" icon={UserIcon} />
+                        <MenuButton id="event" label="イベント初期設定" icon={SettingsIcon} />
+                        <MenuButton id="app" label="アプリ設定" icon={SettingsIcon} />
 
-                            {isAdmin && (
-                                <>
-                                    <div className="my-2 border-t border-on-surface/10 mx-2"></div>
-                                    <div className="text-[10px] font-bold text-brand-primary uppercase tracking-wider px-2 mb-1 mt-1">Administrator Menu</div>
-                                    <MenuButton id="admin_support" label="ユーザーサポート" icon={SearchIcon} />
-                                    {isSuperAdmin && (
-                                        <MenuButton id="admin_role" label="管理者権限管理" icon={PowerIcon} />
-                                    )}
-                                </>
-                            )}
-                        </div>
-                        <div className="p-4 border-t border-on-surface/10">
-                            <p className="text-[10px] text-on-surface-variant/40 font-mono text-center">DJ Timekeeper Pro {APP_VERSION}</p>
-                        </div>
-                    </aside>
-                    <main className="flex-1 flex flex-col h-full bg-surface-container relative">
-                        <div className="absolute top-4 right-4 z-20">
-                            <button onClick={onClose} className="p-2 text-on-surface-variant hover:bg-surface-background hover:text-on-surface rounded-full transition-colors">
-                                <XIcon className="w-5 h-5" />
-                            </button>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-6 md:p-10 md:pt-12 space-y-10 custom-scrollbar">
-                            {activeTab === 'account' && (
-                                <div className="animate-fade-in space-y-10">
-                                    <section>
-                                        <div className="mb-6 pb-2 border-b border-on-surface/5">
-                                            <h3 className="text-base font-bold text-on-surface">プロフィール</h3>
-                                            <p className="text-xs text-on-surface-variant mt-1 leading-relaxed opacity-80">アプリ内で表示されるあなたの公開情報です。</p>
+                        {isAdmin && (
+                            <>
+                                <div className="my-2 border-t border-on-surface/10 mx-2"></div>
+                                <div className="text-[10px] font-bold text-brand-primary uppercase tracking-wider px-2 mb-1 mt-1">Administrator</div>
+                                <MenuButton id="admin_support" label="ユーザーサポート" icon={SearchIcon} />
+                                {isSuperAdmin && (
+                                    <MenuButton id="admin_role" label="管理者権限管理" icon={PowerIcon} />
+                                )}
+                            </>
+                        )}
+                    </div>
+                    <div className="hidden md:block mt-auto pt-4 border-t border-on-surface/10 p-4">
+                        <p className="text-[10px] text-on-surface-variant/50 font-mono text-center">DJ Timekeeper Pro {APP_VERSION}</p>
+                    </div>
+                </aside>
+                <main className="flex-1 flex flex-col h-full bg-surface-container relative">
+                    <div className="absolute top-4 right-4 z-20">
+                        <button onClick={onClose} className="p-2 text-on-surface-variant hover:bg-surface-background hover:text-on-surface rounded-full transition-colors">
+                            <XIcon className="w-5 h-5" />
+                        </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-6 md:p-10 md:pt-12 space-y-10 custom-scrollbar">
+                        {activeTab === 'account' && (
+                            <div className="animate-fade-in space-y-10">
+                                <section>
+                                    <div className="mb-6 pb-2 border-b border-on-surface/5">
+                                        <h3 className="text-lg font-bold text-on-surface mb-1">プロフィール</h3>
+                                        <p className="text-xs text-on-surface-variant mt-1 leading-relaxed opacity-80">アプリ内で表示されるあなたの公開情報です。</p>
+                                    </div>
+                                    <div className="space-y-5">
+                                        <div>
+                                            <Label>表示名</Label>
+                                            <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="DJ Name" />
                                         </div>
-                                        <div className="flex items-start gap-6">
-                                            <div className="w-20 h-20 rounded-full bg-surface-background border border-on-surface/10 shadow-sm overflow-hidden flex items-center justify-center shrink-0">
-                                                {user?.photoURL ? <img src={user.photoURL} alt="User" className="w-full h-full object-cover" /> : <UserIcon className="w-10 h-10 text-on-surface-variant/50" />}
-                                            </div>
-                                            <div className="flex-grow max-w-md space-y-5">
-                                                <Input
-                                                    label="表示名 (ニックネーム)"
-                                                    value={displayName}
-                                                    onChange={(e) => setDisplayName(e.target.value)}
-                                                    placeholder="DJ Name"
-                                                />
-                                                <div>
-                                                    <Label>メールアドレス</Label>
-                                                    <div className="text-sm font-mono text-on-surface-variant border-b border-dashed border-on-surface/20 pb-1 inline-block">{user?.email}</div>
+                                        <div>
+                                            <Label>メールアドレス</Label>
+                                            <div className="text-sm font-mono text-on-surface-variant border-b border-dashed border-on-surface/20 pb-1 inline-block">{user?.email}</div>
+                                        </div>
+                                    </div>
+                                </section>
+                                <section>
+                                    <div className="mb-4 border-b border-red-500/20 pb-2">
+                                        <h3 className="text-base font-bold text-red-500 flex items-center gap-2"><AlertTriangleIcon className="w-4 h-4" /> Danger Zone</h3>
+                                    </div>
+                                    <div className="p-6 border border-red-500/20 bg-red-500/5 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                                        <div>
+                                            <p className="font-bold text-on-surface text-sm">アカウントを削除する</p>
+                                            <p className="text-xs text-on-surface-variant mt-1 leading-relaxed opacity-80">全てのデータが削除されます。この操作は取り消せません。</p>
+                                        </div>
+                                        <Button onClick={() => setIsDeleteConfirmOpen(true)} variant="danger" size="sm" disabled={isDeletingAccount}>{isDeletingAccount ? '処理中...' : '削除する'}</Button>
+                                    </div>
+                                </section>
+                            </div>
+                        )}
+
+                        {activeTab === 'event' && (
+                            <div className="animate-fade-in space-y-10">
+                                <section>
+                                    <div className="mb-6 pb-2 border-b border-on-surface/5">
+                                        <h3 className="text-lg font-bold text-on-surface mb-1">デフォルトの時間設定</h3>
+                                    </div>
+                                    <div className="max-w-xs pl-1">
+                                        <Label>開始時間</Label>
+                                        <CustomTimeInput value={preferences.defaultStartTime} onChange={(v) => setPreferences(p => ({ ...p, defaultStartTime: v }))} />
+                                    </div>
+                                </section>
+                                <section>
+                                    <div className="mb-6 pb-2 border-b border-on-surface/5">
+                                        <h3 className="text-lg font-bold text-on-surface mb-1">機能の有効化</h3>
+                                    </div>
+                                    <div className="bg-surface-background/50 rounded-xl px-4 py-2 space-y-2 border border-on-surface/5">
+                                        <Toggle checked={preferences.defaultVjEnabled} onChange={(val) => setPreferences(p => ({ ...p, defaultVjEnabled: val }))} label="VJタイムテーブル機能" icon={VideoIcon} />
+                                        <div className="border-t border-on-surface/5"></div>
+                                        <Toggle checked={preferences.defaultMultiFloor} onChange={(val) => setPreferences(p => ({ ...p, defaultMultiFloor: val }))} label="複数フロア機能" icon={LayersIcon} />
+                                    </div>
+                                </section>
+                            </div>
+                        )}
+                        {activeTab === 'app' && (
+                            <div className="animate-fade-in space-y-10">
+                                <section>
+                                    <div className="mb-6 pb-2 border-b border-on-surface/5">
+                                        <h3 className="text-lg font-bold text-on-surface mb-1">表示設定</h3>
+                                    </div>
+                                    <div className="bg-surface-background/50 rounded-xl px-4 py-2 space-y-2 border border-on-surface/5">
+                                        <Toggle checked={theme === 'dark'} onChange={toggleTheme} label="ダークモード" icon={theme === 'dark' ? MoonIcon : SunIcon} />
+                                        <div className="border-t border-on-surface/5"></div>
+                                        <Toggle checked={isWakeLockEnabled} onChange={handleWakeLockToggle} label="LIVEモードのスリープ防止" icon={isWakeLockEnabled ? SunIcon : MoonIcon} />
+                                    </div>
+                                </section>
+                            </div>
+                        )}
+
+                        {activeTab === 'admin_support' && isAdmin && (
+                            <div className="animate-fade-in space-y-10">
+                                <section>
+                                    <div className="mb-6 pb-2 border-b border-on-surface/5">
+                                        <h3 className="text-lg font-bold text-on-surface mb-1">ユーザーサポート</h3>
+                                        <p className="text-xs text-on-surface-variant mt-1 leading-relaxed opacity-80">ユーザーのEmailまたはUIDで検索し、ダッシュボードを閲覧します。</p>
+                                    </div>
+                                    <div className="max-w-md space-y-4 pl-1">
+                                        <Input
+                                            label="ユーザーのEmail / UID"
+                                            value={supportSearchEmail}
+                                            onChange={(e) => { setSupportSearchEmail(e.target.value); setSupportSearchStatus(''); }}
+                                            placeholder="user@example.com"
+                                        />
+                                        <div className="flex justify-end">
+                                            <Button onClick={handleSupportSearch} disabled={!supportSearchEmail || supportSearchStatus === 'searching'} variant="secondary" icon={SearchIcon}>
+                                                {supportSearchStatus === 'searching' ? '検索中...' : '検索'}
+                                            </Button>
+                                        </div>
+
+                                        {supportSearchStatus === 'not-found' && (<div className="p-4 bg-red-500/10 text-red-500 rounded-xl text-sm font-bold flex items-center gap-2 border border-red-500/20"><span>⚠️ ユーザーが見つかりませんでした。</span></div>)}
+                                        {supportSearchStatus === 'found' && foundUser && (
+                                            <div className="p-4 bg-surface-background border border-on-surface/10 dark:border-white/10 rounded-xl shadow-sm space-y-4">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-12 h-12 rounded-full bg-on-surface/10 overflow-hidden border border-on-surface/10">
+                                                        {foundUser.photoURL ? <img src={foundUser.photoURL} className="w-full h-full object-cover" /> : <UserIcon className="w-6 h-6 m-3 text-on-surface-variant" />}
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-bold text-base text-on-surface">{foundUser.displayName || 'No Name'}</div>
+                                                        <div className="text-xs text-on-surface-variant font-mono">{foundUser.email}</div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </div>
-                                    </section>
-                                    <section>
-                                        <div className="mb-6 pb-2 border-b border-on-surface/5"><h3 className="text-base font-bold text-on-surface">セッション</h3></div>
-                                        <button onClick={onLogout} className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-on-surface-variant hover:text-on-surface hover:bg-surface-background rounded-lg transition-colors border border-on-surface/10">
-                                            <LogOutIcon className="w-4 h-4" />
-                                            <span>アカウントからログアウト</span>
-                                        </button>
-                                    </section>
-                                    <section>
-                                        <div className="mb-4 border-b border-red-500/20 pb-2">
-                                            <h3 className="text-base font-bold text-red-500 flex items-center gap-2"><AlertTriangleIcon className="w-4 h-4" /> Danger Zone</h3>
-                                        </div>
-                                        <div className="p-5 border border-red-500/20 bg-red-500/5 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                                            <div>
-                                                <p className="font-bold text-on-surface text-sm">アカウントを削除する</p>
-                                                <p className="text-xs text-on-surface-variant mt-1 leading-relaxed opacity-80">作成したすべてのイベント、アップロードした画像、設定が<br className="hidden sm:block" />完全に削除されます。この操作は取り消せません。</p>
-                                            </div>
-                                            <Button onClick={() => setIsDeleteConfirmOpen(true)} variant="danger" size="sm" disabled={isDeletingAccount}>{isDeletingAccount ? '処理中...' : '削除する'}</Button>
-                                        </div>
-                                    </section>
-                                </div>
-                            )}
-                            {activeTab === 'event' && (
-                                <div className="animate-fade-in space-y-10">
-                                    <section>
-                                        <div className="mb-6 pb-2 border-b border-on-surface/5">
-                                            <h3 className="text-base font-bold text-on-surface">デフォルトの時間設定</h3>
-                                            <p className="text-xs text-on-surface-variant mt-1 leading-relaxed opacity-80">「新規イベント作成」時に自動的にセットされる開始時間を指定します。</p>
-                                        </div>
-                                        <div className="max-w-xs pl-1">
-                                            <Label>開始時間</Label>
-                                            <CustomTimeInput value={preferences.defaultStartTime} onChange={(v) => setPreferences(p => ({ ...p, defaultStartTime: v }))} />
-                                        </div>
-                                    </section>
-                                    <section>
-                                        <div className="mb-6 pb-2 border-b border-on-surface/5">
-                                            <h3 className="text-base font-bold text-on-surface">機能の有効化</h3>
-                                            <p className="text-xs text-on-surface-variant mt-1 leading-relaxed opacity-80">イベント作成時に、以下の機能を最初からONにしておくか設定します。</p>
-                                        </div>
-                                        <div className="space-y-2 max-w-xl pl-1">
-                                            <Toggle
-                                                checked={preferences.defaultVjEnabled}
-                                                onChange={(val) => setPreferences(p => ({ ...p, defaultVjEnabled: val }))}
-                                                label="VJタイムテーブル機能"
-                                                icon={VideoIcon}
-                                                description="DJとは別に、VJ（Visual Jockey）用のタイムテーブルも管理できるようになります。"
-                                            />
-                                            <div className="border-t border-on-surface/5 my-2"></div>
-                                            <Toggle
-                                                checked={preferences.defaultMultiFloor}
-                                                onChange={(val) => setPreferences(p => ({ ...p, defaultMultiFloor: val }))}
-                                                label="複数フロア機能"
-                                                icon={LayersIcon}
-                                                description="メインフロア以外に、サブフロアやラウンジなど複数のステージを持つイベントを作成する場合にONにします。"
-                                            />
-                                        </div>
-                                    </section>
-                                </div>
-                            )}
-                            {activeTab === 'app' && (
-                                <div className="animate-fade-in space-y-10">
-                                    <section>
-                                        <div className="mb-6 pb-2 border-b border-on-surface/5">
-                                            <h3 className="text-base font-bold text-on-surface">表示設定</h3>
-                                            <p className="text-xs text-on-surface-variant mt-1 leading-relaxed opacity-80">このデバイスでのアプリの見た目をカスタマイズします。</p>
-                                        </div>
-                                        <div className="max-w-xl pl-1">
-                                            <Toggle
-                                                checked={theme === 'dark'}
-                                                onChange={toggleTheme}
-                                                label="ダークモード"
-                                                icon={theme === 'dark' ? MoonIcon : SunIcon}
-                                                description="画面の配色を暗いトーンに変更します。"
-                                            />
-                                            <div className="border-t border-on-surface/5 my-2"></div>
-                                            <Toggle
-                                                checked={isWakeLockEnabled}
-                                                onChange={handleWakeLockToggle}
-                                                label="LIVEモードのスリープ防止"
-                                                icon={isWakeLockEnabled ? SunIcon : MoonIcon}
-                                                description="LIVEモードを表示中、デバイスが自動的にスリープしないようにします。"
-                                            />
-                                        </div>
-                                    </section>
-                                </div>
-                            )}
-
-                            {activeTab === 'admin_support' && isAdmin && (
-                                <div className="animate-fade-in space-y-10">
-                                    <section>
-                                        <div className="mb-6 pb-2 border-b border-on-surface/5">
-                                            <h3 className="text-base font-bold text-on-surface">ユーザーサポート (ダッシュボード閲覧)</h3>
-                                            <p className="text-xs text-on-surface-variant mt-1 leading-relaxed opacity-80">ユーザーのEmailまたはUIDで検索し、そのユーザーとしてダッシュボードを表示します。</p>
-                                        </div>
-                                        <div className="max-w-md space-y-4 pl-1">
-                                            <Input
-                                                label="ユーザーのEmail / UID"
-                                                value={supportSearchEmail}
-                                                onChange={(e) => { setSupportSearchEmail(e.target.value); setSupportSearchStatus(''); }}
-                                                placeholder="user@example.com"
-                                            />
-                                            <div className="flex justify-end">
-                                                <Button onClick={handleSupportSearch} disabled={!supportSearchEmail || supportSearchStatus === 'searching'} variant="secondary" icon={SearchIcon}>
-                                                    {supportSearchStatus === 'searching' ? '検索中...' : '検索'}
+                                                <Button onClick={() => { onViewUser(foundUser); onClose(); }} variant="primary" className="w-full">
+                                                    ダッシュボードを見る
                                                 </Button>
                                             </div>
+                                        )}
+                                    </div>
+                                </section>
+                            </div>
+                        )}
 
-                                            {supportSearchStatus === 'not-found' && (<div className="p-3 bg-red-500/10 text-red-500 rounded-lg text-sm font-bold flex items-center gap-2"><span>⚠️ ユーザーが見つかりませんでした。</span></div>)}
-                                            {supportSearchStatus === 'found' && foundUser && (
-                                                <div className="p-4 bg-surface-background border-2 border-brand-primary/30 rounded-xl space-y-3">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 rounded-full bg-on-surface/10 overflow-hidden">
-                                                            {foundUser.photoURL ? <img src={foundUser.photoURL} className="w-full h-full object-cover" /> : <UserIcon className="w-6 h-6 m-2 text-on-surface-variant" />}
+                        {activeTab === 'admin_role' && isSuperAdmin && (
+                            <div className="animate-fade-in space-y-10">
+                                <section>
+                                    <div className="mb-6 pb-2 border-b border-on-surface/5">
+                                        <h3 className="text-lg font-bold text-on-surface mb-1">管理者権限の管理</h3>
+                                    </div>
+                                    <div className="max-w-md space-y-4 pl-1">
+                                        <Input
+                                            label="対象ユーザーのメールアドレス"
+                                            value={targetEmail}
+                                            onChange={(e) => { setTargetEmail(e.target.value); setAdminSearchStatus(''); }}
+                                            placeholder="admin@example.com"
+                                        />
+                                        <div className="flex justify-end">
+                                            <Button onClick={handleGrantAdmin} disabled={!targetEmail || adminSearchStatus === 'searching'}>
+                                                {adminSearchStatus === 'searching' ? '検索中...' : '権限を付与'}
+                                            </Button>
+                                        </div>
+                                        {adminSearchStatus === 'success' && (<div className="p-3 bg-green-500/10 text-green-500 rounded-lg text-sm font-bold flex items-center gap-2"><span>✅ 権限を付与しました！</span></div>)}
+                                        {adminSearchStatus === 'not-found' && (<div className="p-3 bg-red-500/10 text-red-500 rounded-lg text-sm font-bold flex items-center gap-2"><span>⚠️ ユーザーが見つかりませんでした。</span></div>)}
+                                        {adminSearchStatus === 'already-admin' && (<div className="p-3 bg-brand-primary/10 text-brand-primary rounded-lg text-sm font-bold flex items-center gap-2"><span>ℹ️ このユーザーは既に管理者です。</span></div>)}
+                                        {adminSearchStatus === 'error' && (<div className="p-3 bg-red-500/10 text-red-500 rounded-lg text-sm font-bold flex items-center gap-2"><span>❌ エラーが発生しました。</span></div>)}
+                                    </div>
+                                </section>
+                                <section>
+                                    <div className="mb-6 pb-2 border-b border-on-surface/5">
+                                        <h3 className="text-lg font-bold text-on-surface mb-1">現在の管理者一覧</h3>
+                                    </div>
+                                    <div className="max-w-lg space-y-3 pl-1">
+                                        {adminList.length > 0 ? (
+                                            adminList.map((admin) => (
+                                                <div key={admin.id} className="flex items-center justify-between p-3 bg-surface-background rounded-xl border border-on-surface/10 shadow-sm">
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <div className="w-10 h-10 rounded-full bg-on-surface/10 flex items-center justify-center shrink-0 overflow-hidden border border-on-surface/5">
+                                                            {admin.photoURL ? <img src={admin.photoURL} className="w-full h-full object-cover" /> : <UserIcon className="w-5 h-5 text-on-surface-variant" />}
                                                         </div>
-                                                        <div>
-                                                            <div className="font-bold text-sm text-on-surface">{foundUser.displayName || 'No Name'}</div>
-                                                            <div className="text-xs text-on-surface-variant font-mono">{foundUser.email}</div>
+                                                        <div className="min-w-0">
+                                                            <div className="text-sm font-bold text-on-surface truncate flex items-center gap-2">{admin.displayName || 'No Name'} {admin.uid === SUPER_ADMIN_UID && <span className="text-[10px] bg-brand-primary/10 text-brand-primary px-1.5 py-0.5 rounded border border-brand-primary/20">YOU</span>}</div>
+                                                            <div className="text-xs text-on-surface-variant truncate font-mono opacity-70">{admin.email}</div>
                                                         </div>
                                                     </div>
-                                                    <Button onClick={() => { onViewUser(foundUser); onClose(); }} variant="primary" className="w-full">
-                                                        このユーザーのダッシュボードを見る
-                                                    </Button>
+                                                    {admin.uid !== SUPER_ADMIN_UID && (
+                                                        <button onClick={() => handleRemoveAdmin(admin.id, admin.displayName)} className="p-2 text-on-surface-variant hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors" title="管理者権限を剥奪"><XIcon className="w-4 h-4" /></button>
+                                                    )}
                                                 </div>
-                                            )}
-                                        </div>
-                                    </section>
-                                </div>
-                            )}
-
-                            {activeTab === 'admin_role' && isSuperAdmin && (
-                                <div className="animate-fade-in space-y-10">
-                                    <section>
-                                        <div className="mb-6 pb-2 border-b border-on-surface/5">
-                                            <h3 className="text-base font-bold text-on-surface">新しい管理者の追加</h3>
-                                            <p className="text-xs text-on-surface-variant mt-1 leading-relaxed opacity-80">指定したメールアドレスのユーザーに管理者権限を付与します。</p>
-                                        </div>
-                                        <div className="max-w-md space-y-4 pl-1">
-                                            <Input
-                                                label="対象ユーザーのメールアドレス"
-                                                value={targetEmail}
-                                                onChange={(e) => { setTargetEmail(e.target.value); setAdminSearchStatus(''); }}
-                                                placeholder="admin@example.com"
-                                            />
-                                            <div className="flex justify-end">
-                                                <Button onClick={handleGrantAdmin} disabled={!targetEmail || adminSearchStatus === 'searching'}>
-                                                    {adminSearchStatus === 'searching' ? '検索中...' : '権限を付与'}
-                                                </Button>
-                                            </div>
-                                            {adminSearchStatus === 'success' && (<div className="p-3 bg-green-500/10 text-green-500 rounded-lg text-sm font-bold flex items-center gap-2"><span>✅ 権限を付与しました！</span></div>)}
-                                            {adminSearchStatus === 'not-found' && (<div className="p-3 bg-red-500/10 text-red-500 rounded-lg text-sm font-bold flex items-center gap-2"><span>⚠️ ユーザーが見つかりませんでした。</span></div>)}
-                                            {adminSearchStatus === 'already-admin' && (<div className="p-3 bg-brand-primary/10 text-brand-primary rounded-lg text-sm font-bold flex items-center gap-2"><span>ℹ️ このユーザーは既に管理者です。</span></div>)}
-                                            {adminSearchStatus === 'error' && (<div className="p-3 bg-red-500/10 text-red-500 rounded-lg text-sm font-bold flex items-center gap-2"><span>❌ エラーが発生しました。</span></div>)}
-                                        </div>
-                                    </section>
-                                    <section>
-                                        <div className="mb-6 pb-2 border-b border-on-surface/5">
-                                            <h3 className="text-base font-bold text-on-surface">現在の管理者一覧</h3>
-                                            <p className="text-xs text-on-surface-variant mt-1 leading-relaxed opacity-80">現在、管理者権限を持っているユーザーのリストです。</p>
-                                        </div>
-                                        <div className="max-w-lg space-y-3 pl-1">
-                                            {adminList.length > 0 ? (
-                                                adminList.map((admin) => (
-                                                    <div key={admin.id} className="flex items-center justify-between p-3 bg-surface-background rounded-xl border border-on-surface/10">
-                                                        <div className="flex items-center gap-3 min-w-0">
-                                                            <div className="w-8 h-8 rounded-full bg-on-surface/10 flex items-center justify-center shrink-0 overflow-hidden">
-                                                                {admin.photoURL ? <img src={admin.photoURL} className="w-full h-full object-cover" /> : <UserIcon className="w-4 h-4 text-on-surface-variant" />}
-                                                            </div>
-                                                            <div className="min-w-0">
-                                                                <div className="text-sm font-bold text-on-surface truncate flex items-center gap-2">{admin.displayName || 'No Name'} {admin.uid === SUPER_ADMIN_UID && <span className="text-[10px] bg-brand-primary/10 text-brand-primary px-1.5 py-0.5 rounded">YOU</span>}</div>
-                                                                <div className="text-xs text-on-surface-variant truncate font-mono opacity-70">{admin.email}</div>
-                                                            </div>
-                                                        </div>
-                                                        {admin.uid !== SUPER_ADMIN_UID && (
-                                                            <button onClick={() => handleRemoveAdmin(admin.id, admin.displayName)} className="p-2 text-on-surface-variant hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors" title="管理者権限を剥奪"><XIcon className="w-4 h-4" /></button>
-                                                        )}
-                                                    </div>
-                                                ))
-                                            ) : (<p className="text-sm text-on-surface-variant p-2">読み込み中、または管理者がいません。</p>)}
-                                        </div>
-                                    </section>
-                                </div>
-                            )}
-                        </div>
-                        <div className="p-4 px-8 border-t border-on-surface/5 flex justify-end gap-3 bg-surface-container/95 backdrop-blur-sm z-10 flex-shrink-0">
-                            {footerContent}
-                        </div>
-                    </main>
-                </div>
-            </BaseModal>
-            <ConfirmModal isOpen={isDeleteConfirmOpen} title="アカウント削除の確認" message="【警告】本当にアカウントを削除しますか？ これにより、あなたが作成したすべてのイベント、アップロードした画像、および設定が完全に削除されます。この操作は取り消すことができません。" onConfirm={executeDeleteAccount} onCancel={() => setIsDeleteConfirmOpen(false)} />
-        </>
+                                            ))
+                                        ) : (<p className="text-sm text-on-surface-variant p-2">読み込み中、または管理者がいません。</p>)}
+                                    </div>
+                                </section>
+                            </div>
+                        )}
+                    </div>
+                    <div className="p-4 md:p-6 border-t border-on-surface/5 bg-surface-background/30 flex justify-end gap-3 z-10 flex-shrink-0">
+                        <Button onClick={onClose} variant="ghost" size="sm">キャンセル</Button>
+                        <Button onClick={handleSave} variant="primary" size="sm" disabled={isSaving || isDeletingAccount}>{isSaving ? '保存中...' : '設定を保存'}</Button>
+                    </div>
+                </main>
+            </div>
+        </BaseModal>
     );
 };
 
@@ -600,15 +546,15 @@ const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences }) => {
                         <div><Label>開始時間</Label><CustomTimeInput value={config.startTime} onChange={(v) => setConfig({ ...config, startTime: v })} /></div>
                     </div>
                 </div>
-                <hr className="border-on-surface/10" />
-                <div className="space-y-2">
-                    <Label>オプション設定</Label>
-                    <div className="bg-surface-background/50 rounded-xl px-4 py-2 space-y-2">
-                        <Toggle checked={config.vjEnabled} onChange={(val) => setConfig({ ...config, vjEnabled: val })} label="VJタイムテーブル機能" icon={VideoIcon} />
+
+                {/* Catalog Design Option Settings (Rounded Gray Box) */}
+                <div className="pt-2">
+                    <div className="text-xs font-bold text-on-surface-variant mb-2 uppercase tracking-wider">オプション設定</div>
+                    <div className="bg-surface-background/50 rounded-xl px-4 py-2 space-y-2 border border-on-surface/5">
+                        <Toggle checked={config.vjEnabled} onChange={(val) => setConfig({ ...config, vjEnabled: val })} label="VJタイムテーブル機能" icon={VideoIcon} description="VJのタイムテーブルも管理します" />
                         <div className="border-t border-on-surface/5"></div>
-                        <Toggle checked={config.isMultiFloor} onChange={(val) => setConfig({ ...config, isMultiFloor: val })} label="複数フロアを使用" icon={LayersIcon} />
+                        <Toggle checked={config.isMultiFloor} onChange={(val) => setConfig({ ...config, isMultiFloor: val })} label="複数フロアを使用" icon={LayersIcon} description="メインフロア以外のステージを追加します" />
                     </div>
-                    <p className="text-xs text-on-surface-variant/60 px-2">※ 複数フロアをONにすると、初期状態で2つのフロアが作成されます。</p>
                 </div>
             </div>
         </BaseModal>
@@ -632,7 +578,6 @@ const isEventActive = (event) => {
     return now >= start && now < end;
 };
 
-// --- Event Card (New Design) ---
 const EventCard = ({ event, onDeleteClick, onClick }) => {
     const floorCount = event.floors ? Object.keys(event.floors).length : 0;
     const displayFloors = (floorCount === 0 && event.timetable) ? '1 Floor' : `${floorCount} Floors`;
@@ -677,7 +622,6 @@ const EventCard = ({ event, onDeleteClick, onClick }) => {
                         ${isMenuOpen ? 'bg-surface-background text-on-surface' : 'text-on-surface-variant/50 hover:text-on-surface hover:bg-surface-background/50'}
                     `}
                 >
-                    {/* More Icon Vertical */}
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
                         <circle cx="12" cy="12" r="1"></circle>
                         <circle cx="12" cy="5" r="1"></circle>
@@ -713,18 +657,16 @@ const EventCard = ({ event, onDeleteClick, onClick }) => {
                             <Badge status="onAir" label="NOW ON AIR" />
                         </div>
                     )}
-                    <h3 className={`text-base md:text-lg font-bold truncate mb-1 font-sans transition-colors ${isActive ? 'text-on-surface' : 'text-on-surface group-hover:text-brand-primary'}`}>{event.eventConfig.title || '無題のイベント'}</h3>
+                    <h3 className={`text-base md:text-lg font-bold truncate mb-1 font-sans transition-colors ${isActive ? 'text-on-surface' : 'text-on-surface group-hover:text-brand-primary'}`}>{title}</h3>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-bold text-on-surface-variant">
                         <div className="flex items-center gap-1.5">
                             <LayersIcon className="w-3 h-3" />
-                            <span>{displayFloors}</span>
+                            <span>{floors} Floors</span>
                         </div>
-                        {event.eventConfig.startTime && (
-                            <div className="flex items-center gap-1.5">
-                                <ClockIcon className="w-3 h-3" />
-                                <span className="font-mono">START {event.eventConfig.startTime}</span>
-                            </div>
-                        )}
+                        <div className="flex items-center gap-1.5">
+                            <ClockIcon className="w-3 h-3" />
+                            <span className="font-mono">START {startTime}</span>
+                        </div>
                     </div>
                 </div>
             </div>
