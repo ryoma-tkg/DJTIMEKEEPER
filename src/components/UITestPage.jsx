@@ -155,32 +155,51 @@ const NewToggle = ({ label, checked = false, onChange, icon: Icon, description }
     </div>
 );
 
-// 4. DJ/VJ Card (★修正: SP対応 - 縦積みレイアウト)
+// 4. DJ/VJ Card (★修正: SP対応 & レイアウト改善)
 const NewSortableCard = ({ initialName, initialDuration, time, color, isDragging }) => {
     const [name, setName] = useState(initialName);
     const [duration, setDuration] = useState(initialDuration);
 
     return (
         <div className={`
-            group relative flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4 p-3 md:p-3 md:pr-4 rounded-2xl bg-surface-container
+            group relative p-3 md:p-3 md:pr-4 rounded-2xl bg-surface-container
             border border-on-surface/10 dark:border-white/10 overflow-visible
             transition-all duration-300
             ${isDragging ? 'scale-105 shadow-2xl z-50 ring-2 ring-brand-primary' : 'shadow-sm hover:shadow-md hover:border-on-surface/20'}
         `}>
-            {/* Top Row (Mobile) / Left Side (Desktop) */}
-            <div className="flex items-center w-full md:w-auto gap-3">
-                <div className="flex-shrink-0 cursor-grab touch-none text-on-surface-variant/30 hover:text-on-surface-variant p-2 -ml-2 md:ml-0">
-                    <GripIcon className="w-5 h-5" />
-                </div>
-                <button
-                    className="flex-shrink-0 w-12 h-12 md:w-14 md:h-14 rounded-full bg-surface-background border border-on-surface/10 hover:border-brand-primary transition-colors overflow-hidden relative group/icon shadow-inner"
-                    title="アイコンを変更"
-                >
-                    <div className="w-full h-full flex items-center justify-center text-on-surface-variant/20 group-hover/icon:text-brand-primary/50">
-                        <UserIcon className="w-6 h-6 md:w-7 md:h-7" />
+            {/* --- SP Layout (Stack) --- */}
+            <div className="md:hidden flex flex-col gap-3">
+                {/* Row 1: Grip, Icon, Actions (Right aligned) */}
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="flex-shrink-0 cursor-grab touch-none text-on-surface-variant/30 hover:text-on-surface-variant p-2 -ml-2">
+                            <GripIcon className="w-5 h-5" />
+                        </div>
+                        <button
+                            className="flex-shrink-0 w-12 h-12 rounded-full bg-surface-background border border-on-surface/10 hover:border-brand-primary transition-colors overflow-hidden relative group/icon shadow-inner"
+                            title="アイコンを変更"
+                        >
+                            <div className="w-full h-full flex items-center justify-center text-on-surface-variant/20 group-hover/icon:text-brand-primary/50">
+                                <UserIcon className="w-6 h-6" />
+                            </div>
+                        </button>
                     </div>
-                </button>
-                <div className="flex-grow md:hidden">
+                    {/* SP Actions: Horizontal Layout & No overflow */}
+                    <div className="flex items-center gap-3">
+                        <button className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-background transition-all active:scale-95" title="カラーを変更">
+                            <div className="w-6 h-6 rounded-full shadow-sm ring-2 ring-white/20 dark:ring-black/20" style={{ backgroundColor: color }}></div>
+                        </button>
+                        <button className="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant/70 hover:text-brand-primary hover:bg-brand-primary/5 transition-colors active:scale-95" title="複製">
+                            <CopyIcon className="w-5 h-5" />
+                        </button>
+                        <button className="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant/70 hover:text-red-500 hover:bg-red-500/10 transition-colors active:scale-95" title="削除">
+                            <TrashIcon className="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Row 2: Name Input (Full Width) */}
+                <div>
                     <input
                         type="text"
                         value={name}
@@ -195,12 +214,50 @@ const NewSortableCard = ({ initialName, initialDuration, time, color, isDragging
                         placeholder="Artist Name"
                     />
                 </div>
+
+                {/* Row 3: Time Controls */}
+                <div className="flex items-center justify-between gap-3 bg-surface-background/30 rounded-lg p-2 border border-on-surface/5">
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="number"
+                            value={duration}
+                            onChange={(e) => setDuration(e.target.value)}
+                            className="
+                                w-16 bg-surface-background text-base font-mono font-bold text-on-surface
+                                rounded-lg px-2
+                                border border-on-surface/5 focus:border-brand-primary/50
+                                focus:outline-none focus:ring-2 focus:ring-brand-primary/20
+                                transition-all 
+                                shadow-[inset_0_2px_4px_0_rgba(0,0,0,0.02)]
+                                h-10 text-center
+                            "
+                        />
+                        <span className="text-xs font-bold text-on-surface-variant select-none">min</span>
+                    </div>
+                    <div className="w-px h-5 bg-on-surface/10"></div>
+                    <div className="flex items-center gap-1.5 text-sm font-mono font-medium text-on-surface-variant select-none h-10 whitespace-nowrap">
+                        <ClockIcon className="w-4 h-4 opacity-60" />
+                        {time}
+                    </div>
+                </div>
             </div>
 
-            {/* Bottom Row (Mobile) / Center & Right (Desktop) */}
-            <div className="flex flex-grow items-center justify-between w-full md:w-auto gap-3 pl-2 md:pl-0">
-                {/* Desktop Name Input (Hidden on Mobile) */}
-                <div className="hidden md:block flex-grow min-w-0">
+            {/* --- PC Layout (Flex Row) --- */}
+            <div className="hidden md:flex w-full items-center gap-4">
+                <div className="flex-shrink-0 cursor-grab touch-none text-on-surface-variant/30 hover:text-on-surface-variant p-2 -ml-2">
+                    <GripIcon className="w-5 h-5" />
+                </div>
+                <button
+                    className="flex-shrink-0 w-14 h-14 rounded-full bg-surface-background border border-on-surface/10 hover:border-brand-primary transition-colors overflow-hidden relative group/icon shadow-inner"
+                    title="アイコンを変更"
+                >
+                    <div className="w-full h-full flex items-center justify-center text-on-surface-variant/20 group-hover/icon:text-brand-primary/50">
+                        <UserIcon className="w-7 h-7" />
+                    </div>
+                </button>
+
+                {/* Name Input (Expanded: flex-grow-[2]) */}
+                <div className="flex-grow-[2] min-w-0">
                     <input
                         type="text"
                         value={name}
@@ -218,7 +275,7 @@ const NewSortableCard = ({ initialName, initialDuration, time, color, isDragging
                 </div>
 
                 {/* Time Controls */}
-                <div className="flex items-center gap-3 md:gap-4">
+                <div className="flex-shrink-0 flex items-center gap-4">
                     <div className="flex items-center gap-2">
                         <div className="relative group/duration">
                             <input
@@ -245,20 +302,20 @@ const NewSortableCard = ({ initialName, initialDuration, time, color, isDragging
                     </div>
                 </div>
 
-                {/* Actions */}
-                <div className="flex-shrink-0 flex items-center gap-2 pl-3 border-l border-on-surface/5 dark:border-white/5 h-10">
+                {/* Actions (Vertical with more gap) */}
+                <div className="flex-shrink-0 flex items-center gap-3 pl-4 border-l border-on-surface/5 dark:border-white/5 h-14">
                     <button
                         className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-background transition-all active:scale-95 mr-1"
                         title="カラーを変更"
                     >
-                        <div className="w-6 h-6 md:w-7 md:h-7 rounded-full shadow-sm ring-2 ring-white/20 dark:ring-black/20" style={{ backgroundColor: color }}></div>
+                        <div className="w-7 h-7 rounded-full shadow-sm ring-2 ring-white/20 dark:ring-black/20" style={{ backgroundColor: color }}></div>
                     </button>
-                    <div className="flex flex-col gap-1 md:gap-2">
-                        <button className="w-8 h-8 md:w-8 md:h-8 rounded-full flex items-center justify-center text-on-surface-variant/70 hover:text-brand-primary hover:bg-brand-primary/5 transition-colors active:scale-95" title="複製">
-                            <CopyIcon className="w-4 h-4" />
+                    <div className="flex flex-col gap-2 justify-center">
+                        <button className="w-6 h-6 rounded-full flex items-center justify-center text-on-surface-variant/70 hover:text-brand-primary hover:bg-brand-primary/5 transition-colors active:scale-95" title="複製">
+                            <CopyIcon className="w-3.5 h-3.5" />
                         </button>
-                        <button className="w-8 h-8 md:w-8 md:h-8 rounded-full flex items-center justify-center text-on-surface-variant/70 hover:text-red-500 hover:bg-red-500/10 transition-colors active:scale-95" title="削除">
-                            <TrashIcon className="w-4 h-4" />
+                        <button className="w-6 h-6 rounded-full flex items-center justify-center text-on-surface-variant/70 hover:text-red-500 hover:bg-red-500/10 transition-colors active:scale-95" title="削除">
+                            <TrashIcon className="w-3.5 h-3.5" />
                         </button>
                     </div>
                 </div>
