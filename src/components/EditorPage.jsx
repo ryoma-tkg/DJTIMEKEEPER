@@ -34,7 +34,7 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
     const [eventData, setEventData] = useState(null);
     const [eventConfig, setEventConfig] = useState(getDefaultEventConfig());
     const [floors, setFloors] = useState({});
-    const [currentFloorId, setCurrentFloorId] = useState(floorId);
+    const currentFloorId = floorId;
     const [timetable, setTimetable] = useState([]);
     const [vjTimetable, setVjTimetable] = useState([]);
 

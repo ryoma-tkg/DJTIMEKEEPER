@@ -13,7 +13,7 @@ import {
     getTodayDateString,
     SparklesIcon,
     UserIcon,
-    SettingsIcon // Adminアイコン用
+    InfoIcon // 追加
 } from '../common';
 
 export const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences, user, userProfile }) => {
@@ -26,12 +26,12 @@ export const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences,
     });
     const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
 
-    // ★ 権限の厳格な分離 ★
-    const isGuest = user?.isAnonymous;
-    const isAdmin = userProfile?.role === 'admin'; // 管理者 (DevMenuあり)
-    const isProUser = userProfile?.role === 'pro'; // Proユーザー (DevMenuなし)
+    const SUPER_ADMIN_UID = "GLGPpy6IlyWbGw15OwBPzRdCPZI2";
 
-    // 「Pro機能を使える人」 = Admin または Proユーザー
+    // 権限判定
+    const isGuest = user?.isAnonymous;
+    const isAdmin = user?.uid === SUPER_ADMIN_UID || userProfile?.role === 'admin';
+    const isProUser = userProfile?.role === 'pro';
     const canUseProFeatures = isAdmin || isProUser;
 
     useEffect(() => {
@@ -40,12 +40,13 @@ export const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences,
                 title: '',
                 startDate: getTodayDateString(),
                 startTime: defaultPreferences?.defaultStartTime || '22:00',
+                // 権限がない場合は強制OFF、ある場合はデフォルト設定に従う
                 vjEnabled: isGuest ? false : (defaultPreferences?.defaultVjEnabled || false),
-                isMultiFloor: defaultPreferences?.defaultMultiFloor || false
+                isMultiFloor: canUseProFeatures ? (defaultPreferences?.defaultMultiFloor || false) : false
             });
             setHasAttemptedSubmit(false);
         }
-    }, [isOpen, defaultPreferences, isGuest]);
+    }, [isOpen, defaultPreferences, isGuest, canUseProFeatures]);
 
     const isTitleError = !config.title || config.title.trim() === '';
 
@@ -57,7 +58,6 @@ export const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences,
             ...config,
             title: config.title.trim() || 'New Event',
             vjEnabled: isGuest ? false : config.vjEnabled,
-            // Pro機能権限チェック
             isMultiFloor: canUseProFeatures ? config.isMultiFloor : false
         };
         onCreate(finalConfig);
@@ -91,64 +91,67 @@ export const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences,
 
                 <div className="pt-2">
                     <div className="text-xs font-bold text-on-surface-variant mb-2 uppercase tracking-wider">オプション設定</div>
+
+                    {/* 設定エリア */}
                     <div className="bg-surface-background/50 rounded-xl px-4 py-2 space-y-2 border border-on-surface/5">
-                        {/* VJ機能 */}
                         <div className={isGuest ? "opacity-50 pointer-events-none grayscale" : ""}>
                             <Toggle
                                 checked={config.vjEnabled}
                                 onChange={(val) => setConfig({ ...config, vjEnabled: val })}
                                 label={isGuest ? "VJタイムテーブル (登録限定)" : "VJタイムテーブル機能"}
                                 icon={VideoIcon}
-                                description={isGuest ? "ゲストは利用できません" : "VJのタイムテーブルも管理します"}
+                                description="VJのタイムテーブルも管理します"
                                 disabled={isGuest}
                             />
                         </div>
 
                         <div className="border-t border-on-surface/5"></div>
 
-                        {/* マルチフロア: canUseProFeatures (Admin/Pro) のみ */}
                         <div className={!canUseProFeatures ? "opacity-50 pointer-events-none grayscale" : ""}>
                             <Toggle
                                 checked={config.isMultiFloor}
                                 onChange={(val) => setConfig({ ...config, isMultiFloor: val })}
                                 label={!canUseProFeatures ? "複数フロア (Pro限定)" : "複数フロアを使用"}
                                 icon={LayersIcon}
-                                description={!canUseProFeatures ? "Proプランへのアップグレードが必要です" : "メインフロア以外のステージを追加します"}
-                                disabled={!canUseProFeatures}
+                                description="メインフロア以外のステージを追加します"
+                                disabled={!canUseProFeatures} // Admin/Proなら disabled=false なのでON/OFF可能
                             />
                         </div>
                     </div>
 
-                    {/* プラン案内メッセージ */}
-                    <div className="mt-4">
-                        {isGuest ? (
-                            <div className="p-3 bg-brand-primary/5 rounded-lg border border-brand-primary/10">
-                                <p className="text-xs text-on-surface-variant leading-relaxed">
-                                    <span className="font-bold text-brand-primary flex items-center gap-1"><UserIcon className="w-3 h-3" /> ゲストモード:</span>
-                                    データは<span className="font-bold">36時間後</span>に削除されます。<br />
-                                    ログインすると制限が解除されます。
-                                </p>
+                    {/* アラートエリア (Admin/Pro以外に表示) */}
+                    <div className="mt-4 space-y-3">
+                        {isGuest && (
+                            <div className="relative overflow-hidden rounded-lg bg-amber-500/10 border border-amber-500/20 p-4">
+                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500" />
+                                <div className="flex items-start gap-3">
+                                    <UserIcon className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
+                                    <div>
+                                        <p className="text-sm font-bold text-amber-500 mb-1">ゲストモードで作成中</p>
+                                        <p className="text-xs text-on-surface-variant leading-relaxed">
+                                            データは<span className="font-bold text-on-surface">36時間後に自動削除</span>されます。<br />
+                                            永続保存するにはログインしてください。
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
-                        ) : !canUseProFeatures ? (
-                            <div className="p-3 bg-surface-background rounded-lg border border-on-surface/10">
-                                <p className="text-xs text-on-surface-variant leading-relaxed flex items-start gap-2">
-                                    <SparklesIcon className="w-4 h-4 text-brand-primary shrink-0" />
-                                    <span>
-                                        <span className="font-bold text-on-surface">Proプラン機能:</span><br />
-                                        複数フロア管理はPro限定です。
-                                    </span>
-                                </p>
+                        )}
+
+                        {!canUseProFeatures && !isGuest && (
+                            <div className="relative overflow-hidden rounded-lg bg-brand-primary/5 border border-brand-primary/20 p-4">
+                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-primary" />
+                                <div className="flex items-start gap-3">
+                                    <SparklesIcon className="w-5 h-5 text-brand-primary mt-0.5 shrink-0" />
+                                    <div>
+                                        <p className="text-sm font-bold text-brand-primary mb-1">Proプラン機能</p>
+                                        <p className="text-xs text-on-surface-variant leading-relaxed">
+                                            複数フロア管理機能はProプラン限定です。<br />
+                                            <span className="opacity-70">アップグレードすると制限が解除されます。</span>
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
-                        ) : isAdmin ? (
-                            <div className="p-3 bg-zinc-800 rounded-lg border border-zinc-700">
-                                <p className="text-xs text-zinc-300 leading-relaxed flex items-center gap-2">
-                                    <SettingsIcon className="w-4 h-4 text-brand-primary" />
-                                    <span>
-                                        <span className="font-bold text-white">Administrator:</span> 全機能にアクセス可能です。
-                                    </span>
-                                </p>
-                            </div>
-                        ) : null}
+                        )}
                     </div>
                 </div>
             </div>

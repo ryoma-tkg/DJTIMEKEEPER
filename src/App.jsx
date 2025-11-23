@@ -8,14 +8,12 @@ import {
     googleProvider,
     onAuthStateChanged,
     signInWithPopup,
-    signInAnonymously,
+    signInAnonymously, // ★ ゲストログイン用に追加
     signOut
 } from './firebase';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { LoadingScreen } from './components/common';
 import { PerformanceMonitor } from './components/PerformanceMonitor';
-// ▼▼▼ UITestPage は開発用のためコメントアウト (必要な時だけ解除) ▼▼▼
-// import { UITestPage } from './components/UITestPage';
 
 // 遅延ロード
 const LoginPage = lazy(() => import('./components/LoginPage').then(module => ({ default: module.LoginPage })));
@@ -103,19 +101,29 @@ const App = () => {
     const navigate = useNavigate();
     const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
 
-    // ★ 変更: スーパー管理者（あなたのUID）はハードコードで保護しつつ、
-    // DB上の 'admin' ロールも開発者として認めるハイブリッド方式にします。
+    // ★ スーパー管理者ID (ここをあなたのUIDにしてください)
     const SUPER_ADMIN_UID = "GLGPpy6IlyWbGw15OwBPzRdCPZI2";
 
     const [isDevMode, setIsDevMode] = useState(false);
+    // モニター表示管理
     const [isPerfMonitorVisible, setIsPerfMonitorVisible] = useState(false);
 
-    // ... (theme useEffectは変更なし) ...
+    useEffect(() => {
+        if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+            localStorage.setItem('theme', 'dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+            localStorage.setItem('theme', 'light');
+        }
+    }, [theme]);
+
+    // ★ テーマ切り替え関数 (復元済み)
     const toggleTheme = () => {
         setTheme(prevTheme => (prevTheme === 'dark' ? 'light' : 'dark'));
     };
 
-    // ★ 修正: Adminロールのユーザーだけが DevMode をトグルできる
+    // Adminロールのユーザーだけが DevMode をトグルできる
     const toggleDevMode = () => {
         if (isDevMode) {
             setIsDevMode(false);
@@ -151,6 +159,8 @@ const App = () => {
                     const userSnap = await getDoc(userDocRef);
 
                     let userData = null;
+                    // ★ スーパー管理者かどうかの判定
+                    const isSuperAdmin = firebaseUser.uid === SUPER_ADMIN_UID;
 
                     if (!userSnap.exists()) {
                         // 新規ユーザー作成
@@ -159,7 +169,8 @@ const App = () => {
                             email: firebaseUser.email,
                             displayName: firebaseUser.displayName,
                             photoURL: firebaseUser.photoURL,
-                            role: 'free', // デフォルトは free
+                            // ★ スーパー管理者なら最初から 'admin'、それ以外は 'free'
+                            role: isSuperAdmin ? 'admin' : 'free',
                             createdAt: serverTimestamp(),
                             lastLoginAt: serverTimestamp(),
                             preferences: {
@@ -174,19 +185,32 @@ const App = () => {
                         console.log("[Auth] User profile created.");
                     } else {
                         // 既存ユーザー同期
-                        await updateDoc(userDocRef, {
+                        const currentData = userSnap.data();
+
+                        // ★ スーパー管理者なのに role が 'admin' じゃない場合、強制的に 'admin' に昇格させる
+                        const shouldPromoteToAdmin = isSuperAdmin && currentData.role !== 'admin';
+
+                        const updatePayload = {
                             email: firebaseUser.email,
                             displayName: firebaseUser.displayName,
                             photoURL: firebaseUser.photoURL,
                             lastLoginAt: serverTimestamp()
-                        });
-                        userData = userSnap.data();
+                        };
+
+                        if (shouldPromoteToAdmin) {
+                            updatePayload.role = 'admin';
+                            console.log("👑 スーパー管理者を検出: Admin権限を付与しました");
+                        }
+
+                        await updateDoc(userDocRef, updatePayload);
+
+                        // userDataを更新後の内容にする
+                        userData = { ...currentData, ...updatePayload };
                         console.log("[Auth] User profile synced.");
                     }
 
-                    // ★ 重要: 開発モード(DevControls)の権限チェック
-                    // roleが 'admin' の場合のみ TRUE にする ('pro' は FALSE)
-                    if (firebaseUser.uid === SUPER_ADMIN_UID || userData?.role === 'admin') {
+                    // DevMode判定 (DB上のroleもチェック)
+                    if (isSuperAdmin || userData?.role === 'admin') {
                         console.log("管理者権限を確認しました: DevMode Enabled");
                         setIsDevMode(true);
                     } else {
@@ -214,12 +238,13 @@ const App = () => {
             await signInWithPopup(auth, googleProvider);
         } catch (error) {
             console.error("Googleログインに失敗:", error);
-            alert("ログインに失敗しました。");
+            alert("ログインに失敗しました。ポップアップがブロックされていないか確認してください。");
         } finally {
             setIsLoggingIn(false);
         }
     };
 
+    // ★ ゲストログイン処理
     const handleGuestLogin = async () => {
         if (isLoggingIn) return;
         setIsLoggingIn(true);
@@ -264,7 +289,7 @@ const App = () => {
                                     onLogout={handleLogout}
                                     theme={theme}
                                     toggleTheme={toggleTheme}
-                                    isDevMode={isDevMode} // ここで渡されるフラグが厳密になります
+                                    isDevMode={isDevMode}
                                     onToggleDevMode={toggleDevMode}
                                     isPerfMonitorVisible={isPerfMonitorVisible}
                                     onTogglePerfMonitor={() => setIsPerfMonitorVisible(p => !p)}
@@ -290,12 +315,62 @@ const App = () => {
                         }
                     />
 
-                    {/* ... (Editor/Liveルートは変更なし) ... */}
-                    <Route path="/edit/:eventId/:floorId" element={authStatus === 'authed' ? <EditorPage user={user} isDevMode={isDevMode} onToggleDevMode={toggleDevMode} theme={theme} toggleTheme={toggleTheme} isPerfMonitorVisible={isPerfMonitorVisible} onTogglePerfMonitor={() => setIsPerfMonitorVisible(p => !p)} /> : <Navigate to="/login" replace />} />
-                    <Route path="/edit/:eventId" element={authStatus === 'authed' ? <EditorRedirector /> : <Navigate to="/login" replace />} />
-                    <Route path="/live/:eventId/:floorId" element={<LivePage theme={theme} toggleTheme={toggleTheme} />} />
-                    <Route path="/live/:eventId" element={<LiveRedirector />} />
-                    <Route path="*" element={<div className="p-8"><h1>404 - ページが見つかりません</h1><Link to="/">ダッシュボードに戻る</Link></div>} />
+                    <Route
+                        path="/edit/:eventId/:floorId"
+                        element={
+                            authStatus === 'authed' ? (
+                                <EditorPage
+                                    user={user}
+                                    isDevMode={isDevMode}
+                                    onToggleDevMode={toggleDevMode}
+                                    theme={theme}
+                                    toggleTheme={toggleTheme}
+                                    isPerfMonitorVisible={isPerfMonitorVisible}
+                                    onTogglePerfMonitor={() => setIsPerfMonitorVisible(p => !p)}
+                                />
+                            ) : (
+                                <Navigate to="/login" replace />
+                            )
+                        }
+                    />
+
+                    <Route
+                        path="/edit/:eventId"
+                        element={
+                            authStatus === 'authed' ? (
+                                <EditorRedirector />
+                            ) : (
+                                <Navigate to="/login" replace />
+                            )
+                        }
+                    />
+
+                    <Route
+                        path="/live/:eventId/:floorId"
+                        element={
+                            <LivePage
+                                theme={theme}
+                                toggleTheme={toggleTheme}
+                            />
+                        }
+                    />
+
+                    <Route
+                        path="/live/:eventId"
+                        element={
+                            <LiveRedirector />
+                        }
+                    />
+
+                    <Route
+                        path="*"
+                        element={
+                            <div className="p-8">
+                                <h1>404 - ページが見つかりません</h1>
+                                <Link to="/">ダッシュボードに戻る</Link>
+                            </div>
+                        }
+                    />
                 </Routes>
             </Suspense>
         </>

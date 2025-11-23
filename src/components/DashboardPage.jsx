@@ -92,6 +92,14 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
                 floorsConfig[subFloorId] = { name: "Sub Floor", order: 1, timetable: [], vjTimetable: [] };
             } else { const defaultFloorId = `floor_${Date.now()}`; floorsConfig[defaultFloorId] = { name: "Main Floor", order: 0, timetable: [], vjTimetable: [] }; }
             const newEventDoc = { ownerUid: user.uid, createdAt: Timestamp.now(), eventConfig: { title: modalConfig.title, startDate: modalConfig.startDate, startTime: modalConfig.startTime, vjFeatureEnabled: modalConfig.vjEnabled }, floors: floorsConfig };
+
+            if (user.isAnonymous) {
+                // 現在時刻 + 36時間
+                const expirationDate = new Date();
+                expirationDate.setHours(expirationDate.getHours() + 36);
+                newEventDoc.expireAt = Timestamp.fromDate(expirationDate);
+            }
+
             const docRef = await addDoc(collection(db, "timetables"), newEventDoc);
             navigate(`/edit/${docRef.id}`);
         } catch (error) { console.error("作成失敗:", error); alert("イベントの作成に失敗しました。"); setIsCreating(false); }
@@ -148,7 +156,16 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
                 </div>
 
             </div>
-            <EventSetupModal isOpen={isSetupModalOpen} onClose={() => setIsSetupModalOpen(false)} onCreate={handleSetupComplete} defaultPreferences={userProfile?.preferences} />
+            <EventSetupModal
+                isOpen={isSetupModalOpen}
+                onClose={() => setIsSetupModalOpen(false)}
+                onCreate={handleSetupComplete}
+                defaultPreferences={userProfile?.preferences}
+                // ▼▼▼ この2行が絶対に必要です！ ▼▼▼
+                user={user}
+                userProfile={userProfile}
+            // ▲▲▲▲▲▲
+            />
             <DashboardSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} theme={theme} toggleTheme={toggleTheme} onLogout={onLogout} user={user} userProfile={userProfile} onViewUser={handleViewUser} />
             <ConfirmModal isOpen={!!deleteTarget} title="イベントを削除" message={`イベント「${deleteTarget?.title || '無題'}」を削除します。復元はできません。本当によろしいですか？`} onConfirm={handleDeleteEvent} onCancel={() => setDeleteTarget(null)} />
             {isDevMode && (<><button onClick={() => setIsDevPanelOpen(p => !p)} className="fixed bottom-8 left-8 z-[998] w-12 h-12 bg-zinc-800 text-brand-primary border border-brand-primary rounded-full shadow-lg grid place-items-center hover:bg-zinc-700 transition-colors"><PowerIcon className="w-6 h-6" /></button>{isDevPanelOpen && <DevControls location="dashboard" onClose={() => setIsDevPanelOpen(false)} onDeleteAllEvents={handleDevDeleteAll} onCrashApp={() => { throw new Error("Dashboard Crash Test"); }} isPerfMonitorVisible={isPerfMonitorVisible} onTogglePerfMonitor={onTogglePerfMonitor} />}</>)}
