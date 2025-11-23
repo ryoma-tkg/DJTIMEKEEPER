@@ -41,7 +41,6 @@ import {
 } from './common';
 
 // --- アイコン回転用のラッパーコンポーネント ---
-// Buttonコンポーネントから渡されるclassName（サイズ指定など）を受け取りつつ、回転を追加します
 const BackIcon = ({ className }) => (
     <LogOutIcon className={`${className} rotate-180`} />
 );
@@ -217,7 +216,7 @@ const IntegratedFloorTabs = ({ floors, currentFloorId, onSelectFloor, onAddClick
 };
 
 // --- Main Component ---
-export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTimetable, vjTimetable, setVjTimetable, floors, currentFloorId, onSelectFloor, onFloorsUpdate, setMode, storage, timeOffset, theme, toggleTheme, imagesLoaded }) => {
+export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, setTimetable, vjTimetable, setVjTimetable, floors, currentFloorId, onSelectFloor, onFloorsUpdate, setMode, storage, timeOffset, theme, toggleTheme, imagesLoaded }) => {
     const [openColorPickerId, setOpenColorPickerId] = useState(null);
     const [editingDjIndex, setEditingDjIndex] = useState(null);
     const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
@@ -226,6 +225,9 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
     const [isFloorManagerOpen, setIsFloorManagerOpen] = useState(false);
     const [toast, setToast] = useState({ message: '', visible: false });
     const toastTimerRef = useRef(null);
+
+    // ★ ゲスト判定
+    const isGuest = user?.isAnonymous;
 
     useEffect(() => { const timer = setInterval(() => setNow(new Date(new Date().getTime() + timeOffset)), 1000); return () => clearInterval(timer); }, [timeOffset]);
 
@@ -264,7 +266,6 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
             <div className="p-4 md:p-8 max-w-7xl mx-auto min-h-screen animate-fade-in-up">
                 <header className="flex flex-row justify-between items-center mb-6 gap-4">
                     <Link to="/" className="flex-shrink-0">
-                        {/* ▼▼▼ 修正: アイコンのみ回転させ、ボタンの影は正常な向きにする ▼▼▼ */}
                         <Button variant="secondary" size="icon" icon={BackIcon} className="rounded-full" />
                     </Link>
                     <input type="text" value={eventConfig.title || 'DJ Timekeeper Pro'} onChange={(e) => handleEventConfigChange('title', e.target.value)} className="text-2xl sm:text-3xl font-bold text-brand-secondary tracking-wide bg-transparent focus:outline-none focus:bg-surface-container/50 rounded-lg p-2 flex-1 min-w-0" placeholder="イベントタイトル" />
@@ -288,11 +289,23 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
                         <div className="space-y-3 relative z-10" ref={listContainerRef}>
                             {schedule.map((dj, index) => (
                                 <div key={dj.id} className="dj-list-item" style={getDragStyles(index)}>
-                                    <DjItem dj={dj} isPlaying={currentlyPlayingIndex === index} onPointerDown={(e) => handlePointerDown(e, index)} onEditClick={() => setEditingDjIndex(index)} onUpdate={(f, v) => handleUpdate(index, f, v)} onColorPickerToggle={setOpenColorPickerId} onCopy={() => handleCopyDj(index)} onRemove={() => handleRemoveDj(index)} isColorPickerOpen={openColorPickerId === dj.id} openColorPickerId={openColorPickerId} isDragging={draggedIndex === index} />
+                                    <DjItem
+                                        dj={dj}
+                                        isGuest={isGuest} // ★ 追加: ゲストフラグを渡す
+                                        isPlaying={currentlyPlayingIndex === index}
+                                        onPointerDown={(e) => handlePointerDown(e, index)}
+                                        onEditClick={() => setEditingDjIndex(index)}
+                                        onUpdate={(f, v) => handleUpdate(index, f, v)}
+                                        onColorPickerToggle={setOpenColorPickerId}
+                                        onCopy={() => handleCopyDj(index)}
+                                        onRemove={() => handleRemoveDj(index)}
+                                        isColorPickerOpen={openColorPickerId === dj.id}
+                                        openColorPickerId={openColorPickerId}
+                                        isDragging={draggedIndex === index}
+                                    />
                                 </div>
                             ))}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                                {/* Catalog "NewTrigger" Style */}
                                 <button
                                     onClick={() => addNewDj(false)}
                                     className="

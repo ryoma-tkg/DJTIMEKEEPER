@@ -5,13 +5,12 @@ import {
     SimpleImage,
     UserIcon,
 } from './common';
-// ▼▼▼ 追加: 共通カードコンポーネント ▼▼▼
 import { SortableListCard } from './ui/SortableListCard';
 
-export const DjItem = memo(({ dj, isPlaying, onPointerDown, onEditClick, onUpdate, onColorPickerToggle, onCopy, onRemove, isColorPickerOpen, openColorPickerId, isDragging }) => {
+// propsに isGuest を追加
+export const DjItem = memo(({ dj, isGuest, isPlaying, onPointerDown, onEditClick, onUpdate, onColorPickerToggle, onCopy, onRemove, isColorPickerOpen, openColorPickerId, isDragging }) => {
     const colorPickerRef = useRef(null);
 
-    // カラーピッカーの外側クリック検知
     useEffect(() => {
         const handleClickOutside = (event) => {
             const target = event.target;
@@ -23,8 +22,8 @@ export const DjItem = memo(({ dj, isPlaying, onPointerDown, onEditClick, onUpdat
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [isColorPickerOpen, dj.id, onColorPickerToggle]);
 
-    // アイコンノード (画像 or プレースホルダー)
-    const iconNode = (
+    // ★ 修正: ゲストの場合は iconNode を null にする (エリアごと非表示)
+    const iconNode = isGuest ? null : (
         <button
             onClick={() => onEditClick()}
             onPointerDown={(e) => e.stopPropagation()}
@@ -41,7 +40,6 @@ export const DjItem = memo(({ dj, isPlaying, onPointerDown, onEditClick, onUpdat
         </button>
     );
 
-    // アクションノード (カラーピッカー)
     const actionNode = (
         <div className="relative flex justify-center" ref={colorPickerRef}>
             <button

@@ -11,28 +11,62 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
 
-    // ▼▼▼ 追加: 管理者かどうかの判定 ▼▼▼
-    // データベース上のユーザー情報を見て、roleが 'admin' なら管理者とみなす
+    // ★ ゲストかどうか判定 (匿名認証)
+    function isGuest() {
+      return request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+
+    // ★ ProまたはAdmin権限を持っているか判定
+    // (ユーザープロファイルを参照するため、1回の読み取りコストがかかります)
+    function isProOrAdmin() {
+      // ゲストは権限なし
+      if (isGuest()) { return false; }
+      
+      // ユーザードキュメントが存在し、roleが 'admin' か 'pro' であるか
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return userDoc != null && (userDoc.data.role == 'admin' || userDoc.data.role == 'pro');
+    }
+
+    // 管理者判定 (既存の互換性のため残すが、実質 isProOrAdmin と同等の権限チェックに利用)
     function isAdmin() {
-      return isSignedIn() && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return isProOrAdmin();
     }
 
     // --- Timetables バリデーション ---
     function isValidNewEvent() {
       let data = request.resource.data;
-      return data.keys().hasAll(['ownerUid', 'createdAt', 'eventConfig']) &&
+      
+      // 1. 基本的なフィールド検証
+      let basicCheck = data.keys().hasAll(['ownerUid', 'createdAt', 'eventConfig']) &&
              data.ownerUid == request.auth.uid &&
              data.eventConfig.title is string &&
              data.eventConfig.title.size() > 0 &&
              data.eventConfig.title.size() <= 100 &&
              data.eventConfig.startDate is string &&
              data.eventConfig.startTime is string;
+
+      // 2. VJ機能制限: ゲストは不可
+      // (ゲストでない、または VJ機能がOFFならOK)
+      let vjCheck = !isGuest() || data.eventConfig.vjFeatureEnabled == false;
+
+      // 3. フロア数制限: Pro/Admin以外はシングルステージのみ
+      // (フロア定義がない、またはフロア数が1以下なら誰でもOK。2以上なら権限が必要)
+      let floorCount = data.keys().hasAll(['floors']) ? data.floors.keys().size() : 1;
+      let floorCheck = floorCount <= 1 || isProOrAdmin();
+
+      return basicCheck && vjCheck && floorCheck;
     }
 
     function isValidUpdate() {
       let data = request.resource.data;
-      return data.ownerUid == resource.data.ownerUid;
+      // 所有者チェック
+      let ownerCheck = data.ownerUid == resource.data.ownerUid;
+      
+      // 更新時もフロア数制限をチェック (Pro期限切れ後の編集などを考慮)
+      let floorCount = data.keys().hasAll(['floors']) ? data.floors.keys().size() : 1;
+      let floorCheck = floorCount <= 1 || isProOrAdmin();
+
+      return ownerCheck && floorCheck;
     }
 
     // --- Users バリデーション ---
@@ -51,7 +85,7 @@ service cloud.firestore {
       // リスト取得: 所有者のみ許可
       allow list: if isSignedIn()
                   && resource.data.ownerUid == request.auth.uid;
-      
+
       allow create: if isSignedIn() && isValidNewEvent();
       allow update: if isSignedIn() && isOwner(resource.data.ownerUid) && isValidUpdate();
       allow delete: if isSignedIn() && isOwner(resource.data.ownerUid);
@@ -59,7 +93,7 @@ service cloud.firestore {
 
     // 2. Users
     match /users/{userId} {
-      // ▼▼▼ 修正: 管理者なら他人のデータも読み書き可能にする ▼▼▼
+      // 本人または管理者(Pro)なら読み書き可能
       allow read: if isSignedIn() && (isOwner(userId) || isAdmin());
       allow write: if isSignedIn() && (isOwner(userId) || isAdmin());
     }

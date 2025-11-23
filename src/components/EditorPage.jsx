@@ -121,7 +121,7 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
             clearTimeout(autoSaveTimerRef.current);
         }
 
-        // 3. 新しく10秒タイマーをセット
+        // 3. 新しく20秒タイマーをセット
         autoSaveTimerRef.current = setTimeout(() => {
             latestSaveDataRef.current(true);
         }, 20000);
@@ -296,6 +296,7 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
             {mode === 'edit' ? (
                 <>
                     <TimetableEditor
+                        user={user} // ★ ここに user を渡しています！
                         eventConfig={eventConfig}
                         setEventConfig={handleEventConfigChange}
                         timetable={timetable}
