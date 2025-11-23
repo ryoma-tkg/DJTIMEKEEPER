@@ -3,11 +3,6 @@ import React, { useState } from 'react';
 import { GripIcon, TrashIcon, CopyIcon, ClockIcon } from '../common';
 import { Input } from './Input';
 
-/**
- * DJ/VJアイテム共通のリストカードコンポーネント (Tactile Design v3.9 Final Polish)
- * Mobile: Stack Layout
- * Desktop: Grid Layout with Enforced Min-Height for Alignment
- */
 export const SortableListCard = ({
     item,
     isPlaying,
@@ -22,16 +17,13 @@ export const SortableListCard = ({
 }) => {
     const [isHovered, setIsHovered] = useState(false);
 
-    // バリデーション
     const isNameError = !item.name || item.name.trim() === '';
     const isDurationError = item.duration === '' || item.duration === 0;
 
-    // ドラッグ中のスタイル
     const draggingClass = isDragging
         ? 'dragging-item shadow-[0_20px_30px_-5px_rgba(0,0,0,0.3)] scale-105 z-50'
         : 'transition-all duration-300 cubic-bezier(0.4, 0, 0.2, 1)';
 
-    // ボーダーとスタイル設定
     const borderClass = isPlaying
         ? 'border-2'
         : 'border border-on-surface/10 dark:border-white/5';
@@ -70,14 +62,14 @@ export const SortableListCard = ({
         <div
             className={`
                 rounded-2xl flex items-stretch gap-3 p-3 md:p-4 relative overflow-visible
-                min-h-[6.5rem] /* ▼▼▼ 高さの強制統一 (約104px) ▼▼▼ */
+                min-h-[10.5rem] /* ▼▼▼ 10.5rem (168px) に設定 ▼▼▼ */
                 ${borderClass} ${draggingClass}
             `}
             style={dynamicStyle}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
-            {/* 1. Grip Handle (Left Edge) */}
+            {/* 1. Grip Handle */}
             <div
                 className="flex-shrink-0 flex items-center justify-center cursor-grab touch-none text-on-surface-variant/30 hover:text-on-surface-variant -ml-1 px-1 transition-colors"
                 onPointerDown={onPointerDown}
@@ -86,7 +78,7 @@ export const SortableListCard = ({
                 <GripIcon className="w-6 h-6" />
             </div>
 
-            {/* 2. Icon Area (Optional) */}
+            {/* 2. Icon Area */}
             {iconNode && (
                 <div className="flex-shrink-0 self-center mr-1">
                     <div className="transition-transform hover:scale-105">
@@ -97,8 +89,6 @@ export const SortableListCard = ({
 
             {/* 3. Main Content Grid */}
             <div className="flex-grow grid grid-cols-1 md:grid-cols-[1fr_auto] gap-x-4 gap-y-3 items-center min-w-0">
-
-                {/* Row 1-Left: Name Input */}
                 <div className="min-w-0 flex flex-col justify-center">
                     <Input
                         value={item.name}
@@ -110,7 +100,6 @@ export const SortableListCard = ({
                     />
                 </div>
 
-                {/* Row 1-Right: Duration Input (Widened to w-32) */}
                 <div className="flex items-center h-12 md:justify-end">
                     <div className="w-32 relative h-full">
                         <Input
@@ -128,7 +117,6 @@ export const SortableListCard = ({
                     </div>
                 </div>
 
-                {/* Row 2: Time Slot & Info (Full Width) */}
                 <div className="md:col-span-2 bg-surface-background/50 rounded-lg border border-on-surface/5 px-4 py-2 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2 text-sm font-mono font-bold text-on-surface-variant select-none">
                         <ClockIcon className="w-4 h-4 opacity-50" />
@@ -141,14 +129,12 @@ export const SortableListCard = ({
                 </div>
             </div>
 
-            {/* 4. Actions Sidebar (Vertical) */}
+            {/* 4. Actions Sidebar */}
             <div className="flex-shrink-0 flex flex-col justify-between items-center pl-3 border-l border-on-surface/5 gap-2 py-1">
-                {/* Upper: Color Picker */}
                 <div className="flex-shrink-0">
                     {actionNode}
                 </div>
 
-                {/* Lower: Edit Actions */}
                 <div className="flex flex-col gap-1">
                     {onCopy && (
                         <button

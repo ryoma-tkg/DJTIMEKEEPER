@@ -48,6 +48,7 @@ const BackIcon = ({ className }) => (
 
 // --- VjItem (New SortableListCard) ---
 const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging, isPlaying }) => {
+
     return (
         <SortableListCard
             item={vj}
@@ -57,6 +58,8 @@ const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging, isPlay
             onUpdate={onUpdate}
             onRemove={onRemove}
             labelName="VJ Name"
+
+
         />
     );
 });
