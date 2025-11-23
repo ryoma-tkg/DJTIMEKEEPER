@@ -1,51 +1,51 @@
 // [src/components/FloorManagerModal.jsx]
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
-    PlusCircleIcon,
+    PlusIcon,
     TrashIcon,
     GripIcon,
-    ConfirmModal
+    ConfirmModal,
+    BaseModal,
+    Input
 } from './common';
-// ▼▼▼ 追加 ▼▼▼
-import { BaseModal } from './ui/BaseModal';
 
-// (FloorEditItem - 変更なし)
+// (FloorEditItem - Catalog Style)
 const FloorEditItem = ({ floor, onNameChange, onDelete, onPointerDown, isDragging, style }) => {
-    const draggingClass = isDragging ? 'dragging-item z-50' : '';
-    const containerStyle = isDragging
-        ? 'bg-surface-container shadow-[0_5px_10px_-3px_rgba(0,0,0,0.1),0_4px_6px_-4px_rgba(0,0,0,0.05)] ring-2 ring-brand-primary scale-105'
-        : 'bg-surface-background/50 hover:bg-surface-background border border-transparent hover:border-on-surface/10';
+    // デザインカタログ "NewListItem" のスタイルを適用
+    const containerClass = `
+        flex items-center gap-3 p-3 rounded-xl 
+        bg-surface-background border border-on-surface/10 dark:border-white/10 
+        hover:border-brand-primary/50 transition-all group shadow-sm
+        ${isDragging ? 'shadow-2xl ring-2 ring-brand-primary scale-105 z-50' : ''}
+    `;
 
     return (
-        <div
-            className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-200 ${containerStyle} ${draggingClass}`}
-            style={style}
-        >
+        <div className={containerClass} style={style}>
             <div
-                className="cursor-grab touch-none p-2 -m-2 text-on-surface-variant hover:text-on-surface transition-colors"
+                className="cursor-grab touch-none text-on-surface-variant/30 hover:text-on-surface-variant p-1"
                 onPointerDown={onPointerDown}
             >
-                <GripIcon className="w-5 h-5" />
+                <GripIcon className="w-4 h-4" />
             </div>
 
             <input
                 type="text"
                 value={floor.name}
                 onChange={(e) => onNameChange(e.target.value)}
-                className="flex-grow bg-transparent text-on-surface p-2 rounded-lg focus:outline-none focus:bg-surface-background focus:ring-2 focus:ring-brand-primary font-semibold transition-all"
+                className="flex-grow bg-transparent font-bold text-on-surface focus:outline-none"
                 placeholder="フロア名"
             />
+
             <button
                 onClick={onDelete}
                 className="p-2 rounded-full text-on-surface-variant hover:text-red-500 hover:bg-red-500/10 transition-colors"
                 title="フロアを削除"
             >
-                <TrashIcon className="w-5 h-5" />
+                <TrashIcon className="w-4 h-4" />
             </button>
         </div>
     );
 };
-
 
 export const FloorManagerModal = ({ isOpen, onClose, floors, onSaveFloors }) => {
     const [localFloors, setLocalFloors] = useState({});
@@ -109,7 +109,7 @@ export const FloorManagerModal = ({ isOpen, onClose, floors, onSaveFloors }) => 
         const itemElement = e.target.closest('.dj-list-item');
         if (!itemElement || !listContainerRef.current) return;
         const itemRect = itemElement.getBoundingClientRect();
-        itemHeightRef.current = itemRect.height + 12;
+        itemHeightRef.current = itemRect.height + 12; // gap
         const listRect = listContainerRef.current.getBoundingClientRect();
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
         dragStartInfoRef.current = { initialY: clientY, itemTop: itemRect.top, listTop: listRect.top };
@@ -189,17 +189,10 @@ export const FloorManagerModal = ({ isOpen, onClose, floors, onSaveFloors }) => 
         return { transform: `translateY(${translateY}px)` };
     };
 
-    // ▼▼▼ 【修正】 BaseModal を利用してJSXを構築 ▼▼▼
-
-    // フッターコンテンツを定義 (保存・キャンセルボタン)
     const footerContent = (
         <div className="flex justify-end gap-3">
-            <button onClick={onClose} className="py-2 px-5 rounded-full bg-surface-background hover:bg-on-surface/5 text-on-surface font-semibold transition-colors">
-                キャンセル
-            </button>
-            <button onClick={handleSave} className="py-2 px-6 rounded-full bg-brand-primary hover:opacity-90 text-white font-bold shadow-lg shadow-brand-primary/30 transition-all hover:-translate-y-0.5">
-                保存して閉じる
-            </button>
+            <button onClick={onClose} className="text-sm font-bold text-on-surface-variant hover:text-on-surface hover:bg-on-surface/5 px-4 py-2 rounded-xl transition-colors">キャンセル</button>
+            <button onClick={handleSave} className="text-sm font-bold text-white bg-brand-primary hover:bg-brand-primary/90 shadow-lg shadow-brand-primary/30 px-6 py-2 rounded-xl transition-all hover:-translate-y-0.5">保存して閉じる</button>
         </div>
     );
 
@@ -211,7 +204,7 @@ export const FloorManagerModal = ({ isOpen, onClose, floors, onSaveFloors }) => 
                 title="フロア管理"
                 footer={footerContent}
                 isScrollable={true}
-                contentRef={listContainerRef} // D&D用のRefをBaseModalへ渡す
+                contentRef={listContainerRef}
             >
                 <div className="space-y-3">
                     {sortedFloorArray.map((floor, index) => (
@@ -230,19 +223,26 @@ export const FloorManagerModal = ({ isOpen, onClose, floors, onSaveFloors }) => 
                         </div>
                     ))}
 
+                    {/* Catalog "NewTrigger" Style */}
                     <button
                         onClick={handleAddFloor}
-                        className="w-full h-16 rounded-xl border-2 border-dashed border-on-surface/10 hover:border-brand-primary hover:bg-brand-primary/5 text-on-surface-variant hover:text-brand-primary transition-all duration-200 flex items-center justify-center gap-2 group mt-2"
+                        className="
+                            w-full h-14 rounded-xl 
+                            border-2 border-dashed border-on-surface/10 dark:border-white/10
+                            bg-transparent hover:bg-brand-primary/[0.03] hover:border-brand-primary/40
+                            text-on-surface-variant hover:text-brand-primary 
+                            transition-all duration-200 active:scale-[0.98]
+                            flex items-center justify-center gap-2 group mt-2
+                        "
                     >
-                        <div className="w-8 h-8 rounded-full bg-surface-background group-hover:bg-brand-primary group-hover:text-white flex items-center justify-center transition-colors shadow-sm">
-                            <PlusCircleIcon className="w-5 h-5" />
+                        <div className="w-6 h-6 rounded-full bg-surface-container border border-on-surface/10 dark:border-white/10 flex items-center justify-center shadow-sm group-hover:border-brand-primary/30 transition-colors">
+                            <PlusIcon className="w-4 h-4" />
                         </div>
-                        <span className="font-bold text-sm">フロアを追加</span>
+                        <span className="font-bold text-sm tracking-wide font-sans">フロアを追加</span>
                     </button>
                 </div>
             </BaseModal>
 
-            {/* 削除確認モーダル */}
             <ConfirmModal
                 isOpen={!!deleteId}
                 title="フロアを削除"

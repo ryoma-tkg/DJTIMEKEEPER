@@ -1,0 +1,52 @@
+name: Sync AI Branch
+
+on:
+  push:
+    branches:
+      - phase3-dev
+
+jobs:
+  sync-to-ai-chat2: # ジョブIDを変更
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Optimize content for AI context
+        run: |
+          # --- 1. ロックファイルの削除 (必須) ---
+          rm -f package-lock.json
+          rm -f yarn.lock
+          
+          # --- 2. 画像アセットの削除 (推奨) ---
+          rm -f public/*.svg
+          rm -f src/assets/*.svg
+          rm -f src/assets/*.png
+          
+          # --- 3. 不要な設定ファイルやキャッシュの削除 ---
+          rm -rf .firebase
+          rm -f .github/workflows/deploy.yml
+          
+          # --- 4. (任意) ドキュメント類 ---
+          # rm -f UIdesign.md roadmap.md
+
+          # 変更をコミット (ファイルがある場合のみ)
+          if [ -n "$(git status --porcelain)" ]; then
+            git add .
+            git commit -m "Optimize for AI: Remove lockfiles and assets [skip ci]"
+          fi
+
+      - name: Push to ai-chat2 branch
+        run: |
+          # 送信先を ai-chat2 に変更
+          git push origin HEAD:ai-chat2 --force

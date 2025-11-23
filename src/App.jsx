@@ -8,6 +8,7 @@ import {
     googleProvider,
     onAuthStateChanged,
     signInWithPopup,
+    signInAnonymously,
     signOut
 } from './firebase';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
@@ -92,6 +93,14 @@ const LiveRedirector = () => {
     return <Navigate to={`/live/${eventId}/${targetFloorId}`} replace />;
 };
 
+// ▼▼▼ 新規追加: 未ログイン時にLIVEビューへ転送するコンポーネント ▼▼▼
+const RedirectToLive = () => {
+    const { eventId, floorId } = useParams();
+    // floorIdがある場合は特定フロアへ、なければイベントトップへ（LiveRedirectorが処理）
+    const targetPath = floorId ? `/live/${eventId}/${floorId}` : `/live/${eventId}`;
+    return <Navigate to={targetPath} replace />;
+};
+// ▲▲▲ 追加ここまで ▲▲▲
 
 const App = () => {
     const [user, setUser] = useState(null);
@@ -100,13 +109,9 @@ const App = () => {
     const navigate = useNavigate();
     const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
 
-    // 管理者ID
-    const ADMIN_USER_IDS = [
-        "GLGPpy6IlyWbGw15OwBPzRdCPZI2",
-    ];
+    const SUPER_ADMIN_UID = "GLGPpy6IlyWbGw15OwBPzRdCPZI2";
 
     const [isDevMode, setIsDevMode] = useState(false);
-    // モニター表示管理
     const [isPerfMonitorVisible, setIsPerfMonitorVisible] = useState(false);
 
     useEffect(() => {
@@ -124,8 +129,24 @@ const App = () => {
     };
 
     const toggleDevMode = () => {
-        if (user && ADMIN_USER_IDS.includes(user.uid)) {
-            setIsDevMode(prev => !prev);
+        if (isDevMode) {
+            setIsDevMode(false);
+        } else {
+            checkIsAdmin().then(isAdmin => {
+                if (isAdmin) setIsDevMode(true);
+            });
+        }
+    };
+
+    const checkIsAdmin = async () => {
+        if (!auth.currentUser) return false;
+        if (auth.currentUser.uid === SUPER_ADMIN_UID) return true;
+
+        try {
+            const snap = await getDoc(doc(db, "users", auth.currentUser.uid));
+            return snap.exists() && snap.data().role === 'admin';
+        } catch (e) {
+            return false;
         }
     };
 
@@ -135,24 +156,20 @@ const App = () => {
                 setUser(firebaseUser);
                 setAuthStatus('authed');
 
-                if (ADMIN_USER_IDS.includes(firebaseUser.uid)) {
-                    console.warn("管理者モードで起動しました。");
-                    setIsDevMode(true);
-                } else {
-                    setIsDevMode(false);
-                }
-
                 try {
                     const userDocRef = doc(db, "users", firebaseUser.uid);
                     const userSnap = await getDoc(userDocRef);
 
+                    let userData = null;
+                    const isSuperAdmin = firebaseUser.uid === SUPER_ADMIN_UID;
+
                     if (!userSnap.exists()) {
-                        await setDoc(userDocRef, {
+                        const newUserData = {
                             uid: firebaseUser.uid,
                             email: firebaseUser.email,
                             displayName: firebaseUser.displayName,
                             photoURL: firebaseUser.photoURL,
-                            role: 'free',
+                            role: isSuperAdmin ? 'admin' : 'free',
                             createdAt: serverTimestamp(),
                             lastLoginAt: serverTimestamp(),
                             preferences: {
@@ -161,19 +178,37 @@ const App = () => {
                                 defaultVjEnabled: false,
                                 defaultMultiFloor: false,
                             }
-                        });
-                        console.log("[Auth] User profile created.");
+                        };
+                        await setDoc(userDocRef, newUserData);
+                        userData = newUserData;
                     } else {
-                        await updateDoc(userDocRef, {
+                        const currentData = userSnap.data();
+                        const shouldPromoteToAdmin = isSuperAdmin && currentData.role !== 'admin';
+
+                        const updatePayload = {
                             email: firebaseUser.email,
                             displayName: firebaseUser.displayName,
                             photoURL: firebaseUser.photoURL,
                             lastLoginAt: serverTimestamp()
-                        });
-                        console.log("[Auth] User profile synced.");
+                        };
+
+                        if (shouldPromoteToAdmin) {
+                            updatePayload.role = 'admin';
+                        }
+
+                        await updateDoc(userDocRef, updatePayload);
+                        userData = { ...currentData, ...updatePayload };
                     }
+
+                    if (isSuperAdmin || userData?.role === 'admin') {
+                        setIsDevMode(true);
+                    } else {
+                        setIsDevMode(false);
+                    }
+
                 } catch (error) {
                     console.error("[Auth] User sync failed:", error);
+                    setIsDevMode(false);
                 }
 
             } else {
@@ -198,8 +233,22 @@ const App = () => {
         }
     };
 
+    const handleGuestLogin = async () => {
+        if (isLoggingIn) return;
+        setIsLoggingIn(true);
+        try {
+            await signInAnonymously(auth);
+        } catch (error) {
+            console.error("ゲストログインに失敗:", error);
+            alert("ゲストログインに失敗しました。");
+        } finally {
+            setIsLoggingIn(false);
+        }
+    };
+
     const handleLogout = async () => {
         await signOut(auth);
+        setIsDevMode(false);
         navigate('/login');
     };
 
@@ -209,7 +258,6 @@ const App = () => {
 
     return (
         <>
-            {/* 管理者モード時のみ、モニターコンポーネントを常駐させる */}
             {isDevMode && (
                 <PerformanceMonitor
                     visible={isPerfMonitorVisible}
@@ -245,7 +293,11 @@ const App = () => {
                             authStatus === 'authed' ? (
                                 <Navigate to="/" replace />
                             ) : (
-                                <LoginPage onLoginClick={handleLogin} isLoggingIn={isLoggingIn} />
+                                <LoginPage
+                                    onLoginClick={handleLogin}
+                                    onGuestClick={handleGuestLogin}
+                                    isLoggingIn={isLoggingIn}
+                                />
                             )
                         }
                     />
@@ -264,7 +316,8 @@ const App = () => {
                                     onTogglePerfMonitor={() => setIsPerfMonitorVisible(p => !p)}
                                 />
                             ) : (
-                                <Navigate to="/login" replace />
+                                // ▼▼▼ 修正: ログイン画面ではなくLIVEビューへ転送 ▼▼▼
+                                <RedirectToLive />
                             )
                         }
                     />
@@ -275,7 +328,8 @@ const App = () => {
                             authStatus === 'authed' ? (
                                 <EditorRedirector />
                             ) : (
-                                <Navigate to="/login" replace />
+                                // ▼▼▼ 修正: ログイン画面ではなくLIVEビューへ転送 ▼▼▼
+                                <RedirectToLive />
                             )
                         }
                     />

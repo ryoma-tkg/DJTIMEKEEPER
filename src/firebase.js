@@ -5,17 +5,16 @@ import {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
+  signInAnonymously, // 追加
   signOut
 } from "firebase/auth";
 
-// ▼▼▼ 【修正】 getFirestore, enableIndexedDbPersistence を削除し、新しい初期化関数をインポート ▼▼▼
 import {
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager
 } from "firebase/firestore";
-import { doc, onSnapshot, setDoc } from "firebase/firestore"; // 他の必要なものは維持
-
+import { doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore"; // updateDocを追加
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const firebaseConfig = {
@@ -33,27 +32,24 @@ const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 
-// ▼▼▼ 【修正】 最新の書き方でFirestoreを初期化（オフライン永続化もここで設定） ▼▼▼
-// enableIndexedDbPersistence(db)... の代わりに、初期化時にオプションとして渡します
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager() // 複数タブでの同期もサポート
+    tabManager: persistentMultipleTabManager()
   })
 });
-// ▲▲▲ 修正ここまで ▲▲▲
 
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 
-// enableIndexedDbPersistence のブロックは削除しました
-
 export {
   onAuthStateChanged,
   signInWithPopup,
+  signInAnonymously, // エクスポートに追加
   signOut,
   doc,
   onSnapshot,
   setDoc,
+  updateDoc, // エクスポートに追加
   ref,
   uploadBytes,
   getDownloadURL,

@@ -1,6 +1,6 @@
 # Roadmap to Release
 
-**Last Updated: 2025-11-20**
+**Last Updated: 2025-11-23**
 
 ## 🚀 Milestones
 
@@ -74,8 +74,6 @@ Comprehensive design update focusing on "Tactile Feel" and "Modern Professional"
 * ✅ **Code Splitting:** Applied `React.lazy` & `Suspense` for route-based splitting.
 * ✅ **Security Hardening:** Strict `firestore.rules` (Validation & List query constraints).
 
----
-
 ### Phase 5: User Management & Personalization (✅ Completed)
 **"Identity & Preferences" - ユーザー体験の個別化と基盤強化**
 * ✅ **User Database Architecture:** `users` collection setup & security rules.
@@ -88,9 +86,30 @@ Comprehensive design update focusing on "Tactile Feel" and "Modern Professional"
 * ✅ **Performance Monitor:** Real-time tracking of FPS, Memory, Network, and DOM nodes with detailed logging.
 * ✅ **Dashboard UI Overhaul:** Replaced FAB with inline "Create Event" card and header actions for better usability.
 * ✅ **Navigation Logic:** Improved browser-back behavior for seamless transitions between Dashboard, Edit, and Live modes.
+
 ---
 
-### Phase 6: Release & Monetization (Future)
+### Phase 6: UI Renovation & Refactoring (🚀 Current Focus)
+**"The Digital Instrument" - 完全に統一されたデザインシステムへの移行**
+
+1.  **フェーズ 1: 足場固め (Foundation)**
+    * `tailwind.config.js` の更新 (カラー、アニメーション、SPブレイクポイントの確定)
+    * `index.css` の整備 (グローバル変数、スクロールバーユーティリティ)
+2.  **フェーズ 2: 原子コンポーネントの昇格 (Atoms)**
+    * `src/components/ui/` 配下のコンポーネント（Button, Input, Toggle, Badge）を最新デザインに刷新
+3.  **フェーズ 3: 複合コンポーネントの再構築 (Molecules)**
+    * `SortableListCard` のレスポンシブ対応・デザインリファクタリング
+    * `BaseModal` のアニメーション調整
+    * `TimeInput` の刷新
+4.  **フェーズ 4: ページへの適用 (Integration)**
+    * Dashboard, Editor, LiveView への新コンポーネント適用
+5.  **フェーズ 5: お掃除 (Cleanup)**
+    * `UITestPage.jsx` の削除
+    * 不要なCSS/コンポーネントの削除
+
+---
+
+### Phase 7: Release & Monetization (Future)
 **Public Launch**
 
 1.  **Public Real-time Page:** `/public/:timetableId` (View-only).
