@@ -313,6 +313,7 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                         theme={theme}
                         toggleTheme={toggleTheme}
                         imagesLoaded={imagesLoaded}
+                        expireAt={eventData?.expireAt}
                     />
 
                     {/* 更新反映ボタン */}

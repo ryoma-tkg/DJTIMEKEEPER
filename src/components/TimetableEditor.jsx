@@ -33,6 +33,7 @@ import {
     MoonIcon,
     SunIcon,
     LayersIcon,
+    ClockIcon, // ★ 追加
 
     // Constants & Helpers
     VIVID_COLORS,
@@ -47,7 +48,6 @@ const BackIcon = ({ className }) => (
 
 // --- VjItem (New SortableListCard) ---
 const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging, isPlaying }) => {
-
     return (
         <SortableListCard
             item={vj}
@@ -57,8 +57,6 @@ const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging, isPlay
             onUpdate={onUpdate}
             onRemove={onRemove}
             labelName="VJ Name"
-
-
         />
     );
 });
@@ -131,7 +129,8 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, ev
 };
 
 // --- SettingsModal (Updated to Match Catalog Design) ---
-const SettingsModal = ({ isOpen, onClose, eventConfig, handleEventConfigChange, handleShare, onResetClick, theme, toggleTheme }) => {
+// ★ isGuest を受け取る
+const SettingsModal = ({ isOpen, onClose, eventConfig, handleEventConfigChange, handleShare, onResetClick, theme, toggleTheme, isGuest }) => {
     const isTitleError = !eventConfig.title || eventConfig.title.trim() === '';
 
     const footerContent = (
@@ -171,13 +170,17 @@ const SettingsModal = ({ isOpen, onClose, eventConfig, handleEventConfigChange, 
                 <section>
                     <h3 className="text-sm font-bold text-on-surface-variant uppercase tracking-wider mb-3">オプション設定</h3>
                     <div className="bg-surface-background/50 rounded-xl px-4 py-2 space-y-2 border border-on-surface/5">
-                        <Toggle
-                            checked={eventConfig.vjFeatureEnabled}
-                            onChange={() => handleEventConfigChange('vjFeatureEnabled', !eventConfig.vjFeatureEnabled)}
-                            label="VJタイムテーブル機能"
-                            icon={VideoIcon}
-                            description="VJのタイムテーブルも管理します"
-                        />
+                        {/* ★ VJ機能: ゲストは不可 */}
+                        <div className={isGuest ? "opacity-50 pointer-events-none grayscale" : ""}>
+                            <Toggle
+                                checked={eventConfig.vjFeatureEnabled}
+                                onChange={() => handleEventConfigChange('vjFeatureEnabled', !eventConfig.vjFeatureEnabled)}
+                                label={isGuest ? "VJタイムテーブル (登録限定)" : "VJタイムテーブル機能"}
+                                icon={VideoIcon}
+                                description={isGuest ? "ゲストは利用できません" : "VJのタイムテーブルも管理します"}
+                                disabled={isGuest}
+                            />
+                        </div>
                         <div className="border-t border-on-surface/5"></div>
                         <Toggle
                             checked={theme === 'dark'}
@@ -216,7 +219,8 @@ const IntegratedFloorTabs = ({ floors, currentFloorId, onSelectFloor, onAddClick
 };
 
 // --- Main Component ---
-export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, setTimetable, vjTimetable, setVjTimetable, floors, currentFloorId, onSelectFloor, onFloorsUpdate, setMode, storage, timeOffset, theme, toggleTheme, imagesLoaded }) => {
+// ★ expireAt を受け取る
+export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, setTimetable, vjTimetable, setVjTimetable, floors, currentFloorId, onSelectFloor, onFloorsUpdate, setMode, storage, timeOffset, theme, toggleTheme, imagesLoaded, expireAt }) => {
     const [openColorPickerId, setOpenColorPickerId] = useState(null);
     const [editingDjIndex, setEditingDjIndex] = useState(null);
     const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
@@ -228,6 +232,17 @@ export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, 
 
     // ★ ゲスト判定
     const isGuest = user?.isAnonymous;
+
+    // ★ 追加: 削除日時のフォーマット
+    const expireDateStr = useMemo(() => {
+        if (!expireAt) return null;
+        const date = expireAt.toDate ? expireAt.toDate() : new Date(expireAt);
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${month}/${day} ${hours}:${minutes}`;
+    }, [expireAt]);
 
     useEffect(() => { const timer = setInterval(() => setNow(new Date(new Date().getTime() + timeOffset)), 1000); return () => clearInterval(timer); }, [timeOffset]);
 
@@ -263,14 +278,37 @@ export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, 
     return (
         <>
             <ToastNotification message={toast.message} isVisible={toast.visible} className="top-24" />
-            <div className="p-4 md:p-8 max-w-7xl mx-auto min-h-screen animate-fade-in-up">
-                <header className="flex flex-row justify-between items-center mb-6 gap-4">
+            <div className="p-4 md:p-8 max-w-7xl mx-auto min-h-screen animate-fade-in-up relative">
+
+                {/* Header: justify-between で要素を配置 */}
+                <header className="flex flex-row justify-between items-center mb-6 gap-2 sm:gap-4 relative z-10">
                     <Link to="/" className="flex-shrink-0">
                         <Button variant="secondary" size="icon" icon={BackIcon} className="rounded-full" />
                     </Link>
-                    <input type="text" value={eventConfig.title || 'DJ Timekeeper Pro'} onChange={(e) => handleEventConfigChange('title', e.target.value)} className="text-2xl sm:text-3xl font-bold text-brand-secondary tracking-wide bg-transparent focus:outline-none focus:bg-surface-container/50 rounded-lg p-2 flex-1 min-w-0" placeholder="イベントタイトル" />
-                    <Button onClick={() => setIsSettingsOpen(true)} variant="secondary" icon={SettingsIcon} className="hidden sm:flex">イベントの設定</Button>
-                    <Button onClick={() => setIsSettingsOpen(true)} variant="secondary" size="icon" icon={SettingsIcon} className="sm:hidden rounded-full" />
+
+                    <input
+                        type="text"
+                        value={eventConfig.title || 'DJ Timekeeper Pro'}
+                        onChange={(e) => handleEventConfigChange('title', e.target.value)}
+                        className="text-xl sm:text-2xl md:text-3xl font-bold text-brand-secondary tracking-wide bg-transparent focus:outline-none focus:bg-surface-container/50 rounded-lg p-2 flex-1 min-w-0"
+                        placeholder="イベントタイトル"
+                    />
+
+                    {/* ★ 修正: ヘッダー要素としてアラートを配置 (h-12でボタンと高さを統一) */}
+                    {isGuest && expireDateStr && (
+                        <div className="flex-shrink-0 flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 text-red-500 px-3 h-12 rounded-xl shadow-sm">
+                            <ClockIcon className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <div className="flex flex-col leading-none">
+                                <span className="text-[8px] sm:text-[10px] font-bold uppercase tracking-wider opacity-70">Auto Delete</span>
+                                <span className="text-[10px] sm:text-xs font-mono font-bold whitespace-nowrap">{expireDateStr}</span>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex-shrink-0 flex gap-2">
+                        <Button onClick={() => setIsSettingsOpen(true)} variant="secondary" icon={SettingsIcon} className="hidden sm:flex">イベントの設定</Button>
+                        <Button onClick={() => setIsSettingsOpen(true)} variant="secondary" size="icon" icon={SettingsIcon} className="sm:hidden rounded-full" />
+                    </div>
                 </header>
 
                 <div className="flex flex-col sm:flex-row gap-4 mb-8">
@@ -347,7 +385,20 @@ export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, 
             </div>
 
             <ConfirmModal isOpen={isResetConfirmOpen} title="リセット" message="元に戻せません。よろしいですか？" onConfirm={executeReset} onCancel={() => setIsResetConfirmOpen(false)} />
-            <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} eventConfig={eventConfig} handleEventConfigChange={handleEventConfigChange} handleShare={handleShare} onResetClick={() => { setIsSettingsOpen(false); setIsResetConfirmOpen(true); }} theme={theme} toggleTheme={toggleTheme} />
+
+            {/* ★ SettingsModal に isGuest を渡す */}
+            <SettingsModal
+                isOpen={isSettingsOpen}
+                onClose={() => setIsSettingsOpen(false)}
+                eventConfig={eventConfig}
+                handleEventConfigChange={handleEventConfigChange}
+                handleShare={handleShare}
+                onResetClick={() => { setIsSettingsOpen(false); setIsResetConfirmOpen(true); }}
+                theme={theme}
+                toggleTheme={toggleTheme}
+                isGuest={isGuest}
+            />
+
             {!isOldData && <FloorManagerModal isOpen={isFloorManagerOpen} onClose={() => setIsFloorManagerOpen(false)} floors={floors} onSaveFloors={onFloorsUpdate} />}
             {editingDjIndex !== null && <ImageEditModal dj={timetable[editingDjIndex]} onUpdate={(f, v) => handleUpdate(editingDjIndex, f, v)} onClose={() => setEditingDjIndex(null)} storage={storage} />}
         </>
