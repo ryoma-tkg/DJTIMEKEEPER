@@ -8,7 +8,7 @@ import {
     googleProvider,
     onAuthStateChanged,
     signInWithPopup,
-    signInAnonymously, // ★ ゲストログイン用に追加
+    signInAnonymously,
     signOut
 } from './firebase';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
@@ -93,6 +93,14 @@ const LiveRedirector = () => {
     return <Navigate to={`/live/${eventId}/${targetFloorId}`} replace />;
 };
 
+// ▼▼▼ 新規追加: 未ログイン時にLIVEビューへ転送するコンポーネント ▼▼▼
+const RedirectToLive = () => {
+    const { eventId, floorId } = useParams();
+    // floorIdがある場合は特定フロアへ、なければイベントトップへ（LiveRedirectorが処理）
+    const targetPath = floorId ? `/live/${eventId}/${floorId}` : `/live/${eventId}`;
+    return <Navigate to={targetPath} replace />;
+};
+// ▲▲▲ 追加ここまで ▲▲▲
 
 const App = () => {
     const [user, setUser] = useState(null);
@@ -101,11 +109,9 @@ const App = () => {
     const navigate = useNavigate();
     const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
 
-    // ★ スーパー管理者ID (ここをあなたのUIDにしてください)
     const SUPER_ADMIN_UID = "GLGPpy6IlyWbGw15OwBPzRdCPZI2";
 
     const [isDevMode, setIsDevMode] = useState(false);
-    // モニター表示管理
     const [isPerfMonitorVisible, setIsPerfMonitorVisible] = useState(false);
 
     useEffect(() => {
@@ -118,24 +124,20 @@ const App = () => {
         }
     }, [theme]);
 
-    // ★ テーマ切り替え関数 (復元済み)
     const toggleTheme = () => {
         setTheme(prevTheme => (prevTheme === 'dark' ? 'light' : 'dark'));
     };
 
-    // Adminロールのユーザーだけが DevMode をトグルできる
     const toggleDevMode = () => {
         if (isDevMode) {
             setIsDevMode(false);
         } else {
-            // 再度チェック（念のため）
             checkIsAdmin().then(isAdmin => {
                 if (isAdmin) setIsDevMode(true);
             });
         }
     };
 
-    // ヘルパー: Admin権限チェック
     const checkIsAdmin = async () => {
         if (!auth.currentUser) return false;
         if (auth.currentUser.uid === SUPER_ADMIN_UID) return true;
@@ -159,17 +161,14 @@ const App = () => {
                     const userSnap = await getDoc(userDocRef);
 
                     let userData = null;
-                    // ★ スーパー管理者かどうかの判定
                     const isSuperAdmin = firebaseUser.uid === SUPER_ADMIN_UID;
 
                     if (!userSnap.exists()) {
-                        // 新規ユーザー作成
                         const newUserData = {
                             uid: firebaseUser.uid,
                             email: firebaseUser.email,
                             displayName: firebaseUser.displayName,
                             photoURL: firebaseUser.photoURL,
-                            // ★ スーパー管理者なら最初から 'admin'、それ以外は 'free'
                             role: isSuperAdmin ? 'admin' : 'free',
                             createdAt: serverTimestamp(),
                             lastLoginAt: serverTimestamp(),
@@ -182,12 +181,8 @@ const App = () => {
                         };
                         await setDoc(userDocRef, newUserData);
                         userData = newUserData;
-                        console.log("[Auth] User profile created.");
                     } else {
-                        // 既存ユーザー同期
                         const currentData = userSnap.data();
-
-                        // ★ スーパー管理者なのに role が 'admin' じゃない場合、強制的に 'admin' に昇格させる
                         const shouldPromoteToAdmin = isSuperAdmin && currentData.role !== 'admin';
 
                         const updatePayload = {
@@ -199,19 +194,13 @@ const App = () => {
 
                         if (shouldPromoteToAdmin) {
                             updatePayload.role = 'admin';
-                            console.log("👑 スーパー管理者を検出: Admin権限を付与しました");
                         }
 
                         await updateDoc(userDocRef, updatePayload);
-
-                        // userDataを更新後の内容にする
                         userData = { ...currentData, ...updatePayload };
-                        console.log("[Auth] User profile synced.");
                     }
 
-                    // DevMode判定 (DB上のroleもチェック)
                     if (isSuperAdmin || userData?.role === 'admin') {
-                        console.log("管理者権限を確認しました: DevMode Enabled");
                         setIsDevMode(true);
                     } else {
                         setIsDevMode(false);
@@ -244,7 +233,6 @@ const App = () => {
         }
     };
 
-    // ★ ゲストログイン処理
     const handleGuestLogin = async () => {
         if (isLoggingIn) return;
         setIsLoggingIn(true);
@@ -260,7 +248,7 @@ const App = () => {
 
     const handleLogout = async () => {
         await signOut(auth);
-        setIsDevMode(false); // ログアウト時はDevModeもOFF
+        setIsDevMode(false);
         navigate('/login');
     };
 
@@ -270,7 +258,6 @@ const App = () => {
 
     return (
         <>
-            {/* 管理者モード時のみ、モニターコンポーネントを常駐させる */}
             {isDevMode && (
                 <PerformanceMonitor
                     visible={isPerfMonitorVisible}
@@ -329,7 +316,8 @@ const App = () => {
                                     onTogglePerfMonitor={() => setIsPerfMonitorVisible(p => !p)}
                                 />
                             ) : (
-                                <Navigate to="/login" replace />
+                                // ▼▼▼ 修正: ログイン画面ではなくLIVEビューへ転送 ▼▼▼
+                                <RedirectToLive />
                             )
                         }
                     />
@@ -340,7 +328,8 @@ const App = () => {
                             authStatus === 'authed' ? (
                                 <EditorRedirector />
                             ) : (
-                                <Navigate to="/login" replace />
+                                // ▼▼▼ 修正: ログイン画面ではなくLIVEビューへ転送 ▼▼▼
+                                <RedirectToLive />
                             )
                         }
                     />

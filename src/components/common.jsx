@@ -87,3 +87,43 @@ export const ToastNotification = ({ message, isVisible, className = '' }) => {
     if (!internalMessage) return null;
     return (<div className={`fixed left-1/2 z-50 bg-surface-container/90 text-on-surface font-semibold py-3 px-5 rounded-full shadow-lg flex items-center gap-2 ${animationClass} ${className}`} onAnimationEnd={() => { if (!isVisible) { setInternalMessage(''); setAnimationClass(''); } }}><InfoIcon className="w-5 h-5 text-on-surface-variant" /><span>{internalMessage}</span></div>);
 };
+
+export const PlanTag = ({ role, isGuest, className = "" }) => {
+    let config = {
+        label: 'FREE',
+        // Blue: 知的でクリアな印象
+        style: 'bg-blue-500/5 text-blue-600 border-blue-500/20'
+    };
+
+    if (isGuest) {
+        config = {
+            label: 'GUEST',
+            // Gray: 無機質でニュートラル
+            style: 'bg-slate-500/5 text-slate-500 border-slate-500/20'
+        };
+    } else if (role === 'admin') {
+        config = {
+            label: 'ADMIN',
+            // Purple: 高貴で特別な権限
+            style: 'bg-purple-500/5 text-purple-600 border-purple-500/20'
+        };
+    } else if (role === 'pro') {
+        config = {
+            label: 'PRO',
+            // Yellow/Amber: 活力とプレミアム感
+            style: 'bg-amber-500/5 text-amber-600 border-amber-500/20'
+        };
+    }
+
+    return (
+        <div className={`
+            inline-flex items-center justify-center px-3 h-6 rounded-md border
+            text-[10px] font-bold font-sans tracking-[0.15em] uppercase
+            backdrop-blur-[2px]
+            ${config.style}
+            ${className}
+        `}>
+            {config.label}
+        </div>
+    );
+};

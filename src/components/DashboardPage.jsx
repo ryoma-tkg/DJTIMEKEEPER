@@ -1,7 +1,6 @@
 // [src/components/DashboardPage.jsx]
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-// ▼▼▼ 修正: パスを '../firebase' に戻しました ▼▼▼
 import { db } from '../firebase';
 import { collection, addDoc, deleteDoc, doc, query, where, onSnapshot, Timestamp, writeBatch, orderBy, limit } from 'firebase/firestore';
 import {
@@ -15,7 +14,9 @@ import {
     LoadingScreen as LoadingSpinner,
     ToastNotification,
     TrashIcon,
-    AlertTriangleIcon
+    AlertTriangleIcon,
+    UserIcon,
+    PlanTag // ★ 追加: commonからインポート
 } from './common';
 import { DevControls } from './DevControls';
 import { ConfirmModal } from './common';
@@ -24,7 +25,10 @@ import { EventCard } from './dashboard/EventCard';
 import { EventSetupModal } from './dashboard/EventSetupModal';
 import { DashboardSettingsModal } from './dashboard/DashboardSettingsModal';
 
+// ★ 以前定義した const PlanTag = ... は削除してください
+
 export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, isPerfMonitorVisible, onTogglePerfMonitor }) => {
+    // ... (State定義などは変更なし) ...
     const [events, setEvents] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
@@ -45,11 +49,14 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
     // ゲスト判定
     const isGuest = user?.isAnonymous;
 
+    // ★ planBadge の useMemo も削除してOKです (PlanTag内でロジック完結したため)
+
     const showToast = (message) => {
         if (toastTimerRef.current) { clearTimeout(toastTimerRef.current); setToast({ message: '', visible: false }); }
         setTimeout(() => { setToast({ message, visible: true }); toastTimerRef.current = setTimeout(() => { setToast(prev => ({ ...prev, visible: false })); toastTimerRef.current = null; }, 3000); }, 100);
     };
 
+    // ... (useEffect や ハンドラ関数は変更なし) ...
     // イベント一覧の読み込み
     useEffect(() => {
         if (!user) return;
@@ -191,11 +198,17 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
             <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto pb-32">
                 <header className="flex flex-row justify-between items-center mb-12 animate-fade-in-up relative z-30 gap-4">
                     <div className="flex flex-col items-start select-none flex-shrink-0"><h1 className="text-xl md:text-2xl font-bold tracking-widest text-on-surface">DJ TIMEKEEPER <span className="text-brand-primary">PRO</span></h1><span className="text-[10px] font-bold tracking-[0.3em] text-on-surface-variant uppercase">Dashboard</span></div>
-                    <div className="flex items-center gap-4 md:gap-6">
+                    <div className="flex items-center gap-3 md:gap-5">
+
+                        {/* ▼▼▼ 修正: PlanTag を使用 ▼▼▼ */}
+                        <div className="hidden sp:block">
+                            <PlanTag role={userProfile?.role} isGuest={isGuest} />
+                        </div>
+
                         <div className="relative">
                             <button onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)} className="flex items-center gap-3 group focus:outline-none" title="アカウントメニューを開く">
                                 {user?.photoURL ?
-                                    <img src={user.photoURL} alt="User" className="w-10 h-10 md:w-12 md:h-12 rounded-full border-2 border-surface-container shadow-md group-hover:scale-105 transition-transform group-hover:shadow-lg" />
+                                    <img src={user.photoURL} alt="User" className="w-10 h-10 md:w-12 md:h-12 rounded-full border-2 border-surface-container shadow-md group-hover:scale-105 transition-transform group-hover:shadow-lg object-cover" />
                                     : <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-md group-hover:scale-105 transition-transform group-hover:shadow-lg ${isGuest ? 'bg-amber-500' : 'bg-brand-primary'}`}>{user?.displayName?.[0] || "U"}</div>
                                 }
                             </button>
@@ -205,6 +218,12 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
                                     <div className="fixed inset-0 z-40" onClick={() => setIsAccountMenuOpen(false)} />
                                     <div className="absolute top-full right-0 mt-3 w-72 bg-surface-container rounded-2xl shadow-2xl border border-on-surface/10 p-2 z-50 animate-fade-in origin-top-right">
                                         <div className="px-4 py-3 border-b border-on-surface/10 mb-2">
+                                            <div className="flex items-center justify-between mb-1">
+                                                {/* 極小画面向けプラン表示 */}
+                                                <div className="sp:hidden mb-1">
+                                                    <PlanTag role={userProfile?.role} isGuest={isGuest} />
+                                                </div>
+                                            </div>
                                             <p className="font-bold text-sm text-on-surface truncate flex items-center gap-2">
                                                 {isGuest && <AlertTriangleIcon className="w-4 h-4 text-amber-500" />}
                                                 {userProfile?.displayName || user?.displayName || 'Guest User'}
@@ -237,7 +256,7 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
                         </div>
                     </div>
                 </header>
-
+                {/* ... (以下のイベント一覧表示部分は変更なし) ... */}
                 {events.length > 0 ? (
                     <div className="space-y-12">
                         {nowEvents.length > 0 && (<section className="animate-fade-in-up opacity-0"><div className="flex items-center gap-2 mb-4 text-red-500"><span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span><h2 className="text-lg font-bold tracking-widest">NOW ON AIR</h2></div><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{nowEvents.map(event => <EventCard key={event.id} event={event} onDeleteClick={(id, title) => setDeleteTarget({ id, title })} onClick={() => navigate(`/edit/${event.id}`)} />)}</div></section>)}

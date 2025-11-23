@@ -1,7 +1,7 @@
 // [src/components/dashboard/DashboardSettingsModal.jsx]
 import React, { useState, useEffect } from 'react';
-import { db, storage } from '../../firebase'; // パス調整: components/dashboard/ -> ../../firebase
-import { collection, doc, query, where, updateDoc, getDocs, getDoc, writeBatch } from 'firebase/firestore';
+import { db, storage } from '../../firebase';
+import { collection, doc, query, where, updateDoc, getDocs, getDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import { updateProfile, deleteUser } from 'firebase/auth';
 import {
@@ -22,11 +22,13 @@ import {
     UserIcon,
     SearchIcon,
     APP_VERSION,
-    LayersIcon
-} from '../common'; // パス調整: components/dashboard/ -> ../common
+    LayersIcon,
+    PlanTag
+} from '../common';
 
 export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout, user, userProfile, onViewUser }) => {
-    const [activeTab, setActiveTab] = useState('account');
+    const isGuest = user?.isAnonymous;
+    const [activeTab, setActiveTab] = useState(isGuest ? 'app' : 'account');
     const [displayName, setDisplayName] = useState(user?.displayName || '');
     const [preferences, setPreferences] = useState({
         defaultStartTime: '22:00',
@@ -35,16 +37,15 @@ export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, on
         ...userProfile?.preferences
     });
 
-    // 管理者追加用
     const [targetEmail, setTargetEmail] = useState('');
     const [adminSearchStatus, setAdminSearchStatus] = useState('');
+    const [targetUserForRole, setTargetUserForRole] = useState(null);
 
-    // サポートモード用
     const [supportSearchEmail, setSupportSearchEmail] = useState('');
     const [supportSearchStatus, setSupportSearchStatus] = useState('');
     const [foundUser, setFoundUser] = useState(null);
 
-    const [adminList, setAdminList] = useState([]);
+    const [privilegedUsers, setPrivilegedUsers] = useState([]);
     const [isWakeLockEnabled, setIsWakeLockEnabled] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -63,14 +64,16 @@ export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, on
                 ...userProfile?.preferences
             });
             setIsWakeLockEnabled(localStorage.getItem('wakeLockEnabled') === 'true');
-            setActiveTab('account');
+            setActiveTab(isGuest ? 'app' : 'account');
+
             setTargetEmail('');
             setAdminSearchStatus('');
+            setTargetUserForRole(null);
             setSupportSearchEmail('');
             setSupportSearchStatus('idle');
             setFoundUser(null);
         }
-    }, [isOpen, user, userProfile]);
+    }, [isOpen, user, userProfile, isGuest]);
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -99,55 +102,95 @@ export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, on
         localStorage.setItem('wakeLockEnabled', val);
     };
 
-    const fetchAdminList = async () => {
+    // 「手動付与された」ユーザーのみをフィルタリングして取得
+    const fetchPrivilegedUsers = async () => {
         if (!isSuperAdmin && userProfile?.role !== 'admin') return;
         try {
-            const q = query(collection(db, "users"), where("role", "==", "admin"));
+            const q = query(collection(db, "users"), where("role", "in", ["admin", "pro"]));
             const querySnapshot = await getDocs(q);
-            const admins = [];
+            const users = [];
             querySnapshot.forEach((doc) => {
-                admins.push({ id: doc.id, ...doc.data() });
+                const data = doc.data();
+                // isManuallyGranted が true の人のみ追加
+                if (data.isManuallyGranted === true) {
+                    users.push({ id: doc.id, ...data });
+                }
             });
-            setAdminList(admins);
+
+            users.sort((a, b) => {
+                if (a.role === 'admin' && b.role !== 'admin') return -1;
+                if (a.role !== 'admin' && b.role === 'admin') return 1;
+                return 0;
+            });
+            setPrivilegedUsers(users);
         } catch (error) {
-            console.error("管理者リスト取得エラー:", error);
+            console.error("権限ユーザーリスト取得エラー:", error);
         }
     };
 
     useEffect(() => {
         if (activeTab === 'admin_role') {
-            fetchAdminList();
+            fetchPrivilegedUsers();
         }
     }, [activeTab]);
 
-    const handleGrantAdmin = async () => {
+    const handleSearchForRole = async () => {
         if (!targetEmail) return;
         setAdminSearchStatus('searching');
+        setTargetUserForRole(null);
         try {
             const q = query(collection(db, "users"), where("email", "==", targetEmail));
             const querySnapshot = await getDocs(q);
-            if (querySnapshot.empty) {
+
+            if (!querySnapshot.empty) {
+                const docSnap = querySnapshot.docs[0];
+                setTargetUserForRole({ id: docSnap.id, ...docSnap.data() });
+                setAdminSearchStatus('found');
+            } else {
                 setAdminSearchStatus('not-found');
-                return;
-            }
-            const updates = [];
-            querySnapshot.forEach((docSnap) => {
-                const userData = docSnap.data();
-                if (userData.role === 'admin') {
-                    setAdminSearchStatus('already-admin');
-                } else {
-                    updates.push(updateDoc(docSnap.ref, { role: 'admin' }));
-                }
-            });
-            if (updates.length > 0) {
-                await Promise.all(updates);
-                setAdminSearchStatus('success');
-                fetchAdminList();
-                setTargetEmail('');
             }
         } catch (error) {
-            console.error("管理者付与エラー:", error);
+            console.error("ユーザー検索エラー:", error);
             setAdminSearchStatus('error');
+        }
+    };
+
+    const handleChangeRole = async (newRole) => {
+        if (!targetUserForRole) return;
+
+        if (targetUserForRole.id === SUPER_ADMIN_UID) {
+            alert("スーパー管理者の権限は変更できません。");
+            return;
+        }
+
+        const roleName = newRole === 'admin' ? '管理者' : newRole === 'pro' ? 'Proプラン' : 'Freeプラン';
+        if (!window.confirm(`ユーザー「${targetUserForRole.displayName || targetUserForRole.email}」の権限を【${roleName}】に変更しますか？`)) return;
+
+        try {
+            const userRef = doc(db, "users", targetUserForRole.id);
+
+            const updateData = {
+                role: newRole,
+                updatedAt: serverTimestamp()
+            };
+
+            // AdminまたはProにする場合は「手動付与フラグ」をON
+            if (newRole === 'admin' || newRole === 'pro') {
+                updateData.isManuallyGranted = true;
+            } else {
+                // Freeに戻す場合はフラグをOFF
+                updateData.isManuallyGranted = false;
+            }
+
+            await updateDoc(userRef, updateData);
+
+            alert(`権限を ${roleName} に変更しました。`);
+
+            setTargetUserForRole(prev => ({ ...prev, role: newRole }));
+            fetchPrivilegedUsers();
+        } catch (error) {
+            console.error("権限変更エラー:", error);
+            alert("権限の変更に失敗しました。");
         }
     };
 
@@ -156,11 +199,11 @@ export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, on
             alert("自分自身の権限は削除できません。");
             return;
         }
-        if (!window.confirm(`「${targetName || 'このユーザー'}」から管理者権限を剥奪しますか？`)) return;
+        if (!window.confirm(`「${targetName || 'このユーザー'}」の権限をリセット（Freeプラン化）しますか？`)) return;
         try {
             const userRef = doc(db, "users", targetUid);
-            await updateDoc(userRef, { role: 'free' });
-            fetchAdminList();
+            await updateDoc(userRef, { role: 'free', isManuallyGranted: false });
+            fetchPrivilegedUsers();
         } catch (error) {
             console.error("権限削除エラー:", error);
             alert("権限の変更に失敗しました。");
@@ -242,7 +285,6 @@ export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, on
         }
     };
 
-    // Menu Button Component
     const MenuButton = ({ id, label, icon: Icon }) => {
         const isActive = activeTab === id;
         return (
@@ -266,28 +308,30 @@ export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, on
     return (
         <BaseModal isOpen={isOpen} onClose={onClose} maxWidthClass="max-w-4xl" isScrollable={false} noPadding={true} hasCloseButton={false} footer={null}>
             <div className="flex flex-col md:flex-row h-[80vh] md:h-[550px] relative">
-                {/* SP Close Button */}
                 <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface transition-colors z-50 md:hidden">
                     <XIcon className="w-5 h-5" />
                 </button>
 
-                {/* Sidebar */}
                 <aside className="w-full md:w-64 bg-surface-background border-b md:border-b-0 md:border-r border-on-surface/5 flex flex-col flex-shrink-0">
                     <div className="p-4 md:px-3 md:pt-6 pb-2">
                         <div className="flex items-center gap-3 mb-4 md:mb-6 px-2">
                             <div className="w-10 h-10 rounded-full bg-brand-primary flex items-center justify-center text-white font-bold text-lg shadow-sm flex-shrink-0">
                                 {user?.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover rounded-full" /> : (user?.displayName?.[0] || "U")}
                             </div>
-                            <span className="font-bold text-sm text-on-surface truncate">{user?.displayName || 'User Name'}</span>
+                            <span className="font-bold text-sm text-on-surface truncate">{isGuest ? 'Guest User' : (user?.displayName || 'User Name')}</span>
                         </div>
-                        <div className="hidden md:block text-[10px] font-bold text-on-surface-variant/50 uppercase tracking-wider px-2 mb-1">Settings</div>
+                        {!isGuest && <div className="hidden md:block text-[10px] font-bold text-on-surface-variant/50 uppercase tracking-wider px-2 mb-1">Settings</div>}
                     </div>
 
-                    {/* Menu List (SP: Grid, PC: Stack) */}
                     <div className="px-3 pb-4 md:pb-0 flex-1 overflow-y-auto no-scrollbar">
                         <div className="grid grid-cols-2 md:flex md:flex-col gap-2">
-                            <MenuButton id="account" label="アカウント" icon={UserIcon} />
-                            <MenuButton id="event" label="初期設定" icon={SettingsIcon} />
+                            {!isGuest && (
+                                <>
+                                    <MenuButton id="account" label="アカウント" icon={UserIcon} />
+                                    <MenuButton id="event" label="初期設定" icon={SettingsIcon} />
+                                </>
+                            )}
+
                             <MenuButton id="app" label="アプリ設定" icon={SettingsIcon} />
 
                             {isAdmin && (
@@ -308,7 +352,6 @@ export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, on
                     </div>
                 </aside>
 
-                {/* Main Content */}
                 <main className="flex-1 flex flex-col min-w-0 h-full bg-surface-container relative">
                     <div className="hidden md:block absolute top-4 right-4 z-20">
                         <button onClick={onClose} className="p-2 text-on-surface-variant hover:bg-surface-background hover:text-on-surface rounded-full transition-colors">
@@ -317,7 +360,7 @@ export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, on
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-5 md:p-10 space-y-8 md:space-y-10 custom-scrollbar">
-                        {activeTab === 'account' && (
+                        {activeTab === 'account' && !isGuest && (
                             <div className="animate-fade-in space-y-8">
                                 <section>
                                     <h3 className="text-lg font-bold text-on-surface mb-1">プロフィール</h3>
@@ -358,7 +401,7 @@ export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, on
                             </div>
                         )}
 
-                        {activeTab === 'event' && (
+                        {activeTab === 'event' && !isGuest && (
                             <div className="animate-fade-in space-y-10">
                                 <section>
                                     <div className="mb-6 pb-2 border-b border-on-surface/5">
@@ -470,49 +513,101 @@ export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, on
                             <div className="animate-fade-in space-y-10">
                                 <section>
                                     <div className="mb-6 pb-2 border-b border-on-surface/5">
-                                        <h3 className="text-lg font-bold text-on-surface mb-1">管理者権限の管理</h3>
+                                        <h3 className="text-lg font-bold text-on-surface mb-1">権限・プラン管理</h3>
+                                        <p className="text-xs text-on-surface-variant mt-1 leading-relaxed opacity-80">ユーザーに管理者権限やProプランを付与します。</p>
                                     </div>
                                     <div className="max-w-md space-y-4 pl-1">
                                         <Input
                                             label="対象ユーザーのメールアドレス"
                                             value={targetEmail}
-                                            onChange={(e) => { setTargetEmail(e.target.value); setAdminSearchStatus(''); }}
-                                            placeholder="admin@example.com"
+                                            onChange={(e) => { setTargetEmail(e.target.value); setAdminSearchStatus(''); setTargetUserForRole(null); }}
+                                            placeholder="user@example.com"
                                         />
                                         <div className="flex justify-end">
-                                            <Button onClick={handleGrantAdmin} disabled={!targetEmail || adminSearchStatus === 'searching'}>
-                                                {adminSearchStatus === 'searching' ? '検索中...' : '権限を付与'}
+                                            <Button onClick={handleSearchForRole} disabled={!targetEmail || adminSearchStatus === 'searching'} icon={SearchIcon}>
+                                                {adminSearchStatus === 'searching' ? '検索中...' : 'ユーザーを検索'}
                                             </Button>
                                         </div>
-                                        {adminSearchStatus === 'success' && (<div className="p-3 bg-green-500/10 text-green-500 rounded-lg text-sm font-bold flex items-center gap-2"><span>✅ 権限を付与しました！</span></div>)}
+
                                         {adminSearchStatus === 'not-found' && (<div className="p-3 bg-red-500/10 text-red-500 rounded-lg text-sm font-bold flex items-center gap-2"><span>⚠️ ユーザーが見つかりませんでした。</span></div>)}
-                                        {adminSearchStatus === 'already-admin' && (<div className="p-3 bg-brand-primary/10 text-brand-primary rounded-lg text-sm font-bold flex items-center gap-2"><span>ℹ️ このユーザーは既に管理者です。</span></div>)}
-                                        {adminSearchStatus === 'error' && (<div className="p-3 bg-red-500/10 text-red-500 rounded-lg text-sm font-bold flex items-center gap-2"><span>❌ エラーが発生しました。</span></div>)}
+                                        {adminSearchStatus === 'found' && targetUserForRole && (
+                                            <div className="p-4 bg-surface-background border-2 border-brand-primary/20 rounded-xl space-y-4 animate-fade-in">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <div className="text-xs text-on-surface-variant font-bold mb-1">TARGET USER</div>
+                                                        <div className="font-bold text-lg">{targetUserForRole.displayName || 'No Name'}</div>
+                                                        <div className="font-mono text-xs opacity-70 mb-2">{targetUserForRole.email}</div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xs font-bold text-on-surface-variant">現在の権限:</span>
+                                                            <PlanTag role={targetUserForRole.role} />
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="border-t border-on-surface/10 my-2"></div>
+
+                                                <div className="space-y-2">
+                                                    <div className="text-xs font-bold text-on-surface-variant">変更する権限を選択:</div>
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        {/* ▼▼▼ 修正: PlanTagと同じ配色のボタン ▼▼▼ */}
+                                                        <button
+                                                            onClick={() => handleChangeRole('free')}
+                                                            disabled={targetUserForRole.role === 'free' || (!targetUserForRole.role && 'free' === 'free')}
+                                                            className="py-2 px-1 rounded-lg text-xs font-bold border border-blue-500/20 bg-blue-500/5 text-blue-600 hover:bg-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors uppercase tracking-wider font-sans"
+                                                        >
+                                                            Free
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleChangeRole('pro')}
+                                                            disabled={targetUserForRole.role === 'pro'}
+                                                            className="py-2 px-1 rounded-lg text-xs font-bold border border-amber-500/20 bg-amber-500/5 text-amber-600 hover:bg-amber-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors uppercase tracking-wider font-sans"
+                                                        >
+                                                            PRO
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleChangeRole('admin')}
+                                                            disabled={targetUserForRole.role === 'admin'}
+                                                            className="py-2 px-1 rounded-lg text-xs font-bold border border-purple-500/20 bg-purple-500/5 text-purple-600 hover:bg-purple-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors uppercase tracking-wider font-sans"
+                                                        >
+                                                            ADMIN
+                                                        </button>
+                                                        {/* ▲▲▲ 修正ここまで ▲▲▲ */}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </section>
                                 <section>
                                     <div className="mb-6 pb-2 border-b border-on-surface/5">
-                                        <h3 className="text-lg font-bold text-on-surface mb-1">現在の管理者一覧</h3>
+                                        <h3 className="text-lg font-bold text-on-surface mb-1">手動付与ユーザー一覧</h3>
+                                        <p className="text-xs text-on-surface-variant mt-1 opacity-70">この画面から手動で権限を付与されたユーザーのみ表示されます。</p>
                                     </div>
                                     <div className="max-w-lg space-y-3 pl-1">
-                                        {adminList.length > 0 ? (
-                                            adminList.map((admin) => (
-                                                <div key={admin.id} className="flex items-center justify-between p-3 bg-surface-background rounded-xl border border-on-surface/10 shadow-sm">
+                                        {privilegedUsers.length > 0 ? (
+                                            privilegedUsers.map((pUser) => (
+                                                <div key={pUser.id} className="flex items-center justify-between p-3 bg-surface-background rounded-xl border border-on-surface/10 shadow-sm">
                                                     <div className="flex items-center gap-3 min-w-0">
                                                         <div className="w-10 h-10 rounded-full bg-on-surface/10 flex items-center justify-center shrink-0 overflow-hidden border border-on-surface/5">
-                                                            {admin.photoURL ? <img src={admin.photoURL} className="w-full h-full object-cover" /> : <UserIcon className="w-5 h-5 text-on-surface-variant" />}
+                                                            {pUser.photoURL ? <img src={pUser.photoURL} className="w-full h-full object-cover" /> : <UserIcon className="w-5 h-5 text-on-surface-variant" />}
                                                         </div>
                                                         <div className="min-w-0">
-                                                            <div className="text-sm font-bold text-on-surface truncate flex items-center gap-2">{admin.displayName || 'No Name'} {admin.uid === SUPER_ADMIN_UID && <span className="text-[10px] bg-brand-primary/10 text-brand-primary px-1.5 py-0.5 rounded border border-brand-primary/20">YOU</span>}</div>
-                                                            <div className="text-xs text-on-surface-variant truncate font-mono opacity-70">{admin.email}</div>
+                                                            <div className="text-sm font-bold text-on-surface truncate flex items-center gap-2">
+                                                                {pUser.displayName || 'No Name'}
+                                                                {pUser.uid === SUPER_ADMIN_UID && <span className="text-[10px] bg-brand-primary/10 text-brand-primary px-1.5 py-0.5 rounded border border-brand-primary/20">YOU</span>}
+                                                            </div>
+                                                            <div className="flex items-center gap-2 mt-1">
+                                                                <PlanTag role={pUser.role} className="scale-90 origin-left" />
+                                                                <div className="text-xs text-on-surface-variant truncate font-mono opacity-70">{pUser.email}</div>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    {admin.uid !== SUPER_ADMIN_UID && (
-                                                        <button onClick={() => handleRemoveAdmin(admin.id, admin.displayName)} className="p-2 text-on-surface-variant hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors" title="管理者権限を剥奪"><XIcon className="w-4 h-4" /></button>
+                                                    {pUser.uid !== SUPER_ADMIN_UID && (
+                                                        <button onClick={() => handleRemoveAdmin(pUser.id, pUser.displayName)} className="p-2 text-on-surface-variant hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors" title="権限を剥奪(Free化)"><XIcon className="w-4 h-4" /></button>
                                                     )}
                                                 </div>
                                             ))
-                                        ) : (<p className="text-sm text-on-surface-variant p-2">読み込み中、または管理者がいません。</p>)}
+                                        ) : (<p className="text-sm text-on-surface-variant p-2">手動付与された権限ユーザーはいません。</p>)}
                                     </div>
                                 </section>
                             </div>
