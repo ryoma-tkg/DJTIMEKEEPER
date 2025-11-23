@@ -3,73 +3,110 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // --- 共通関数 ---
-    function isSignedIn() {
-      return request.auth != null;
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return request.auth.uid == userId; }
+    function isGuest() { return request.auth.token.firebase.sign_in_provider == 'anonymous'; }
+    
+    // スーパー管理者ID (あなたのID)
+    function isSuperAdmin() {
+      return request.auth.uid == 'GLGPpy6IlyWbGw15OwBPzRdCPZI2';
     }
 
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    function isGuest() {
-      return request.auth.token.firebase.sign_in_provider == 'anonymous';
-    }
-
-    // ユーザーデータを取得するヘルパー
+    // ユーザーデータ取得（安全版）
     function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) 
+             ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data 
+             : null;
     }
-
-    // ★ 修正1: 管理者判定を厳格化 (Proを含めない)
+    
+    // 管理者判定
     function isAdmin() {
-      return isSignedIn() && !isGuest() && getUserData().role == 'admin';
+      let userData = getUserData();
+      return isSuperAdmin() || (isSignedIn() && userData != null && userData.role == 'admin');
     }
 
-    // ★ Pro機能判定 (Admin または Pro)
-    function canUseProFeatures() {
-      return isSignedIn() && !isGuest() && (
-        getUserData().role == 'admin' || getUserData().role == 'pro'
-      );
+    // --- バリデーション関数 ---
+    
+    function isValidUrl(url) {
+      return url == '' || url == null || url.matches('^https?://.*');
+    }
+    
+    function isValidColor(color) {
+      return color == null || color == '' || color.matches('^#[0-9a-fA-F]{6}$');
+    }
+    
+    function isValidShortString(text) {
+      return text is string && text.size() <= 100;
+    }
+    
+    function isValidDateString(text) {
+      return text is string && text.size() <= 30;
     }
 
-    // --- Timetables バリデーション ---
+    function isValidTimetableItem(item) {
+      return item.keys().hasAll(['name', 'duration'])
+        && (item.name is string && item.name.size() <= 100)
+        && (item.duration is number || item.duration is string);
+    }
+
+    function isValidTimetable(timetable) {
+      return timetable is list && timetable.size() <= 50 
+             && (timetable.size() == 0 || isValidTimetableItem(timetable[0]));
+    }
+
+    function isValidFloors(floors) {
+      return floors is map && floors.size() <= 10;
+    }
+
+    function isValidBase(data) {
+      let configCheck = isValidShortString(data.eventConfig.title)
+                     && (!data.eventConfig.keys().has('startDate') || isValidDateString(data.eventConfig.startDate))
+                     && (!data.eventConfig.keys().has('startTime') || isValidDateString(data.eventConfig.startTime));
+      
+      return configCheck;
+    }
+
     function isValidNewEvent() {
       let data = request.resource.data;
-      
       let basicCheck = data.keys().hasAll(['ownerUid', 'createdAt', 'eventConfig']) &&
              data.ownerUid == request.auth.uid &&
-             data.eventConfig.title is string &&
-             data.eventConfig.title.size() > 0 &&
-             data.eventConfig.title.size() <= 100 &&
-             data.eventConfig.startDate is string &&
-             data.eventConfig.startTime is string;
-
-      let vjCheck = !isGuest() || data.eventConfig.vjFeatureEnabled == false;
-
-      // フロア数制限 (Pro機能チェックを使用)
-      let floorCount = data.keys().hasAll(['floors']) ? data.floors.keys().size() : 1;
-      let floorCheck = floorCount <= 1 || canUseProFeatures();
-
-      return basicCheck && vjCheck && floorCheck;
+             data.eventConfig.title is string && 
+             data.eventConfig.title.size() > 0;
+      return basicCheck && isValidBase(data);
     }
 
     function isValidUpdate() {
       let data = request.resource.data;
       let ownerCheck = data.ownerUid == resource.data.ownerUid;
-      
-      let floorCount = data.keys().hasAll(['floors']) ? data.floors.keys().size() : 1;
-      let floorCheck = floorCount <= 1 || canUseProFeatures();
-
-      return ownerCheck && floorCheck;
+      return ownerCheck && isValidBase(data);
     }
 
-    // --- Users バリデーション ---
-    
-    // ★ 修正2: 自分の権限(role)を勝手に変更していないかチェック
-    function isRoleUnchanged() {
-      // roleフィールドが含まれていない、または変更されていない場合のみOK
-      return !request.resource.data.keys().has('role') 
-             || request.resource.data.role == resource.data.role;
+    function isValidUserProfile(data) {
+      return (!data.keys().has('displayName') || isValidShortString(data.displayName))
+          && (!data.keys().has('email') || (data.email is string && data.email.size() <= 100));
+    }
+
+    // ★修正: if文を排除し、OR演算子(||)で記述
+    function isValidUserCreate() {
+      let data = request.resource.data;
+      // スーパー管理者ならOK、または（roleがfreeかつ...）
+      return isSuperAdmin() || (
+        (!data.keys().has('role') || data.role == 'free')
+        && (!data.keys().has('isManuallyGranted') || data.isManuallyGranted == false)
+        && isValidUserProfile(data)
+      );
+    }
+
+    // ★修正: if文を排除し、OR演算子(||)で記述
+    function isProfileProtected() {
+      let incoming = request.resource.data;
+      let existing = resource.data;
+      
+      return isSuperAdmin() || (
+        (!incoming.keys().has('role') || incoming.role == existing.role)
+        && (!incoming.keys().has('isManuallyGranted') || incoming.isManuallyGranted == existing.isManuallyGranted)
+        && isValidUserProfile(incoming)
+      );
     }
 
     // --- コレクションルール ---
@@ -77,23 +114,26 @@ service cloud.firestore {
     match /timetables/{eventId} {
       allow get: if true;
       allow list: if isSignedIn() && resource.data.ownerUid == request.auth.uid;
+      
       allow create: if isSignedIn() && isValidNewEvent();
-      allow update: if isSignedIn() && isOwner(resource.data.ownerUid) && isValidUpdate();
-      allow delete: if isSignedIn() && isOwner(resource.data.ownerUid);
+      
+      allow update: if isSuperAdmin() || (
+                      isSignedIn() && (isOwner(resource.data.ownerUid) || isAdmin()) 
+                      && isValidUpdate()
+                      && (!request.resource.data.keys().has('timetable') || isValidTimetable(request.resource.data.timetable))
+                      && (!request.resource.data.keys().has('vjTimetable') || isValidTimetable(request.resource.data.vjTimetable))
+                      && (!request.resource.data.keys().has('floors') || isValidFloors(request.resource.data.floors))
+                    );
+
+      allow delete: if isSuperAdmin() || (
+                      isSignedIn() && (isOwner(resource.data.ownerUid) || isAdmin())
+                    );
     }
 
     match /users/{userId} {
-      // 読み込み: 本人 または 正真正銘のAdminのみ
       allow read: if isSignedIn() && (isOwner(userId) || isAdmin());
-      
-      // 作成: 誰でもOK (初期登録時) ただし role は 'free' か 'admin'(初期設定者のみ) であるべきだが
-      // 厳密には Cloud Functions でやるのがベスト。ここでは簡易的に許可。
-      allow create: if isSignedIn() && isOwner(userId);
-
-      // ★ 更新: Adminなら何でもOK。本人の場合は role 変更禁止。
-      allow update: if isSignedIn() && (
-        isAdmin() || (isOwner(userId) && isRoleUnchanged())
-      );
+      allow create: if isSignedIn() && isOwner(userId) && isValidUserCreate();
+      allow update: if isSignedIn() && (isAdmin() || (isOwner(userId) && isProfileProtected()));
     }
   }
 }

@@ -70,12 +70,41 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
     const saveDataToFirestore = useCallback(async (isSilent = false) => {
         if (pageStatus !== 'ready' || !user || !currentFloorId) return;
 
-        // タイマーが残っていたらクリア
         if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
 
         setIsSaving(true);
         try {
-            // 現在のStateの値を参照して保存
+            // ▼▼▼ デバッグログ開始 ▼▼▼
+            console.group("🔥 Firestore Save Debug");
+            console.log("Saving as User:", user.uid);
+            console.log("Is Guest?", user.isAnonymous);
+            console.log("Current Floor:", currentFloorId);
+
+            let dataToSend = {};
+            if (eventData && !eventData.floors && eventData.timetable) {
+                // 旧データモード
+                dataToSend = { eventConfig, timetable, vjTimetable };
+                console.log("📦 Mode: Single Floor (Legacy)");
+                console.log("Sending Data:", dataToSend);
+            } else if (eventData && eventData.floors) {
+                // マルチフロアモード
+                const updates = {
+                    eventConfig,
+                    [`floors.${currentFloorId}.timetable`]: timetable,
+                    [`floors.${currentFloorId}.vjTimetable`]: vjTimetable,
+                };
+                dataToSend = updates;
+                console.log("📦 Mode: Multi Floor");
+                console.log("Sending Updates:", updates);
+
+                // バリデーション用：配列の1つ目をチェック
+                if (timetable.length > 0) console.log("🔍 DJ Check [0]:", timetable[0]);
+                if (vjTimetable.length > 0) console.log("🔍 VJ Check [0]:", vjTimetable[0]);
+            }
+            console.groupEnd();
+            // ▲▲▲ デバッグログ終了 ▲▲▲
+
+            // 実際の保存処理
             if (eventData && !eventData.floors && eventData.timetable) {
                 await setDoc(docRef, { eventConfig, timetable, vjTimetable }, { merge: true });
             } else if (eventData && eventData.floors) {
@@ -87,15 +116,20 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                 await updateDoc(docRef, updates);
             }
 
-            // 保存完了後、フラグを下ろす
             setHasUnsavedChanges(false);
             hasUnsavedChangesRef.current = false;
 
             if (!isSilent) showToast("保存しました");
-            console.log("Saved to Firestore");
+            console.log("✅ Save Success!");
         } catch (error) {
-            console.error("Save failed:", error);
-            showToast("保存に失敗しました");
+            console.error("❌ Save failed:", error);
+            showToast("保存に失敗しました: " + error.code);
+
+            // エラーの詳細をアラートでも出す
+            if (error.code === 'permission-denied') {
+                console.warn("⚠️ 権限エラーです。firestore.rulesのバリデーションに引っかかっています。");
+                console.warn("送信データの形式がルールと一致しているか確認してください（特に色、URL、文字数）。");
+            }
         } finally {
             setIsSaving(false);
         }

@@ -68,7 +68,14 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, ev
 
     const handleAddVj = () => {
         setVjTimetable(prev => {
+            // ★ ここでチェック！
+            if (prev.length >= 30) {
+                onShowToast("VJの数は30人までです");
+                return prev;
+            }
+
             const currentTotal = prev.reduce((acc, item) => acc + (parseFloat(item.duration) || 0), 0);
+            // ... (既存の追加ロジック) ...
             const remaining = Math.max(0, eventTotalMinutes - currentTotal);
             const DEFAULT_DURATION = 45;
             let newDuration = DEFAULT_DURATION;
@@ -264,12 +271,40 @@ export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, 
     };
 
     const addNewDj = (isBuffer = false) => {
-        setTimetable(prev => { const lastDj = prev[prev.length - 1]; const duration = isBuffer ? 5 : (lastDj ? lastDj.duration : 45); return recalculateTimes([...prev, { id: Date.now(), name: isBuffer ? 'バッファー' : `DJ ${prev.filter(d => !d.isBuffer).length + 1}`, duration, imageUrl: '', color: VIVID_COLORS[Math.floor(Math.random() * VIVID_COLORS.length)], isBuffer }], eventStartTimeDate); });
+        setTimetable(prev => {
+            // ここでチェック！
+            if (prev.length >= 30) {
+                showToast("DJ/バッファーの数は30人までです");
+                return prev;
+            }
+
+            const lastDj = prev[prev.length - 1];
+            // ... (既存の追加ロジック) ...
+            const duration = isBuffer ? 5 : (lastDj ? lastDj.duration : 45);
+            return recalculateTimes([...prev, {
+                id: Date.now(),
+                name: isBuffer ? 'バッファー' : `DJ ${prev.filter(d => !d.isBuffer).length + 1}`,
+                duration,
+                imageUrl: '',
+                color: VIVID_COLORS[Math.floor(Math.random() * VIVID_COLORS.length)],
+                isBuffer
+            }], eventStartTimeDate);
+        });
     };
 
     const executeReset = () => { setTimetable([]); setVjTimetable([]); setEventConfig({ title: 'My Awesome Event', startDate: getTodayDateString(), startTime: '22:00', vjFeatureEnabled: false }); setIsResetConfirmOpen(false); };
     const handleRemoveDj = (index) => setTimetable(prev => recalculateTimes(prev.filter((_, i) => i !== index), eventStartTimeDate));
-    const handleCopyDj = (index) => setTimetable(prev => recalculateTimes([...prev.slice(0, index + 1), { ...prev[index], id: Date.now() }, ...prev.slice(index + 1)], eventStartTimeDate));
+    const handleCopyDj = (index) => {
+        setTimetable(prev => {
+            // ▼▼▼ 追加: 30個制限 ▼▼▼
+            if (prev.length >= 30) {
+                showToast("これ以上はコピーできません（上限30個）");
+                return prev;
+            }
+            // ▲▲▲ 追加ここまで ▲▲▲
+            return recalculateTimes([...prev.slice(0, index + 1), { ...prev[index], id: Date.now() }, ...prev.slice(index + 1)], eventStartTimeDate);
+        });
+    };
     const handleShare = () => { const liveUrl = window.location.href.replace("/edit/", "/live/"); navigator.clipboard.writeText(liveUrl).then(() => alert('LiveモードのURLをコピーしました！'), () => alert('コピーに失敗しました')); };
 
     const { displayStartTime, displayEndTime } = useMemo(() => ({ displayStartTime: schedule.length > 0 ? schedule[0].startTimeDate : eventStartTimeDate, displayEndTime: schedule.length > 0 ? schedule[schedule.length - 1].endTimeDate : null }), [schedule, eventStartTimeDate]);
