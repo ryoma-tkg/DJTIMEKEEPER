@@ -6,18 +6,17 @@ import {
     UserIcon,
     UploadIcon,
     BaseModal,
-    Label,
-    Input,
     Button
 } from './common';
 
 export const ImageEditModal = ({ dj, onUpdate, onClose, storage }) => {
+    // URL入力モード管理やエラー管理のStateを全削除
     const [imageUrl, setImageUrl] = useState(dj.imageUrl || '');
     const fileInputRef = useRef(null);
-    const [isUrlInputVisible, setIsUrlInputVisible] = useState(false);
 
     const { isUploading, uploadError, uploadedUrl, handleUpload } = useStorageUpload(storage);
 
+    // アップロード完了時にURLを反映
     useEffect(() => {
         if (uploadedUrl) {
             setImageUrl(uploadedUrl);
@@ -31,6 +30,7 @@ export const ImageEditModal = ({ dj, onUpdate, onClose, storage }) => {
         }
     };
 
+    // バリデーション不要（アップロードされたURLは信頼できるため）
     const handleSave = () => {
         onUpdate('imageUrl', imageUrl);
         onClose();
@@ -57,28 +57,28 @@ export const ImageEditModal = ({ dj, onUpdate, onClose, storage }) => {
                 {/* プレビューエリア */}
                 <div className="flex items-center justify-center my-2 mb-6">
                     <div className="w-40 h-40 rounded-full bg-surface-background flex items-center justify-center overflow-hidden border-4 border-surface-background shadow-inner">
-                        {imageUrl ? <SimpleImage src={imageUrl} className="w-full h-full object-cover" /> : <UserIcon className="w-20 h-20 text-on-surface-variant" />}
+                        {imageUrl ? (
+                            <SimpleImage src={imageUrl} className="w-full h-full object-cover" />
+                        ) : (
+                            <UserIcon className="w-20 h-20 text-on-surface-variant" />
+                        )}
                     </div>
                 </div>
 
                 <div className="space-y-4 w-full">
-                    {isUrlInputVisible && (
-                        <div className="animate-fade-in-up">
-                            <Input
-                                label="Image URL"
-                                type="text"
-                                value={imageUrl}
-                                onChange={(e) => setImageUrl(e.target.value)}
-                                placeholder="https://example.com/image.png"
-                            />
-                        </div>
-                    )}
+                    {/* URL入力欄や切り替えボタンを削除し、アップロードボタンのみ配置 */}
                     <div>
-                        <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
+                        <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            ref={fileInputRef}
+                            onChange={handleFileChange}
+                        />
                         <Button
                             onClick={() => fileInputRef.current.click()}
                             disabled={isUploading}
-                            variant="dashed"
+                            variant="dashed" // デザインカタログに合わせたスタイル
                             className="w-full py-4 border-2"
                             icon={isUploading ? null : UploadIcon}
                         >
@@ -88,29 +88,21 @@ export const ImageEditModal = ({ dj, onUpdate, onClose, storage }) => {
                                     <span>処理・アップロード中...</span>
                                 </>
                             ) : (
-                                <span>ローカルからアップロード</span>
+                                <span>画像をアップロード</span>
                             )}
                         </Button>
 
-                        {uploadError && <p className="text-red-400 text-sm mt-2 text-center">{uploadError}</p>}
+                        {uploadError && (
+                            <p className="text-red-400 text-sm mt-2 text-center">{uploadError}</p>
+                        )}
+
                         {!uploadError && (
                             <p className="text-xs text-on-surface-variant/70 mt-2 text-center">
-                                ※ CMYKカラーのJPEGをアップすると、色が変になる場合があるっす！<br />
-                                その時は、RGBのJPEGかPNGで試してみてほしいっす！
+                                ※ 10MB以下の画像 (JPG, PNG, WebP) に対応っす。<br />
+                                自動で軽量化されるので安心っす！
                             </p>
                         )}
                     </div>
-                    {!isUrlInputVisible && (
-                        <div>
-                            <Button
-                                onClick={() => setIsUrlInputVisible(true)}
-                                variant="ghost"
-                                className="w-full"
-                            >
-                                URLで設定する
-                            </Button>
-                        </div>
-                    )}
                 </div>
             </div>
         </BaseModal>
