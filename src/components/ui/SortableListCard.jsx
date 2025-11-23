@@ -4,9 +4,9 @@ import { GripIcon, TrashIcon, CopyIcon, ClockIcon } from '../common';
 import { Input } from './Input';
 
 /**
- * DJ/VJアイテム共通のリストカードコンポーネント (Tactile Design v3.1)
- * Mobile: Stack Layout (Header[Actions] / Body[Name] / Footer[Time])
- * Desktop: Row Layout (Grip / Icon / Name[Flex] / Time / Actions[Vertical])
+ * DJ/VJアイテム共通のリストカードコンポーネント (Tactile Design v3.9 Final Polish)
+ * Mobile: Stack Layout
+ * Desktop: Grid Layout with Enforced Min-Height for Alignment
  */
 export const SortableListCard = ({
     item,
@@ -17,20 +17,25 @@ export const SortableListCard = ({
     onRemove,
     onCopy,
     iconNode,
-    actionNode, // カラーピッカー等のカスタムアクション
+    actionNode,
     labelName = "Name"
 }) => {
     const [isHovered, setIsHovered] = useState(false);
 
     // バリデーション
     const isNameError = !item.name || item.name.trim() === '';
+    const isDurationError = item.duration === '' || item.duration === 0;
 
-    // ドラッグ中のスタイル (Lift up)
+    // ドラッグ中のスタイル
     const draggingClass = isDragging
-        ? 'dragging-item shadow-2xl scale-105 z-50 ring-2 ring-brand-primary'
-        : 'shadow-sm hover:shadow-md hover:border-on-surface/20 transition-all duration-300 cubic-bezier(0.4, 0, 0.2, 1)';
+        ? 'dragging-item shadow-[0_20px_30px_-5px_rgba(0,0,0,0.3)] scale-105 z-50'
+        : 'transition-all duration-300 cubic-bezier(0.4, 0, 0.2, 1)';
 
-    // ON AIR / 通常時のボーダーと影
+    // ボーダーとスタイル設定
+    const borderClass = isPlaying
+        ? 'border-2'
+        : 'border border-on-surface/10 dark:border-white/5';
+
     let dynamicStyle = {};
     if (!isDragging) {
         if (isPlaying) {
@@ -38,12 +43,15 @@ export const SortableListCard = ({
             dynamicStyle = {
                 borderColor: baseColor,
                 boxShadow: isHovered
-                    ? `0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 0 20px 0px ${baseColor}40` // Glow effect
-                    : `0 4px 6px -2px rgba(0, 0, 0, 0.05), 0 0 10px 0px ${baseColor}20`
+                    ? `0 15px 25px -5px rgba(0, 0, 0, 0.1), 0 0 20px 0px ${baseColor}40`
+                    : `0 4px 6px -2px rgba(0, 0, 0, 0.05), 0 0 10px 0px ${baseColor}20`,
+                backgroundColor: `rgba(var(--color-surface-container), 1)`,
+                zIndex: 10
             };
         } else {
             dynamicStyle = {
-                borderColor: 'transparent' // 通常はボーダー透明（bg-surface-containerが背景）
+                borderColor: 'transparent',
+                backgroundColor: 'rgb(var(--color-surface-container))'
             };
         }
     }
@@ -61,145 +69,103 @@ export const SortableListCard = ({
     return (
         <div
             className={`
-                group relative bg-surface-container rounded-2xl 
-                border border-on-surface/10 dark:border-white/5
-                p-3 md:p-3 md:pr-4 overflow-visible
-                ${draggingClass}
+                rounded-2xl flex items-stretch gap-3 p-3 md:p-4 relative overflow-visible
+                min-h-[6.5rem] /* ▼▼▼ 高さの強制統一 (約104px) ▼▼▼ */
+                ${borderClass} ${draggingClass}
             `}
             style={dynamicStyle}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
-            {/* --- Mobile Layout (Stack) --- */}
-            <div className="md:hidden flex flex-col gap-3">
-                {/* Row 1: Header (Grip, Icon, Actions) */}
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div
-                            className="flex-shrink-0 cursor-grab touch-none text-on-surface-variant/30 hover:text-on-surface-variant p-2 -ml-2"
-                            onPointerDown={onPointerDown}
-                        >
-                            <GripIcon className="w-5 h-5" />
-                        </div>
-                        <div className="flex-shrink-0">
-                            {iconNode}
-                        </div>
-                    </div>
+            {/* 1. Grip Handle (Left Edge) */}
+            <div
+                className="flex-shrink-0 flex items-center justify-center cursor-grab touch-none text-on-surface-variant/30 hover:text-on-surface-variant -ml-1 px-1 transition-colors"
+                onPointerDown={onPointerDown}
+                title="ドラッグして並び替え"
+            >
+                <GripIcon className="w-6 h-6" />
+            </div>
 
-                    {/* Actions (Horizontal) */}
-                    <div className="flex items-center gap-3">
-                        {actionNode}
-                        {onCopy && (
-                            <button onClick={onCopy} className="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant/70 hover:text-brand-primary hover:bg-brand-primary/5 transition-colors active:scale-95">
-                                <CopyIcon className="w-5 h-5" />
-                            </button>
-                        )}
-                        <button onClick={onRemove} className="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant/70 hover:text-red-500 hover:bg-red-500/10 transition-colors active:scale-95">
-                            <TrashIcon className="w-5 h-5" />
-                        </button>
+            {/* 2. Icon Area (Optional) */}
+            {iconNode && (
+                <div className="flex-shrink-0 self-center mr-1">
+                    <div className="transition-transform hover:scale-105">
+                        {iconNode}
                     </div>
                 </div>
+            )}
 
-                {/* Row 2: Name Input (Full Width) */}
-                <div>
+            {/* 3. Main Content Grid */}
+            <div className="flex-grow grid grid-cols-1 md:grid-cols-[1fr_auto] gap-x-4 gap-y-3 items-center min-w-0">
+
+                {/* Row 1-Left: Name Input */}
+                <div className="min-w-0 flex flex-col justify-center">
                     <Input
                         value={item.name}
                         onChange={(e) => onUpdate('name', e.target.value)}
                         placeholder={labelName}
-                        className="font-bold text-lg"
-                        isError={isNameError}
+                        className={`font-bold text-lg h-12 ${isNameError ? 'bg-red-500/5' : ''}`}
+                        error={isNameError ? "必須" : null}
+                        wrapperClassName="w-full"
                     />
                 </div>
 
-                {/* Row 3: Time Controls (Footer) */}
-                <div className="flex items-center justify-between gap-3 bg-surface-background/50 rounded-xl p-2 border border-on-surface/5">
-                    <div className="flex items-center gap-2">
-                        <div className="w-20">
-                            <Input
-                                type="number"
-                                value={item.duration}
-                                step="1"
-                                min="0"
-                                onChange={handleDurationChange}
-                                className="font-mono font-bold text-center h-10"
-                                wrapperClassName="m-0"
-                            />
-                        </div>
-                        <span className="text-xs font-bold text-on-surface-variant select-none">min</span>
+                {/* Row 1-Right: Duration Input (Widened to w-32) */}
+                <div className="flex items-center h-12 md:justify-end">
+                    <div className="w-32 relative h-full">
+                        <Input
+                            type="number"
+                            value={item.duration}
+                            step="1"
+                            min="0"
+                            onChange={handleDurationChange}
+                            className="font-mono font-bold text-center h-full text-lg"
+                            wrapperClassName="m-0 h-full"
+                            isError={isDurationError}
+                            placeholder="0"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant pointer-events-none">min</span>
                     </div>
-                    <div className="w-px h-5 bg-on-surface/10"></div>
-                    <div className="flex items-center gap-1.5 text-sm font-mono font-medium text-on-surface-variant select-none h-10 whitespace-nowrap">
-                        <ClockIcon className="w-4 h-4 opacity-60" />
-                        <span>{item.startTime} - {item.endTime}</span>
+                </div>
+
+                {/* Row 2: Time Slot & Info (Full Width) */}
+                <div className="md:col-span-2 bg-surface-background/50 rounded-lg border border-on-surface/5 px-4 py-2 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2 text-sm font-mono font-bold text-on-surface-variant select-none">
+                        <ClockIcon className="w-4 h-4 opacity-50" />
+                        <div className="flex items-center gap-3">
+                            <span>{item.startTime}</span>
+                            <span className="text-on-surface-variant/30">→</span>
+                            <span>{item.endTime}</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* --- Desktop Layout (Row) --- */}
-            <div className="hidden md:flex w-full items-center gap-4">
-                {/* Left: Grip & Icon */}
-                <div
-                    className="flex-shrink-0 cursor-grab touch-none text-on-surface-variant/30 hover:text-on-surface-variant p-2 -ml-2"
-                    onPointerDown={onPointerDown}
-                >
-                    <GripIcon className="w-5 h-5" />
-                </div>
+            {/* 4. Actions Sidebar (Vertical) */}
+            <div className="flex-shrink-0 flex flex-col justify-between items-center pl-3 border-l border-on-surface/5 gap-2 py-1">
+                {/* Upper: Color Picker */}
                 <div className="flex-shrink-0">
-                    {iconNode}
+                    {actionNode}
                 </div>
 
-                {/* Center: Name (Flexible) */}
-                <div className="flex-grow-[2] min-w-0">
-                    <Input
-                        value={item.name}
-                        onChange={(e) => onUpdate('name', e.target.value)}
-                        placeholder={labelName}
-                        className="font-bold text-lg h-12"
-                        isError={isNameError}
-                    />
-                </div>
-
-                {/* Right: Time & Actions */}
-                <div className="flex-shrink-0 flex items-center gap-6">
-                    {/* Time Controls */}
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                            <div className="w-20">
-                                <Input
-                                    type="number"
-                                    value={item.duration}
-                                    step="1"
-                                    min="0"
-                                    onChange={handleDurationChange}
-                                    className="font-mono font-bold text-center h-10"
-                                />
-                            </div>
-                            <span className="text-xs font-bold text-on-surface-variant select-none">min</span>
-                        </div>
-                        <div className="w-px h-8 bg-on-surface/10"></div>
-                        <div className="flex flex-col items-center justify-center text-xs font-mono font-bold text-on-surface-variant select-none w-24">
-                            <span>{item.startTime}</span>
-                            <span className="opacity-50 text-[10px]">to</span>
-                            <span>{item.endTime}</span>
-                        </div>
-                    </div>
-
-                    {/* Actions (Vertical Divider + Buttons) */}
-                    <div className="flex-shrink-0 flex items-center gap-3 pl-4 border-l border-on-surface/5 h-14">
-                        <div className="flex flex-col gap-2 justify-center items-center">
-                            {actionNode} {/* Color Picker */}
-                        </div>
-                        <div className="flex flex-col gap-1 justify-center">
-                            {onCopy && (
-                                <button onClick={onCopy} className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant/70 hover:text-brand-primary hover:bg-brand-primary/5 transition-colors active:scale-95" title="複製">
-                                    <CopyIcon className="w-3.5 h-3.5" />
-                                </button>
-                            )}
-                            <button onClick={onRemove} className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant/70 hover:text-red-500 hover:bg-red-500/10 transition-colors active:scale-95" title="削除">
-                                <TrashIcon className="w-3.5 h-3.5" />
-                            </button>
-                        </div>
-                    </div>
+                {/* Lower: Edit Actions */}
+                <div className="flex flex-col gap-1">
+                    {onCopy && (
+                        <button
+                            onClick={onCopy}
+                            className="w-9 h-9 flex items-center justify-center rounded-full text-on-surface-variant hover:text-brand-primary hover:bg-brand-primary/10 transition-all active:scale-95"
+                            title="複製"
+                        >
+                            <CopyIcon className="w-5 h-5" />
+                        </button>
+                    )}
+                    <button
+                        onClick={onRemove}
+                        className="w-9 h-9 flex items-center justify-center rounded-full text-on-surface-variant hover:text-red-500 hover:bg-red-500/10 transition-all active:scale-95"
+                        title="削除"
+                    >
+                        <TrashIcon className="w-5 h-5" />
+                    </button>
                 </div>
             </div>
         </div>

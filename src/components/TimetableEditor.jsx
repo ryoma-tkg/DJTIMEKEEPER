@@ -32,12 +32,19 @@ import {
     AlertTriangleIcon,
     MoonIcon,
     SunIcon,
+    LayersIcon,
 
     // Constants & Helpers
     VIVID_COLORS,
     parseDateTime,
     getTodayDateString
 } from './common';
+
+// --- アイコン回転用のラッパーコンポーネント ---
+// Buttonコンポーネントから渡されるclassName（サイズ指定など）を受け取りつつ、回転を追加します
+const BackIcon = ({ className }) => (
+    <LogOutIcon className={`${className} rotate-180`} />
+);
 
 // --- VjItem (New SortableListCard) ---
 const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging, isPlaying }) => {
@@ -99,7 +106,6 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, ev
                     </div>
                 ))}
                 <div className="pt-2">
-                    {/* Catalog "NewTrigger" Style (Fully matched with DJ button) */}
                     <button
                         onClick={handleAddVj}
                         className="
@@ -122,33 +128,67 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, ev
     );
 };
 
-// --- SettingsModal (Using BaseModal) ---
+// --- SettingsModal (Updated to Match Catalog Design) ---
 const SettingsModal = ({ isOpen, onClose, eventConfig, handleEventConfigChange, handleShare, onResetClick, theme, toggleTheme }) => {
     const isTitleError = !eventConfig.title || eventConfig.title.trim() === '';
 
+    const footerContent = (
+        <div className="flex justify-end gap-3">
+            <Button onClick={onClose} variant="primary" size="md">閉じる</Button>
+        </div>
+    );
+
     return (
-        <BaseModal isOpen={isOpen} onClose={onClose} title="設定" isScrollable={true} maxWidthClass="max-w-md">
+        <BaseModal isOpen={isOpen} onClose={onClose} title="イベント設定" footer={footerContent} isScrollable={true} maxWidthClass="max-w-md">
             <div className="space-y-6">
                 <section>
                     <h3 className="text-sm font-bold text-on-surface-variant uppercase tracking-wider mb-3">イベント情報</h3>
-                    <div className="space-y-3">
-                        <Input value={eventConfig.title || ''} onChange={(e) => handleEventConfigChange('title', e.target.value)} label="タイトル" placeholder="イベントタイトル" isError={isTitleError} error={isTitleError ? "必須" : null} />
+                    <div className="space-y-4">
+                        <Input
+                            label="イベント名"
+                            value={eventConfig.title || ''}
+                            onChange={(e) => handleEventConfigChange('title', e.target.value)}
+                            placeholder="イベント名を入力..."
+                            isError={isTitleError}
+                        />
                         <div className="space-y-3">
-                            <div><Label>日付</Label><Input type="date" value={eventConfig.startDate || ''} onChange={(e) => handleEventConfigChange('startDate', e.target.value)} icon={CalendarIcon} className="font-mono" /></div>
-                            <div><Label>開始時間</Label><CustomTimeInput value={eventConfig.startTime} onChange={(v) => handleEventConfigChange('startTime', v)} /></div>
+                            <div>
+                                <Label>開催日</Label>
+                                <Input type="date" value={eventConfig.startDate || ''} onChange={(e) => handleEventConfigChange('startDate', e.target.value)} icon={CalendarIcon} className="font-mono text-sm" />
+                            </div>
+                            <div>
+                                <Label>開始時間</Label>
+                                <CustomTimeInput value={eventConfig.startTime} onChange={(v) => handleEventConfigChange('startTime', v)} />
+                            </div>
                         </div>
                     </div>
                 </section>
-                <hr className="border-surface-background" />
+
+                <hr className="border-on-surface/5" />
+
                 <section>
-                    <h3 className="text-sm font-bold text-on-surface-variant uppercase tracking-wider mb-3">機能 & 表示</h3>
-                    <div className="bg-surface-background/50 rounded-xl px-4 py-1 space-y-1">
-                        <Toggle checked={eventConfig.vjFeatureEnabled} onChange={() => handleEventConfigChange('vjFeatureEnabled', !eventConfig.vjFeatureEnabled)} label="VJタイムテーブル機能" icon={VideoIcon} />
-                        <div className="border-t border-surface-container"></div>
-                        <Toggle checked={theme === 'dark'} onChange={toggleTheme} label="ダークモード" icon={theme === 'dark' ? MoonIcon : SunIcon} />
+                    <h3 className="text-sm font-bold text-on-surface-variant uppercase tracking-wider mb-3">オプション設定</h3>
+                    <div className="bg-surface-background/50 rounded-xl px-4 py-2 space-y-2 border border-on-surface/5">
+                        <Toggle
+                            checked={eventConfig.vjFeatureEnabled}
+                            onChange={() => handleEventConfigChange('vjFeatureEnabled', !eventConfig.vjFeatureEnabled)}
+                            label="VJタイムテーブル機能"
+                            icon={VideoIcon}
+                            description="VJのタイムテーブルも管理します"
+                        />
+                        <div className="border-t border-on-surface/5"></div>
+                        <Toggle
+                            checked={theme === 'dark'}
+                            onChange={toggleTheme}
+                            label="ダークモード"
+                            icon={theme === 'dark' ? MoonIcon : SunIcon}
+                            description="画面を暗くし、暗所での視認性を高めます"
+                        />
                     </div>
                 </section>
-                <hr className="border-surface-background" />
+
+                <hr className="border-on-surface/5" />
+
                 <section>
                     <h3 className="text-sm font-bold text-on-surface-variant uppercase tracking-wider mb-3">アクション</h3>
                     <div className="space-y-3">
@@ -220,7 +260,10 @@ export const TimetableEditor = ({ eventConfig, setEventConfig, timetable, setTim
             <ToastNotification message={toast.message} isVisible={toast.visible} className="top-24" />
             <div className="p-4 md:p-8 max-w-7xl mx-auto min-h-screen animate-fade-in-up">
                 <header className="flex flex-row justify-between items-center mb-6 gap-4">
-                    <Link to="/" className="flex-shrink-0"><Button variant="secondary" size="icon" icon={LogOutIcon} className="rotate-180 rounded-full" /></Link>
+                    <Link to="/" className="flex-shrink-0">
+                        {/* ▼▼▼ 修正: アイコンのみ回転させ、ボタンの影は正常な向きにする ▼▼▼ */}
+                        <Button variant="secondary" size="icon" icon={BackIcon} className="rounded-full" />
+                    </Link>
                     <input type="text" value={eventConfig.title || 'DJ Timekeeper Pro'} onChange={(e) => handleEventConfigChange('title', e.target.value)} className="text-2xl sm:text-3xl font-bold text-brand-secondary tracking-wide bg-transparent focus:outline-none focus:bg-surface-container/50 rounded-lg p-2 flex-1 min-w-0" placeholder="イベントタイトル" />
                     <Button onClick={() => setIsSettingsOpen(true)} variant="secondary" icon={SettingsIcon} className="hidden sm:flex">イベントの設定</Button>
                     <Button onClick={() => setIsSettingsOpen(true)} variant="secondary" size="icon" icon={SettingsIcon} className="sm:hidden rounded-full" />
