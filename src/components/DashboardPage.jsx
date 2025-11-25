@@ -165,7 +165,23 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
     const handleDeleteEvent = async () => {
         if (!deleteTarget) return;
         if (viewingTarget) { alert("サポートモード（閲覧中）のため、イベントの削除はできません。"); setDeleteTarget(null); return; }
-        try { await deleteDoc(doc(db, "timetables", deleteTarget.id)); setDeleteTarget(null); } catch (error) { console.error("削除失敗:", error); alert("削除に失敗しました。"); }
+
+        // 削除対象のIDを確保
+        const targetId = deleteTarget.id;
+
+        try {
+            // 1. Firestoreからドキュメントを削除
+            await deleteDoc(doc(db, "timetables", targetId));
+
+            // 2. ★追加: ローカルのstateからも即座に削除 (これで見た目上のラグがなくなります)
+            setEvents(prev => prev.filter(event => event.id !== targetId));
+
+            // 3. モーダルを閉じる
+            setDeleteTarget(null);
+        } catch (error) {
+            console.error("削除失敗:", error);
+            alert("削除に失敗しました。");
+        }
     };
 
     const handleDevDeleteAll = async () => {
