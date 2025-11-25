@@ -16,7 +16,7 @@ import {
     TrashIcon,
     AlertTriangleIcon,
     UserIcon,
-    PlanTag // ★ 追加: commonからインポート
+    PlanTag
 } from './common';
 import { DevControls } from './DevControls';
 import { ConfirmModal } from './common';
@@ -52,7 +52,6 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
         setTimeout(() => { setToast({ message, visible: true }); toastTimerRef.current = setTimeout(() => { setToast(prev => ({ ...prev, visible: false })); toastTimerRef.current = null; }, 3000); }, 100);
     };
 
-    // ... (useEffect や ハンドラ関数は変更なし) ...
     // イベント一覧の読み込み
     useEffect(() => {
         if (!user) return;
@@ -118,9 +117,10 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
         const limit = isGuest ? 1 : (role === 'admin' || role === 'pro' ? Infinity : 3);
 
         if (events.length >= limit) {
+            // ★変更: 文言を「準備中」のニュアンスに
             const message = isGuest
                 ? "ゲストはイベントを1つまでしか作成できません。"
-                : "Freeプランの上限(3件)に達しました。Proで無制限に！";
+                : "現在、作成できるイベントは3件までです。（無制限プラン準備中）";
             showToast(message);
             return;
         }
@@ -165,18 +165,10 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
     const handleDeleteEvent = async () => {
         if (!deleteTarget) return;
         if (viewingTarget) { alert("サポートモード（閲覧中）のため、イベントの削除はできません。"); setDeleteTarget(null); return; }
-
-        // 削除対象のIDを確保
         const targetId = deleteTarget.id;
-
         try {
-            // 1. Firestoreからドキュメントを削除
             await deleteDoc(doc(db, "timetables", targetId));
-
-            // 2. ★追加: ローカルのstateからも即座に削除 (これで見た目上のラグがなくなります)
             setEvents(prev => prev.filter(event => event.id !== targetId));
-
-            // 3. モーダルを閉じる
             setDeleteTarget(null);
         } catch (error) {
             console.error("削除失敗:", error);
@@ -212,7 +204,6 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
                     <div className="flex flex-col items-start select-none flex-shrink-0"><h1 className="text-xl md:text-2xl font-bold tracking-widest text-on-surface">GIG<span className="text-brand-primary"> DECK</span></h1><span className="text-[10px] font-bold tracking-[0.3em] text-on-surface-variant uppercase">Dashboard</span></div>
                     <div className="flex items-center gap-3 md:gap-5">
 
-                        {/* ▼▼▼ 修正: PlanTag をSPでは非表示 (hidden md:block) ▼▼▼ */}
                         <div className="hidden md:block">
                             <PlanTag role={userProfile?.role} isGuest={isGuest} />
                         </div>
@@ -231,7 +222,6 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
                                     <div className="absolute top-full right-0 mt-3 w-72 bg-surface-container rounded-2xl shadow-2xl border border-on-surface/10 p-2 z-50 animate-fade-in origin-top-right">
                                         <div className="px-4 py-3 border-b border-on-surface/10 mb-2">
                                             <div className="flex items-center justify-between mb-1">
-                                                {/* 極小画面向けプラン表示 (メニュー内には残す) */}
                                                 <div className="md:hidden mb-1">
                                                     <PlanTag role={userProfile?.role} isGuest={isGuest} />
                                                 </div>
@@ -268,7 +258,6 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
                         </div>
                     </div>
                 </header>
-                {/* ... (以下のイベント一覧表示部分は変更なし) ... */}
                 {events.length > 0 ? (
                     <div className="space-y-12">
                         {nowEvents.length > 0 && (<section className="animate-fade-in-up opacity-0"><div className="flex items-center gap-2 mb-4 text-red-500"><span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span><h2 className="text-lg font-bold tracking-widest">NOW ON AIR</h2></div><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{nowEvents.map(event => <EventCard key={event.id} event={event} onDeleteClick={(id, title) => setDeleteTarget({ id, title })} onClick={() => navigate(`/edit/${event.id}`)} />)}</div></section>)}

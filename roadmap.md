@@ -122,3 +122,17 @@ Comprehensive design update focusing on "Tactile Feel" and "Modern Professional"
 **次期開発候補・ユーザー要望**
 * **Co-Editing (共同編集):** イベント単位で他のユーザーを招待し、複数人でリアルタイムにタイムテーブルを編集できる機能。
 * **Venue Info (会場登録):** イベント名の下に会場名や場所情報を登録・表示できる機能。
+
+---
+
+## 📝 Original Pro Plan Alerts (Hidden Memo)
+
+*(These alerts are temporarily hidden until the Pro plan is officially launched)*
+
+**1. DashboardPage.jsx (Create Limit)**
+> "Freeプランの上限(3件)に達しました。Proで無制限に！"
+
+**2. EventSetupModal.jsx / DashboardSettingsModal.jsx (Multi-Floor)**
+> Label: "複数フロア (Pro限定)"
+> Alert Title: "Proプラン機能"
+> Alert Body: "複数フロア管理機能はProプラン限定です。アップグレードすると制限が解除されます。"

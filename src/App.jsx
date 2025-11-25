@@ -4,13 +4,13 @@ import { Routes, Route, useNavigate, Navigate, Link, useParams } from 'react-rou
 
 import {
     auth,
-    db,
+    db, // ここは './firebase' が正しいです
     googleProvider,
     onAuthStateChanged,
     signInWithPopup,
     signInAnonymously,
     signOut
-} from './firebase';
+} from './firebase'; // ★重要: App.jsxはsrc直下なので './firebase'
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { LoadingScreen } from './components/common';
 import { PerformanceMonitor } from './components/PerformanceMonitor';
@@ -20,10 +20,9 @@ const LoginPage = lazy(() => import('./components/LoginPage').then(module => ({ 
 const DashboardPage = lazy(() => import('./components/DashboardPage').then(module => ({ default: module.DashboardPage })));
 const EditorPage = lazy(() => import('./components/EditorPage').then(module => ({ default: module.EditorPage })));
 const LivePage = lazy(() => import('./components/LivePage').then(module => ({ default: module.LivePage })));
-// ▼▼▼ 新規: SetupPageの追加 ▼▼▼
 const SetupPage = lazy(() => import('./components/SetupPage').then(module => ({ default: module.SetupPage })));
 
-// --- Redirector コンポーネント (変更なし) ---
+// --- Redirector コンポーネント ---
 const EditorRedirector = () => {
     const { eventId } = useParams();
     const [targetFloorId, setTargetFloorId] = useState(null);
@@ -103,7 +102,6 @@ const RedirectToLive = () => {
 
 const App = () => {
     const [user, setUser] = useState(null);
-    // ▼▼▼ 新規: ユーザープロファイル状態の追加 ▼▼▼
     const [userProfile, setUserProfile] = useState(null);
 
     const [authStatus, setAuthStatus] = useState('loading');
@@ -155,8 +153,6 @@ const App = () => {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
-                // setUser(firebaseUser) はまだ行わず、DB同期後にまとめて行うほうが安全だが
-                // 今回は既存ロジックに合わせて先にセットし、データ取得を待つ形にする
                 setUser(firebaseUser);
 
                 try {
@@ -167,7 +163,6 @@ const App = () => {
                     const isSuperAdmin = firebaseUser.uid === SUPER_ADMIN_UID;
 
                     if (!userSnap.exists()) {
-                        // ▼▼▼ 新規登録時の処理 ▼▼▼
                         const newUserData = {
                             uid: firebaseUser.uid,
                             email: firebaseUser.email,
@@ -176,7 +171,6 @@ const App = () => {
                             role: isSuperAdmin ? 'admin' : 'free',
                             createdAt: serverTimestamp(),
                             lastLoginAt: serverTimestamp(),
-                            // ★ 新規: セットアップ未完了フラグ
                             isSetupCompleted: false,
                             preferences: {
                                 theme: localStorage.getItem('theme') || 'dark',
@@ -188,15 +182,11 @@ const App = () => {
                         await setDoc(userDocRef, newUserData);
                         userData = newUserData;
                     } else {
-                        // 既存ユーザー
                         const currentData = userSnap.data();
                         const shouldPromoteToAdmin = isSuperAdmin && currentData.role !== 'admin';
 
                         const updatePayload = {
                             email: firebaseUser.email,
-                            // Google等の最新情報で上書きするかはポリシー次第だが、
-                            // セットアップ後の手動変更を優先するため、ここではphotoURL/displayNameは強制上書きしない方が良い場合もある。
-                            // 今回は同期を優先して上書きするが、isSetupCompletedチェックには影響しない。
                             lastLoginAt: serverTimestamp()
                         };
 
@@ -204,8 +194,6 @@ const App = () => {
                             updatePayload.role = 'admin';
                         }
 
-                        // ★ 既存ユーザーに isSetupCompleted フィールドがない場合のマイグレーション（任意）
-                        // ここでは「既存ユーザーはセットアップ済み」とみなす
                         if (currentData.isSetupCompleted === undefined) {
                             updatePayload.isSetupCompleted = true;
                         }
@@ -214,7 +202,6 @@ const App = () => {
                         userData = { ...currentData, ...updatePayload };
                     }
 
-                    // ▼▼▼ 状態をセット ▼▼▼
                     setUserProfile(userData);
 
                     if (isSuperAdmin || userData?.role === 'admin') {
@@ -223,7 +210,6 @@ const App = () => {
                         setIsDevMode(false);
                     }
 
-                    // テーマの適用（ユーザー設定があれば優先）
                     if (userData?.preferences?.theme) {
                         setTheme(userData.preferences.theme);
                     }
@@ -263,9 +249,6 @@ const App = () => {
         setIsLoggingIn(true);
         try {
             await signInAnonymously(auth);
-            // ゲストユーザーはセットアップスキップ（またはゲスト用デフォルト設定）
-            // ゲストは userProfile.isSetupCompleted = undefined または false だが、
-            // ゲスト用の扱いをするのでセットアップ画面には飛ばさない運用にする
         } catch (error) {
             console.error("ゲストログインに失敗:", error);
             alert("ゲストログインに失敗しました。");
@@ -281,9 +264,7 @@ const App = () => {
         navigate('/login');
     };
 
-    // ★ セットアップ完了ハンドラ
     const handleSetupComplete = () => {
-        // ローカルの状態を更新してダッシュボードへ
         setUserProfile(prev => ({ ...prev, isSetupCompleted: true }));
         navigate('/');
     };
@@ -292,7 +273,6 @@ const App = () => {
         return <LoadingScreen text="認証情報を確認中..." />;
     }
 
-    // ★ セットアップが必要かどうかの判定
     const needsSetup = authStatus === 'authed' && user && !user.isAnonymous && userProfile && userProfile.isSetupCompleted === false;
 
     return (
@@ -306,7 +286,6 @@ const App = () => {
 
             <Suspense fallback={<LoadingScreen text="読み込み中..." />}>
                 <Routes>
-                    {/* Setup Page Route */}
                     <Route
                         path="/setup"
                         element={
@@ -319,7 +298,6 @@ const App = () => {
                                     onComplete={handleSetupComplete}
                                 />
                             ) : (
-                                // セットアップ不要ならホームへ
                                 <Navigate to="/" replace />
                             )
                         }
@@ -330,7 +308,6 @@ const App = () => {
                         element={
                             authStatus === 'authed' ? (
                                 needsSetup ? (
-                                    // セットアップが必要なら /setup へリダイレクト
                                     <Navigate to="/setup" replace />
                                 ) : (
                                     <DashboardPage
@@ -365,16 +342,14 @@ const App = () => {
                         }
                     />
 
-                    {/* 以下、エディタ・ライブビュー等は変更なし */}
                     <Route
                         path="/edit/:eventId/:floorId"
                         element={
                             authStatus === 'authed' ? (
-                                // 編集画面への直接アクセス時もセットアップチェックを入れるならここにも needsSetup 分岐を入れる
-                                // 今回はダッシュボード経由を基本とするが、URL直打ち対応として入れるのが親切
                                 needsSetup ? <Navigate to="/setup" replace /> :
                                     <EditorPage
                                         user={user}
+                                        userProfile={userProfile}
                                         isDevMode={isDevMode}
                                         onToggleDevMode={toggleDevMode}
                                         theme={theme}

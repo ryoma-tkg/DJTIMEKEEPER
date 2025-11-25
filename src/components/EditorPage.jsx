@@ -23,7 +23,8 @@ const getDefaultEventConfig = () => ({
     vjFeatureEnabled: false
 });
 
-export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleTheme, isPerfMonitorVisible, onTogglePerfMonitor }) => {
+// ★変更: userProfile を受け取る
+export const EditorPage = ({ user, userProfile, isDevMode, onToggleDevMode, theme, toggleTheme, isPerfMonitorVisible, onTogglePerfMonitor }) => {
     const { eventId, floorId } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
@@ -53,6 +54,14 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
     const imageUrlsToPreload = useMemo(() => timetable.map(dj => dj.imageUrl), [timetable]);
     const { loadedUrls, allLoaded: imagesLoaded } = useImagePreloader(imageUrlsToPreload);
     const docRef = useMemo(() => doc(dbRef.current, 'timetables', eventId), [eventId]);
+
+    // ★追加: 権限判定とフロア数上限の設定
+    const SUPER_ADMIN_UID = "GLGPpy6IlyWbGw15OwBPzRdCPZI2";
+    const isAdmin = user?.uid === SUPER_ADMIN_UID || userProfile?.role === 'admin';
+    const isProUser = userProfile?.role === 'pro';
+    const canUseProFeatures = isAdmin || isProUser;
+    // Freeプランは1フロアまで、Pro/Adminは20フロアまで
+    const maxFloors = canUseProFeatures ? 20 : 1;
 
     const showToast = (message) => {
         setToast({ message, visible: true });
@@ -175,12 +184,9 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                             setTimetable(data.floors[currentFloorId].timetable || []);
                             setVjTimetable(data.floors[currentFloorId].vjTimetable || []);
                         } else {
-                            // URLのIDがデータにない場合、一番若いIDに飛ばすか、あるいは新規フロアの可能性も考慮
-                            // ここでは一番若いIDへのリダイレクトを維持
                             const sortedFloorIds = Object.keys(data.floors).sort((a, b) => (data.floors[a].order || 0) - (data.floors[b].order || 0));
                             const firstFloorId = sortedFloorIds[0];
 
-                            // もしデータ自体が空（フロア削除後など）の場合はリダイレクトしない
                             if (firstFloorId && !data.floors[currentFloorId]) {
                                 navigate(`/edit/${eventId}/${firstFloorId}`, { replace: true });
                             }
@@ -207,8 +213,6 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                 setTimetable(eventData.floors[currentFloorId].timetable || []);
                 setVjTimetable(eventData.floors[currentFloorId].vjTimetable || []);
             } else {
-                // ★ 重要: フロアデータが存在しない場合（新規フロア移動時など）は、
-                // 前のフロアのデータを引き継がないよう、明示的に空にする
                 setTimetable([]);
                 setVjTimetable([]);
             }
@@ -243,19 +247,16 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
     const handleFloorsUpdate = async (newFloorsMap) => {
         if (pageStatus !== 'ready' || !user) return;
 
-        // ★ 重要: フロア情報の更新時、現在編集中のタイムテーブルデータ（未保存）も含めて保存する
-        // これをしないと、フロア追加/削除時に編集中のデータが「保存前の状態（eventData）」で上書きされ消えてしまう
         if (newFloorsMap[currentFloorId]) {
             newFloorsMap[currentFloorId] = {
                 ...newFloorsMap[currentFloorId],
-                timetable: timetable, // 現在のStateを使用
-                vjTimetable: vjTimetable // 現在のStateを使用
+                timetable: timetable,
+                vjTimetable: vjTimetable
             };
         }
 
         try {
             await updateDoc(docRef, { floors: newFloorsMap });
-            // フロア情報の更新は全体保存とみなせるため、未保存フラグを下ろす
             setHasUnsavedChanges(false);
             hasUnsavedChangesRef.current = false;
         } catch (error) {
@@ -265,7 +266,6 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
     };
 
     const handleSelectFloor = async (newFloorId) => {
-        // ★ 重要: 移動前に保存を完了させる (await)
         if (hasUnsavedChanges) {
             await saveDataToFirestore(true);
         }
@@ -312,6 +312,8 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                         toggleTheme={toggleTheme}
                         imagesLoaded={imagesLoaded}
                         expireAt={eventData?.expireAt}
+                        // ★追加: maxFloorsを渡す
+                        maxFloors={maxFloors}
                     />
 
                     <div

@@ -382,10 +382,11 @@ export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, on
                                                 <div className="flex items-start gap-3">
                                                     <SparklesIcon className="w-5 h-5 text-brand-primary mt-0.5 shrink-0" />
                                                     <div>
-                                                        <p className="text-sm font-bold text-brand-primary mb-1">Proプラン機能</p>
+                                                        {/* ★変更: 文言を「Coming Soon」に */}
+                                                        <p className="text-sm font-bold text-brand-primary mb-1">Coming Soon...</p>
                                                         <p className="text-xs text-on-surface-variant leading-relaxed">
-                                                            複数フロア管理機能はProプラン限定です。<br />
-                                                            <span className="opacity-70">アップグレードすると制限が解除されます。</span>
+                                                            複数フロア機能は将来のアップデートで提供予定です。<br />
+                                                            <span className="opacity-70">楽しみにお待ちください！</span>
                                                         </p>
                                                     </div>
                                                 </div>

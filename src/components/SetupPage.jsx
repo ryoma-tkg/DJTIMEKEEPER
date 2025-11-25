@@ -2,6 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { updateProfile } from 'firebase/auth'; // ★追加: Auth情報の更新に必要
 import { db, storage } from '../firebase';
 import { useStorageUpload } from '../hooks/useStorageUpload';
 import {
@@ -18,7 +19,7 @@ import {
     UploadIcon,
     SimpleImage,
     LoadingScreen,
-    SparklesIcon // ★追加
+    SparklesIcon
 } from './common';
 
 export const SetupPage = ({ user, userProfile, theme, toggleTheme, onComplete }) => {
@@ -39,7 +40,7 @@ export const SetupPage = ({ user, userProfile, theme, toggleTheme, onComplete })
     const fileInputRef = useRef(null);
     const { isUploading, handleUpload, uploadedUrl } = useStorageUpload(storage);
 
-    // ★追加: Pro機能判定 (新規ユーザーは基本的にFreeだが、招待などでProの場合もあるため判定)
+    // Pro機能判定
     const SUPER_ADMIN_UID = "GLGPpy6IlyWbGw15OwBPzRdCPZI2";
     const isAdmin = user?.uid === SUPER_ADMIN_UID || userProfile?.role === 'admin';
     const isProUser = userProfile?.role === 'pro';
@@ -57,6 +58,15 @@ export const SetupPage = ({ user, userProfile, theme, toggleTheme, onComplete })
     const handleFinish = async () => {
         setIsSaving(true);
         try {
+            // ★追加: 1. Firebase Authのプロファイルを更新 (これでアプリ全体のuser情報が即座に変わります)
+            if (user) {
+                await updateProfile(user, {
+                    displayName: formData.displayName,
+                    photoURL: formData.photoURL
+                }).catch(err => console.error("Auth Profile Update Failed:", err));
+            }
+
+            // 2. Firestore (データベース) の更新
             const userRef = doc(db, "users", user.uid);
 
             await updateDoc(userRef, {
@@ -186,7 +196,6 @@ export const SetupPage = ({ user, userProfile, theme, toggleTheme, onComplete })
                                         />
                                         <div className="border-t border-on-surface/5" />
 
-                                        {/* ▼▼▼ 修正: 複数フロア機能をグレーアウト＆案内追加 ▼▼▼ */}
                                         <div className={!canUseProFeatures ? "opacity-50 pointer-events-none grayscale relative" : ""}>
                                             <Toggle
                                                 checked={formData.defaultMultiFloor}
@@ -198,7 +207,6 @@ export const SetupPage = ({ user, userProfile, theme, toggleTheme, onComplete })
                                     </div>
                                 </div>
 
-                                {/* Pro機能制限の案内 */}
                                 {!canUseProFeatures && (
                                     <div className="mt-2 relative overflow-hidden rounded-lg bg-brand-primary/5 border border-brand-primary/20 p-3">
                                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-primary" />
@@ -208,6 +216,7 @@ export const SetupPage = ({ user, userProfile, theme, toggleTheme, onComplete })
                                                 <p className="text-xs font-bold text-brand-primary mb-0.5">Proプラン機能</p>
                                                 <p className="text-[10px] text-on-surface-variant leading-relaxed">
                                                     複数フロア機能を使うにはProプランへのアップグレードが必要です。
+                                                    今作ってる最中の機能なので、もう少し待ってね！
                                                 </p>
                                             </div>
                                         </div>

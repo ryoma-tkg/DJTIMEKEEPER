@@ -6,7 +6,8 @@ import {
     GripIcon,
     ConfirmModal,
     BaseModal,
-    Input
+    Input,
+    SparklesIcon // ★追加
 } from './common';
 
 // (FloorEditItem - Catalog Style)
@@ -47,7 +48,7 @@ const FloorEditItem = ({ floor, onNameChange, onDelete, onPointerDown, isDraggin
     );
 };
 
-export const FloorManagerModal = ({ isOpen, onClose, floors, onSaveFloors }) => {
+export const FloorManagerModal = ({ isOpen, onClose, floors, onSaveFloors, maxFloors = 20 }) => {
     const [localFloors, setLocalFloors] = useState({});
     const [deleteId, setDeleteId] = useState(null);
 
@@ -63,11 +64,15 @@ export const FloorManagerModal = ({ isOpen, onClose, floors, onSaveFloors }) => 
             .sort((a, b) => (a.order || 0) - (b.order || 0));
     }, [localFloors]);
 
+    // ★追加: 制限チェック
+    const isLimitReached = sortedFloorArray.length >= maxFloors;
+
     const handleNameChange = (floorId, newName) => {
         setLocalFloors(prev => ({ ...prev, [floorId]: { ...prev[floorId], name: newName } }));
     };
 
     const handleAddFloor = () => {
+        if (isLimitReached) return;
         const newFloorId = `floor_${Date.now()}`;
         const newOrder = sortedFloorArray.length > 0 ? Math.max(...sortedFloorArray.map(f => f.order || 0)) + 1 : 0;
         setLocalFloors(prev => ({ ...prev, [newFloorId]: { name: `New Floor ${newOrder + 1}`, order: newOrder, timetable: [], vjTimetable: [] } }));
@@ -226,20 +231,36 @@ export const FloorManagerModal = ({ isOpen, onClose, floors, onSaveFloors }) => 
                     {/* Catalog "NewTrigger" Style */}
                     <button
                         onClick={handleAddFloor}
-                        className="
+                        disabled={isLimitReached}
+                        className={`
                             w-full h-14 rounded-xl 
                             border-2 border-dashed border-on-surface/10 dark:border-white/10
-                            bg-transparent hover:bg-brand-primary/[0.03] hover:border-brand-primary/40
-                            text-on-surface-variant hover:text-brand-primary 
+                            bg-transparent 
                             transition-all duration-200 active:scale-[0.98]
                             flex items-center justify-center gap-2 group mt-2
-                        "
+                            ${isLimitReached ? 'opacity-50 cursor-not-allowed' : 'hover:bg-brand-primary/[0.03] hover:border-brand-primary/40 text-on-surface-variant hover:text-brand-primary'}
+                        `}
                     >
-                        <div className="w-6 h-6 rounded-full bg-surface-container border border-on-surface/10 dark:border-white/10 flex items-center justify-center shadow-sm group-hover:border-brand-primary/30 transition-colors">
+                        <div className={`w-6 h-6 rounded-full bg-surface-container border border-on-surface/10 dark:border-white/10 flex items-center justify-center shadow-sm transition-colors ${!isLimitReached && 'group-hover:border-brand-primary/30'}`}>
                             <PlusIcon className="w-4 h-4" />
                         </div>
-                        <span className="font-bold text-sm tracking-wide font-sans">フロアを追加</span>
+                        <span className="font-bold text-sm tracking-wide font-sans">
+                            {isLimitReached ? "追加できません（上限）" : "フロアを追加"}
+                        </span>
                     </button>
+
+                    {/* ★追加: 制限時のメッセージ */}
+                    {isLimitReached && maxFloors === 1 && (
+                        <div className="mt-2 p-3 bg-brand-primary/5 border border-brand-primary/20 rounded-xl flex items-start gap-3">
+                            <SparklesIcon className="w-4 h-4 text-brand-primary mt-0.5 shrink-0" />
+                            <div>
+                                <p className="text-xs font-bold text-brand-primary mb-0.5">Pro Plan Feature</p>
+                                <p className="text-[10px] text-on-surface-variant leading-relaxed">
+                                    複数フロア機能は現在準備中です。今後のアップデートをお楽しみに！
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </BaseModal>
 
