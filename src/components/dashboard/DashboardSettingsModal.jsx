@@ -149,12 +149,18 @@ export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, on
         setIsDeleteConfirmOpen(false);
         setIsDeletingAccount(true);
         try {
+            // 1. 削除対象の収集
             const q = query(collection(db, "timetables"), where("ownerUid", "==", user.uid));
             const querySnapshot = await getDocs(q);
-            const deleteStoragePromises = [];
+
             const batch = writeBatch(db);
+            const deleteStoragePromises = [];
+
+            // 2. タイムテーブルと画像の削除準備
             querySnapshot.forEach((docSnap) => {
                 const data = docSnap.data();
+
+                // 画像URLの収集
                 const allTimetables = [];
                 if (data.timetable) allTimetables.push(data.timetable);
                 if (data.floors) {
@@ -165,21 +171,33 @@ export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, on
                 allTimetables.flat().forEach(item => {
                     if (item.imageUrl && item.imageUrl.includes("firebasestorage")) {
                         const imgRef = ref(storage, item.imageUrl);
-                        deleteStoragePromises.push(deleteObject(imgRef).catch(e => console.warn("Image delete ignored:", e)));
+                        deleteStoragePromises.push(deleteObject(imgRef).catch(() => { }));
                     }
                 });
+
+                // Firestoreドキュメント削除をバッチに追加
                 batch.delete(docSnap.ref);
             });
+
+            // 3. ユーザーデータの削除をバッチに追加
             batch.delete(doc(db, "users", user.uid));
+
+            // 4. 画像削除の実行 (非同期)
             await Promise.all(deleteStoragePromises);
+
+            // 5. Firestore一括削除の実行
             await batch.commit();
+
+            // 6. Authアカウントの削除
             await deleteUser(user);
-            alert("アカウント削除が完了しました。");
-            onLogout(); // ログアウト処理を追加
+
+            alert("アカウント削除が完了しました。ご利用ありがとうございました。");
+            onLogout();
+
         } catch (error) {
             console.error("Account deletion error:", error);
             if (error.code === 'auth/requires-recent-login') {
-                alert("セキュリティ保護のため、再ログインが必要です。\n一度ログアウトしてから再度ログインし、直後に削除操作を行ってください。");
+                alert("セキュリティ保護のため、再ログインが必要です。\n\n一度ログアウトします。再度ログインした後、もう一度「アカウント削除」を実行してください。");
                 onLogout();
             } else {
                 alert(`アカウントの削除に失敗しました: ${error.message}`);
