@@ -309,7 +309,9 @@ export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, on
         <BaseModal
             isOpen={isOpen}
             onClose={onClose}
-            maxWidthClass="md:max-w-4xl md:max-h-[90vh] h-full"
+            // ▼▼▼ 修正: md:h-auto を追加して PC表示時の高さをコンテンツに合わせる ▼▼▼
+            maxWidthClass="md:max-w-4xl md:max-h-[90vh] h-full md:h-auto"
+            // ▲▲▲ 修正ここまで ▲▲▲
             isScrollable={false}
             noPadding={true}
             hasCloseButton={false}
