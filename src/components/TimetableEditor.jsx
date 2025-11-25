@@ -311,8 +311,18 @@ export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, 
 
                     <input
                         type="text"
-                        value={eventConfig.title || 'DJ Timekeeper Pro'}
+                        // ▼▼▼ 変更: 空文字を許容するため、フォールバックを空文字 '' に変更 ▼▼▼
+                        value={eventConfig.title || ''}
                         onChange={(e) => handleEventConfigChange('title', e.target.value)}
+
+                        // ▼▼▼ 追加: フォーカスが外れた（確定した）時に、空ならデフォルト名を入れる ▼▼▼
+                        onBlur={() => {
+                            if (!eventConfig.title || eventConfig.title.trim() === '') {
+                                handleEventConfigChange('title', 'GIG DECK Event');
+                            }
+                        }}
+                        // ▲▲▲ 追加ここまで ▲▲▲
+
                         /* ▼▼▼ 【修正】 text-center md:text-left を追加し、SPのみ中央揃え、PCは左揃え ▼▼▼ */
                         className="text-lg sm:text-2xl md:text-3xl font-bold text-brand-secondary tracking-wide bg-transparent focus:outline-none focus:bg-surface-container/50 rounded-lg p-1 md:p-2 flex-1 min-w-0 text-center md:text-left"
                         placeholder="イベントタイトル"

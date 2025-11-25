@@ -359,7 +359,7 @@ export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, on
                     </div>
 
                     <div className="hidden md:block mt-auto pt-4 border-t border-on-surface/10 p-4">
-                        <p className="text-[10px] text-on-surface-variant/50 font-mono text-center">DJ Timekeeper Pro {APP_VERSION}</p>
+                        <p className="text-[10px] text-on-surface-variant/50 font-mono text-center">GIG DECK {APP_VERSION}</p>
                     </div>
                 </aside>
 

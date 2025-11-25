@@ -193,7 +193,7 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
             {viewingTarget && (<div className="bg-amber-500 text-white px-4 py-2 flex items-center justify-between sticky top-0 z-50 shadow-md"><div className="flex items-center gap-2 text-sm font-bold"><InfoIcon className="w-5 h-5" /><span>閲覧中: {viewingTarget.displayName} ({viewingTarget.email})</span></div><button onClick={() => setViewingTarget(null)} className="bg-white/20 hover:bg-white/30 text-white text-xs px-3 py-1.5 rounded-full transition-colors font-bold">終了して戻る</button></div>)}
             <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto pb-32">
                 <header className="flex flex-row justify-between items-center mb-12 animate-fade-in-up relative z-30 gap-4">
-                    <div className="flex flex-col items-start select-none flex-shrink-0"><h1 className="text-xl md:text-2xl font-bold tracking-widest text-on-surface">DJ TIMEKEEPER <span className="text-brand-primary">PRO</span></h1><span className="text-[10px] font-bold tracking-[0.3em] text-on-surface-variant uppercase">Dashboard</span></div>
+                    <div className="flex flex-col items-start select-none flex-shrink-0"><h1 className="text-xl md:text-2xl font-bold tracking-widest text-on-surface">GIG<span className="text-brand-primary"> DECK</span></h1><span className="text-[10px] font-bold tracking-[0.3em] text-on-surface-variant uppercase">Dashboard</span></div>
                     <div className="flex items-center gap-3 md:gap-5">
 
                         {/* ▼▼▼ 修正: PlanTag をSPでは非表示 (hidden md:block) ▼▼▼ */}

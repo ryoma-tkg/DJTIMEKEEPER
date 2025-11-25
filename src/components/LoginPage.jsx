@@ -45,7 +45,7 @@ export const LoginPage = ({ onLoginClick, onGuestClick, isLoggingIn }) => {
         <div className="fixed inset-0 bg-surface-background flex flex-col items-center justify-center p-4 text-center animate-fade-in-up">
             <header className="mb-12">
                 <h1 className="text-4xl sp:text-5xl font-bold text-brand-primary mb-2">
-                    DJ Timekeeper Pro
+                    GIG DECK
                 </h1>
                 <p className="text-lg text-on-surface-variant">
                     リアルタイムDJタイムテーブル管理アプリ
