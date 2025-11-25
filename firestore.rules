@@ -1,3 +1,4 @@
+// [firestore.rules]
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -12,14 +13,13 @@ service cloud.firestore {
       return text is string && text.size() <= max;
     }
 
-    // ★追加: 安全なURLかチェック (http/httpsのみ許可, 空文字OK, nullOK)
-function isValidUrl(url) {
-  return url == null || url == '' || (
-    url is string 
-    && url.size() <= 2000 
-    && url.matches('^https://firebasestorage\\.googleapis\\.com/.*')
-  );
-}
+    function isValidUrl(url) {
+      return url == null || url == '' || (
+        url is string 
+        && url.size() <= 2000 
+        && url.matches('^https://firebasestorage\\.googleapis\\.com/.*')
+      );
+    }
 
     function isValidTitleCheck(data) {
       return ('eventConfig' in data && data.eventConfig is map)
@@ -27,7 +27,6 @@ function isValidUrl(url) {
           && (data.eventConfig.title.size() <= 100);
     }
 
-    // ★修正: imageUrlのチェックを追加
     function isValidTimetableItem(item) {
       return ('name' in item && item.name is string && item.name.size() <= 100)
           && ('duration' in item && (item.duration is number || item.duration is string))
@@ -58,9 +57,10 @@ function isValidUrl(url) {
       );
     }
 
+    // ★修正: emailが null (ゲスト) の場合も許可する
     function isValidUserProfile(data) {
       return (!('displayName' in data) || isValidString(data.displayName, 100))
-          && (!('email' in data) || isValidString(data.email, 100));
+          && (!('email' in data) || data.email == null || isValidString(data.email, 100));
     }
 
     // ... userCreate/Update は変更なし ...
@@ -75,14 +75,13 @@ function isValidUrl(url) {
           && isValidUserProfile(newData);
     }
 
-    // --- コレクションルール (変更なし) ---
+    // --- コレクションルール ---
 
     match /timetables/{eventId} {
       allow get: if true;
       allow list: if isSignedIn() && (
         request.query.filters.ownerUid == request.auth.uid || isSuperAdmin()
       );
-      
       allow create: if isSuperAdmin() || (
         isSignedIn() 
         && request.resource.data.ownerUid == request.auth.uid
@@ -90,7 +89,6 @@ function isValidUrl(url) {
         && isValidTimetableCheck(request.resource.data)
         && isValidFloorsCheck(request.resource.data)
       );
-      
       allow update: if isSuperAdmin() || (
         isSignedIn() 
         && isOwner(resource.data.ownerUid)
@@ -98,7 +96,6 @@ function isValidUrl(url) {
         && isValidTimetableCheck(request.resource.data)
         && isValidFloorsCheck(request.resource.data)
       );
-      
       allow delete: if isSignedIn() && (isOwner(resource.data.ownerUid) || isSuperAdmin());
     }
 
@@ -107,6 +104,9 @@ function isValidUrl(url) {
       allow list: if isSuperAdmin();
       allow create: if isSuperAdmin() || (isSignedIn() && isOwner(userId) && isValidUserCreate(request.resource.data));
       allow update: if isSuperAdmin() || (isSignedIn() && isOwner(userId) && isValidUserUpdate(request.resource.data, resource.data));
+      
+      // ▼▼▼ 必須: アカウント削除許可 ▼▼▼
+      allow delete: if isSignedIn() && (isOwner(userId) || isSuperAdmin());
     }
   }
 }

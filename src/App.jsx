@@ -20,8 +20,10 @@ const LoginPage = lazy(() => import('./components/LoginPage').then(module => ({ 
 const DashboardPage = lazy(() => import('./components/DashboardPage').then(module => ({ default: module.DashboardPage })));
 const EditorPage = lazy(() => import('./components/EditorPage').then(module => ({ default: module.EditorPage })));
 const LivePage = lazy(() => import('./components/LivePage').then(module => ({ default: module.LivePage })));
+// ▼▼▼ 新規: SetupPageの追加 ▼▼▼
+const SetupPage = lazy(() => import('./components/SetupPage').then(module => ({ default: module.SetupPage })));
 
-// --- Redirector コンポーネント ---
+// --- Redirector コンポーネント (変更なし) ---
 const EditorRedirector = () => {
     const { eventId } = useParams();
     const [targetFloorId, setTargetFloorId] = useState(null);
@@ -93,17 +95,17 @@ const LiveRedirector = () => {
     return <Navigate to={`/live/${eventId}/${targetFloorId}`} replace />;
 };
 
-// ▼▼▼ 新規追加: 未ログイン時にLIVEビューへ転送するコンポーネント ▼▼▼
 const RedirectToLive = () => {
     const { eventId, floorId } = useParams();
-    // floorIdがある場合は特定フロアへ、なければイベントトップへ（LiveRedirectorが処理）
     const targetPath = floorId ? `/live/${eventId}/${floorId}` : `/live/${eventId}`;
     return <Navigate to={targetPath} replace />;
 };
-// ▲▲▲ 追加ここまで ▲▲▲
 
 const App = () => {
     const [user, setUser] = useState(null);
+    // ▼▼▼ 新規: ユーザープロファイル状態の追加 ▼▼▼
+    const [userProfile, setUserProfile] = useState(null);
+
     const [authStatus, setAuthStatus] = useState('loading');
     const [isLoggingIn, setIsLoggingIn] = useState(false);
     const navigate = useNavigate();
@@ -153,8 +155,9 @@ const App = () => {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
+                // setUser(firebaseUser) はまだ行わず、DB同期後にまとめて行うほうが安全だが
+                // 今回は既存ロジックに合わせて先にセットし、データ取得を待つ形にする
                 setUser(firebaseUser);
-                setAuthStatus('authed');
 
                 try {
                     const userDocRef = doc(db, "users", firebaseUser.uid);
@@ -164,6 +167,7 @@ const App = () => {
                     const isSuperAdmin = firebaseUser.uid === SUPER_ADMIN_UID;
 
                     if (!userSnap.exists()) {
+                        // ▼▼▼ 新規登録時の処理 ▼▼▼
                         const newUserData = {
                             uid: firebaseUser.uid,
                             email: firebaseUser.email,
@@ -172,6 +176,8 @@ const App = () => {
                             role: isSuperAdmin ? 'admin' : 'free',
                             createdAt: serverTimestamp(),
                             lastLoginAt: serverTimestamp(),
+                            // ★ 新規: セットアップ未完了フラグ
+                            isSetupCompleted: false,
                             preferences: {
                                 theme: localStorage.getItem('theme') || 'dark',
                                 defaultStartTime: '22:00',
@@ -182,13 +188,15 @@ const App = () => {
                         await setDoc(userDocRef, newUserData);
                         userData = newUserData;
                     } else {
+                        // 既存ユーザー
                         const currentData = userSnap.data();
                         const shouldPromoteToAdmin = isSuperAdmin && currentData.role !== 'admin';
 
                         const updatePayload = {
                             email: firebaseUser.email,
-                            displayName: firebaseUser.displayName,
-                            photoURL: firebaseUser.photoURL,
+                            // Google等の最新情報で上書きするかはポリシー次第だが、
+                            // セットアップ後の手動変更を優先するため、ここではphotoURL/displayNameは強制上書きしない方が良い場合もある。
+                            // 今回は同期を優先して上書きするが、isSetupCompletedチェックには影響しない。
                             lastLoginAt: serverTimestamp()
                         };
 
@@ -196,9 +204,18 @@ const App = () => {
                             updatePayload.role = 'admin';
                         }
 
+                        // ★ 既存ユーザーに isSetupCompleted フィールドがない場合のマイグレーション（任意）
+                        // ここでは「既存ユーザーはセットアップ済み」とみなす
+                        if (currentData.isSetupCompleted === undefined) {
+                            updatePayload.isSetupCompleted = true;
+                        }
+
                         await updateDoc(userDocRef, updatePayload);
                         userData = { ...currentData, ...updatePayload };
                     }
+
+                    // ▼▼▼ 状態をセット ▼▼▼
+                    setUserProfile(userData);
 
                     if (isSuperAdmin || userData?.role === 'admin') {
                         setIsDevMode(true);
@@ -206,13 +223,21 @@ const App = () => {
                         setIsDevMode(false);
                     }
 
+                    // テーマの適用（ユーザー設定があれば優先）
+                    if (userData?.preferences?.theme) {
+                        setTheme(userData.preferences.theme);
+                    }
+
                 } catch (error) {
                     console.error("[Auth] User sync failed:", error);
                     setIsDevMode(false);
+                } finally {
+                    setAuthStatus('authed');
                 }
 
             } else {
                 setUser(null);
+                setUserProfile(null);
                 setAuthStatus('no-auth');
                 setIsDevMode(false);
             }
@@ -227,7 +252,7 @@ const App = () => {
             await signInWithPopup(auth, googleProvider);
         } catch (error) {
             console.error("Googleログインに失敗:", error);
-            alert("ログインに失敗しました。ポップアップがブロックされていないか確認してください。");
+            alert("ログインに失敗しました。");
         } finally {
             setIsLoggingIn(false);
         }
@@ -238,6 +263,9 @@ const App = () => {
         setIsLoggingIn(true);
         try {
             await signInAnonymously(auth);
+            // ゲストユーザーはセットアップスキップ（またはゲスト用デフォルト設定）
+            // ゲストは userProfile.isSetupCompleted = undefined または false だが、
+            // ゲスト用の扱いをするのでセットアップ画面には飛ばさない運用にする
         } catch (error) {
             console.error("ゲストログインに失敗:", error);
             alert("ゲストログインに失敗しました。");
@@ -249,12 +277,23 @@ const App = () => {
     const handleLogout = async () => {
         await signOut(auth);
         setIsDevMode(false);
+        setUserProfile(null);
         navigate('/login');
+    };
+
+    // ★ セットアップ完了ハンドラ
+    const handleSetupComplete = () => {
+        // ローカルの状態を更新してダッシュボードへ
+        setUserProfile(prev => ({ ...prev, isSetupCompleted: true }));
+        navigate('/');
     };
 
     if (authStatus === 'loading') {
         return <LoadingScreen text="認証情報を確認中..." />;
     }
+
+    // ★ セットアップが必要かどうかの判定
+    const needsSetup = authStatus === 'authed' && user && !user.isAnonymous && userProfile && userProfile.isSetupCompleted === false;
 
     return (
         <>
@@ -267,20 +306,44 @@ const App = () => {
 
             <Suspense fallback={<LoadingScreen text="読み込み中..." />}>
                 <Routes>
+                    {/* Setup Page Route */}
+                    <Route
+                        path="/setup"
+                        element={
+                            needsSetup ? (
+                                <SetupPage
+                                    user={user}
+                                    userProfile={userProfile}
+                                    theme={theme}
+                                    toggleTheme={toggleTheme}
+                                    onComplete={handleSetupComplete}
+                                />
+                            ) : (
+                                // セットアップ不要ならホームへ
+                                <Navigate to="/" replace />
+                            )
+                        }
+                    />
+
                     <Route
                         path="/"
                         element={
                             authStatus === 'authed' ? (
-                                <DashboardPage
-                                    user={user}
-                                    onLogout={handleLogout}
-                                    theme={theme}
-                                    toggleTheme={toggleTheme}
-                                    isDevMode={isDevMode}
-                                    onToggleDevMode={toggleDevMode}
-                                    isPerfMonitorVisible={isPerfMonitorVisible}
-                                    onTogglePerfMonitor={() => setIsPerfMonitorVisible(p => !p)}
-                                />
+                                needsSetup ? (
+                                    // セットアップが必要なら /setup へリダイレクト
+                                    <Navigate to="/setup" replace />
+                                ) : (
+                                    <DashboardPage
+                                        user={user}
+                                        onLogout={handleLogout}
+                                        theme={theme}
+                                        toggleTheme={toggleTheme}
+                                        isDevMode={isDevMode}
+                                        onToggleDevMode={toggleDevMode}
+                                        isPerfMonitorVisible={isPerfMonitorVisible}
+                                        onTogglePerfMonitor={() => setIsPerfMonitorVisible(p => !p)}
+                                    />
+                                )
                             ) : (
                                 <Navigate to="/login" replace />
                             )
@@ -302,21 +365,24 @@ const App = () => {
                         }
                     />
 
+                    {/* 以下、エディタ・ライブビュー等は変更なし */}
                     <Route
                         path="/edit/:eventId/:floorId"
                         element={
                             authStatus === 'authed' ? (
-                                <EditorPage
-                                    user={user}
-                                    isDevMode={isDevMode}
-                                    onToggleDevMode={toggleDevMode}
-                                    theme={theme}
-                                    toggleTheme={toggleTheme}
-                                    isPerfMonitorVisible={isPerfMonitorVisible}
-                                    onTogglePerfMonitor={() => setIsPerfMonitorVisible(p => !p)}
-                                />
+                                // 編集画面への直接アクセス時もセットアップチェックを入れるならここにも needsSetup 分岐を入れる
+                                // 今回はダッシュボード経由を基本とするが、URL直打ち対応として入れるのが親切
+                                needsSetup ? <Navigate to="/setup" replace /> :
+                                    <EditorPage
+                                        user={user}
+                                        isDevMode={isDevMode}
+                                        onToggleDevMode={toggleDevMode}
+                                        theme={theme}
+                                        toggleTheme={toggleTheme}
+                                        isPerfMonitorVisible={isPerfMonitorVisible}
+                                        onTogglePerfMonitor={() => setIsPerfMonitorVisible(p => !p)}
+                                    />
                             ) : (
-                                // ▼▼▼ 修正: ログイン画面ではなくLIVEビューへ転送 ▼▼▼
                                 <RedirectToLive />
                             )
                         }
@@ -326,9 +392,9 @@ const App = () => {
                         path="/edit/:eventId"
                         element={
                             authStatus === 'authed' ? (
-                                <EditorRedirector />
+                                needsSetup ? <Navigate to="/setup" replace /> :
+                                    <EditorRedirector />
                             ) : (
-                                // ▼▼▼ 修正: ログイン画面ではなくLIVEビューへ転送 ▼▼▼
                                 <RedirectToLive />
                             )
                         }
