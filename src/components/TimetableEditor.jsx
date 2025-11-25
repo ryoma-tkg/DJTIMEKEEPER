@@ -33,7 +33,7 @@ import {
     MoonIcon,
     SunIcon,
     LayersIcon,
-    ClockIcon, // ★ 追加
+    ClockIcon,
 
     // Constants & Helpers
     VIVID_COLORS,
@@ -68,14 +68,12 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, ev
 
     const handleAddVj = () => {
         setVjTimetable(prev => {
-            // ★ ここでチェック！
             if (prev.length >= 30) {
                 onShowToast("VJの数は30人までです");
                 return prev;
             }
 
             const currentTotal = prev.reduce((acc, item) => acc + (parseFloat(item.duration) || 0), 0);
-            // ... (既存の追加ロジック) ...
             const remaining = Math.max(0, eventTotalMinutes - currentTotal);
             const DEFAULT_DURATION = 45;
             let newDuration = DEFAULT_DURATION;
@@ -136,7 +134,6 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, ev
 };
 
 // --- SettingsModal (Updated to Match Catalog Design) ---
-// ★ isGuest を受け取る
 const SettingsModal = ({ isOpen, onClose, eventConfig, handleEventConfigChange, handleShare, onResetClick, theme, toggleTheme, isGuest }) => {
     const isTitleError = !eventConfig.title || eventConfig.title.trim() === '';
 
@@ -177,7 +174,6 @@ const SettingsModal = ({ isOpen, onClose, eventConfig, handleEventConfigChange, 
                 <section>
                     <h3 className="text-sm font-bold text-on-surface-variant uppercase tracking-wider mb-3">オプション設定</h3>
                     <div className="bg-surface-background/50 rounded-xl px-4 py-2 space-y-2 border border-on-surface/5">
-                        {/* ★ VJ機能: ゲストは不可 */}
                         <div className={isGuest ? "opacity-50 pointer-events-none grayscale" : ""}>
                             <Toggle
                                 checked={eventConfig.vjFeatureEnabled}
@@ -226,7 +222,6 @@ const IntegratedFloorTabs = ({ floors, currentFloorId, onSelectFloor, onAddClick
 };
 
 // --- Main Component ---
-// ★ expireAt を受け取る
 export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, setTimetable, vjTimetable, setVjTimetable, floors, currentFloorId, onSelectFloor, onFloorsUpdate, setMode, storage, timeOffset, theme, toggleTheme, imagesLoaded, expireAt }) => {
     const [openColorPickerId, setOpenColorPickerId] = useState(null);
     const [editingDjIndex, setEditingDjIndex] = useState(null);
@@ -237,14 +232,12 @@ export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, 
     const [toast, setToast] = useState({ message: '', visible: false });
     const toastTimerRef = useRef(null);
 
-    // ★ ゲスト判定
     const isGuest = user?.isAnonymous;
 
-    // ★ 追加: 削除日時のフォーマット
     const expireDateStr = useMemo(() => {
         if (!expireAt) return null;
         const date = expireAt.toDate ? expireAt.toDate() : new Date(expireAt);
-        const month = date.getMonth() + 1;
+        const month = date.getDate() < 10 ? date.getMonth() + 1 : date.getMonth() + 1;
         const day = date.getDate();
         const hours = String(date.getHours()).padStart(2, '0');
         const minutes = String(date.getMinutes()).padStart(2, '0');
@@ -272,14 +265,11 @@ export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, 
 
     const addNewDj = (isBuffer = false) => {
         setTimetable(prev => {
-            // ここでチェック！
             if (prev.length >= 30) {
                 showToast("DJ/バッファーの数は30人までです");
                 return prev;
             }
-
             const lastDj = prev[prev.length - 1];
-            // ... (既存の追加ロジック) ...
             const duration = isBuffer ? 5 : (lastDj ? lastDj.duration : 45);
             return recalculateTimes([...prev, {
                 id: Date.now(),
@@ -296,12 +286,10 @@ export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, 
     const handleRemoveDj = (index) => setTimetable(prev => recalculateTimes(prev.filter((_, i) => i !== index), eventStartTimeDate));
     const handleCopyDj = (index) => {
         setTimetable(prev => {
-            // ▼▼▼ 追加: 30個制限 ▼▼▼
             if (prev.length >= 30) {
                 showToast("これ以上はコピーできません（上限30個）");
                 return prev;
             }
-            // ▲▲▲ 追加ここまで ▲▲▲
             return recalculateTimes([...prev.slice(0, index + 1), { ...prev[index], id: Date.now() }, ...prev.slice(index + 1)], eventStartTimeDate);
         });
     };
@@ -316,7 +304,7 @@ export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, 
             <div className="p-4 md:p-8 max-w-7xl mx-auto min-h-screen animate-fade-in-up relative">
 
                 {/* Header: justify-between で要素を配置 */}
-                <header className="flex flex-row justify-between items-center mb-6 gap-2 sm:gap-4 relative z-10">
+                <header className="flex flex-row justify-between items-center mb-4 md:mb-6 gap-2 sm:gap-4 relative z-10">
                     <Link to="/" className="flex-shrink-0">
                         <Button variant="secondary" size="icon" icon={BackIcon} className="rounded-full" />
                     </Link>
@@ -325,13 +313,13 @@ export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, 
                         type="text"
                         value={eventConfig.title || 'DJ Timekeeper Pro'}
                         onChange={(e) => handleEventConfigChange('title', e.target.value)}
-                        className="text-xl sm:text-2xl md:text-3xl font-bold text-brand-secondary tracking-wide bg-transparent focus:outline-none focus:bg-surface-container/50 rounded-lg p-2 flex-1 min-w-0"
+                        /* ▼▼▼ 【修正】 text-center md:text-left を追加し、SPのみ中央揃え、PCは左揃え ▼▼▼ */
+                        className="text-lg sm:text-2xl md:text-3xl font-bold text-brand-secondary tracking-wide bg-transparent focus:outline-none focus:bg-surface-container/50 rounded-lg p-1 md:p-2 flex-1 min-w-0 text-center md:text-left"
                         placeholder="イベントタイトル"
                     />
 
-                    {/* ★ 修正: ヘッダー要素としてアラートを配置 (h-12でボタンと高さを統一) */}
                     {isGuest && expireDateStr && (
-                        <div className="flex-shrink-0 flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 text-red-500 px-3 h-12 rounded-xl shadow-sm">
+                        <div className="flex-shrink-0 flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 text-red-500 px-2 md:px-3 h-12 rounded-xl shadow-sm">
                             <ClockIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                             <div className="flex flex-col leading-none">
                                 <span className="text-[8px] sm:text-[10px] font-bold uppercase tracking-wider opacity-70">Auto Delete</span>
@@ -346,11 +334,19 @@ export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, 
                     </div>
                 </header>
 
-                <div className="flex flex-col sm:flex-row gap-4 mb-8">
-                    <Button onClick={() => timetable.length > 0 && setMode('live')} disabled={timetable.length === 0 || !imagesLoaded} variant="primary" size="lg" className="flex-1" icon={PlayIcon}>{imagesLoaded ? 'Liveモード' : '画像読込中...'}</Button>
-                    <div className="bg-surface-container rounded-xl py-2 px-6 flex items-center justify-center gap-4 shadow-sm border border-on-surface/5">
-                        <div className="text-center"><p className="text-xs text-on-surface-variant font-bold">START - END</p><p className="text-lg font-mono font-bold">{displayStartTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {displayEndTime ? displayEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '??:??'}</p></div>
-                        {totalEventDuration && (<div className="text-center pl-4 border-l border-on-surface-variant/20"><p className="text-xs text-on-surface-variant font-bold">TOTAL</p><p className="text-lg font-bold">{totalEventDuration}</p></div>)}
+                <div className="flex flex-col sm:flex-row gap-4 mb-6 md:mb-8">
+                    <Button onClick={() => timetable.length > 0 && setMode('live')} disabled={timetable.length === 0 || !imagesLoaded} variant="primary" size="lg" className="flex-1 min-h-[48px] md:min-h-[64px] py-3 md:py-4" icon={PlayIcon}>{imagesLoaded ? 'Liveモード' : '画像読込中...'}</Button>
+                    <div className="bg-surface-container rounded-xl py-2 px-4 md:px-6 flex items-center justify-center gap-2 md:gap-4 shadow-sm border border-on-surface/5">
+                        <div className="text-center">
+                            <p className="text-xs text-on-surface-variant font-bold">START - END</p>
+                            <p className="text-base md:text-lg font-mono font-bold">{displayStartTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {displayEndTime ? displayEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '??:??'}</p>
+                        </div>
+                        {totalEventDuration && (
+                            <div className="text-center pl-4 border-l border-on-surface-variant/20">
+                                <p className="text-xs text-on-surface-variant font-bold">TOTAL</p>
+                                <p className="text-base md:text-lg font-bold">{totalEventDuration}</p>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -364,7 +360,7 @@ export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, 
                                 <div key={dj.id} className="dj-list-item" style={getDragStyles(index)}>
                                     <DjItem
                                         dj={dj}
-                                        isGuest={isGuest} // ★ 追加: ゲストフラグを渡す
+                                        isGuest={isGuest}
                                         isPlaying={currentlyPlayingIndex === index}
                                         onPointerDown={(e) => handlePointerDown(e, index)}
                                         onEditClick={() => setEditingDjIndex(index)}
@@ -421,7 +417,6 @@ export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, 
 
             <ConfirmModal isOpen={isResetConfirmOpen} title="リセット" message="元に戻せません。よろしいですか？" onConfirm={executeReset} onCancel={() => setIsResetConfirmOpen(false)} />
 
-            {/* ★ SettingsModal に isGuest を渡す */}
             <SettingsModal
                 isOpen={isSettingsOpen}
                 onClose={() => setIsSettingsOpen(false)}

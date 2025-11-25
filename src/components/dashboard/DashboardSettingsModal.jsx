@@ -306,13 +306,22 @@ export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, on
     };
 
     return (
-        <BaseModal isOpen={isOpen} onClose={onClose} maxWidthClass="max-w-4xl" isScrollable={false} noPadding={true} hasCloseButton={false} footer={null}>
-            <div className="flex flex-col md:flex-row h-[80vh] md:h-[550px] relative">
+        <BaseModal
+            isOpen={isOpen}
+            onClose={onClose}
+            maxWidthClass="md:max-w-4xl md:max-h-[90vh] h-full"
+            isScrollable={false}
+            noPadding={true}
+            hasCloseButton={false}
+            footer={null}
+            isMobileFullScreen={true}
+        >
+            <div className="flex flex-col md:flex-row h-full md:h-[550px] relative overflow-hidden">
                 <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface transition-colors z-50 md:hidden">
                     <XIcon className="w-5 h-5" />
                 </button>
 
-                <aside className="w-full md:w-64 bg-surface-background border-b md:border-b-0 md:border-r border-on-surface/5 flex flex-col flex-shrink-0">
+                <aside className="w-full md:w-64 bg-surface-background border-b md:border-b-0 md:border-r border-on-surface/5 flex flex-col flex-shrink-0 z-10">
                     <div className="p-4 md:px-3 md:pt-6 pb-2">
                         <div className="flex items-center gap-3 mb-4 md:mb-6 px-2">
                             <div className="w-10 h-10 rounded-full bg-brand-primary flex items-center justify-center text-white font-bold text-lg shadow-sm flex-shrink-0">
@@ -352,7 +361,8 @@ export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, on
                     </div>
                 </aside>
 
-                <main className="flex-1 flex flex-col min-w-0 h-full bg-surface-container relative">
+                {/* メインエリア: flex-1 + min-h-0 で伸縮、bg-surface-container で不透明化 */}
+                <main className="flex-1 flex flex-col min-w-0 min-h-0 bg-surface-container relative">
                     <div className="hidden md:block absolute top-4 right-4 z-20">
                         <button onClick={onClose} className="p-2 text-on-surface-variant hover:bg-surface-background hover:text-on-surface rounded-full transition-colors">
                             <XIcon className="w-5 h-5" />
@@ -549,7 +559,6 @@ export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, on
                                                 <div className="space-y-2">
                                                     <div className="text-xs font-bold text-on-surface-variant">変更する権限を選択:</div>
                                                     <div className="grid grid-cols-3 gap-2">
-                                                        {/* ▼▼▼ 修正: PlanTagと同じ配色のボタン ▼▼▼ */}
                                                         <button
                                                             onClick={() => handleChangeRole('free')}
                                                             disabled={targetUserForRole.role === 'free' || (!targetUserForRole.role && 'free' === 'free')}
@@ -571,7 +580,6 @@ export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, on
                                                         >
                                                             ADMIN
                                                         </button>
-                                                        {/* ▲▲▲ 修正ここまで ▲▲▲ */}
                                                     </div>
                                                 </div>
                                             </div>
@@ -614,7 +622,8 @@ export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, on
                         )}
                     </div>
 
-                    <div className="p-4 md:p-6 border-t border-on-surface/5 bg-surface-background/30 flex justify-end gap-3 z-10 flex-shrink-0">
+                    {/* Footer: z-20 と 不透明背景 でコンテンツの上に表示 */}
+                    <div className="p-4 md:p-6 border-t border-on-surface/5 bg-surface-container flex justify-end gap-3 z-20 flex-shrink-0">
                         <Button onClick={onClose} variant="ghost" size="sm">キャンセル</Button>
                         <Button onClick={handleSave} variant="primary" size="sm" disabled={isSaving || isDeletingAccount}>{isSaving ? '保存中...' : '設定を保存'}</Button>
                     </div>

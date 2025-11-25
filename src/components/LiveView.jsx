@@ -14,8 +14,8 @@ import {
     SunIcon,
     LayersIcon,
     LogOutIcon,
-    Toggle, // 新しいToggle
-    Badge, // 新しいBadge
+    Toggle,
+    Badge,
     parseDateTime
 } from './common';
 import { FullTimelineView } from './FullTimelineView';
@@ -95,7 +95,7 @@ const LiveSettingsModal = ({ isOpen, onClose, theme, toggleTheme, isWakeLockEnab
     );
 };
 
-// VjDisplayコンポーネント (変更なし)
+// VjDisplayコンポーネント
 const VjDisplay = ({ vjTimetable, eventConfig, now, djEventStatus, suppressAnimation }) => {
     const [currentVjData, setCurrentVjData] = useState(null);
     const [visibleVjContent, setVisibleVjContent] = useState(null);
@@ -188,7 +188,8 @@ const VjDisplay = ({ vjTimetable, eventConfig, now, djEventStatus, suppressAnima
     const animationClass = isVjFadingOut ? 'animate-fade-out-down' : (suppressAnimation || isAlreadyDisplayed ? '' : 'animate-fade-in-up');
 
     return (
-        <div className={`absolute left-0 right-0 w-full z-10 flex flex-col items-center justify-center px-4 md:px-8 py-4 bottom-4 md:bottom-32 min-h-[6rem] md:min-h-[8rem] transition-opacity duration-500`}>
+        // ▼▼▼ 【修正】 bottom-4 -> bottom-24 に上げ、タイムラインとの重なりを防止 (PCはbottom-32のまま) ▼▼▼
+        <div className={`absolute left-0 right-0 w-full z-10 flex flex-col items-center justify-center px-4 md:px-8 py-4 bottom-24 md:bottom-32 min-h-[6rem] md:min-h-[8rem] transition-opacity duration-500`}>
             <div key={visibleVjContent?.animationKey} className={`w-full flex flex-col items-center will-change-[transform,opacity] ${animationClass}`}>{renderVjContent(visibleVjContent)}</div>
         </div>
     );
@@ -312,13 +313,17 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
         if (content.status === 'ON AIR') {
             const dj = content; const isImageReady = !dj.imageUrl || loadedUrls.has(dj.imageUrl);
             return (
-                <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-4 md:space-y-0 md:space-x-8">
+                // ▼▼▼ 【修正】 space-y-4 -> space-y-8 で縦方向の余白を拡大 ▼▼▼
+                <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
                     {!dj.isBuffer && (<div className={`w-full max-w-[12rem] sp:max-w-[14rem] sm:max-w-[16rem] md:max-w-sm aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0 relative transform-gpu flex items-center justify-center transition-opacity duration-300 ease-in-out ${isImageReady ? 'opacity-100' : 'opacity-100'}`}>{dj.imageUrl && isImageReady ? (<SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" />) : (<UserIcon className="w-1/2 h-1/2 text-on-surface-variant" />)}{dj.imageUrl && !isImageReady && (<div className={`absolute inset-0 flex items-center justify-center bg-surface-container opacity-100`}><div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div></div>)}</div>)}
                     <div className={`flex flex-col ${dj.isBuffer ? 'items-center text-center' : 'text-center md:text-left'}`}>
                         <div className="flex flex-col">
                             <h1 className="text-3xl sp:text-4xl sm:text-5xl md:text-7xl font-bold break-words leading-tight mb-2">{dj.name}</h1>
                             <p className="text-base sm:text-2xl md:text-3xl font-semibold tracking-wider font-mono mb-2" style={{ color: dj.color }}>{dj.startTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {dj.endTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                            {dj.isBuffer ? (<p className="flex flex-col items-center justify-center text-4xl sp:text-5xl sm:text-6xl md:text-8xl text-on-surface my-2"><span className="text-lg sp:text-2xl sm:text-3xl md:text-4xl text-on-surface-variant font-sans font-bold mb-1 mt-2">残り</span><span className="font-mono inline-block text-center w-[5ch]">{formatTime(dj.timeLeft)}</span></p>) : (<p className="flex items-baseline justify-center md:justify-start text-4xl sp:text-5xl sm:text-6xl md:text-8xl text-on-surface my-1 whitespace-nowrap"><span className="text-lg sp:text-2xl sm:text-3xl md:text-4xl text-on-surface-variant mr-3 font-sans font-bold">残り</span><span className="font-mono inline-block text-left w-[5ch]">{formatTime(dj.timeLeft)}</span></p>)}
+                            {dj.isBuffer ? (<p className="flex flex-col items-center justify-center text-4xl sp:text-5xl sm:text-6xl md:text-8xl text-on-surface my-2"><span className="text-lg sp:text-2xl sm:text-3xl md:text-4xl text-on-surface-variant font-sans font-bold mb-1 mt-2">残り</span><span className="font-mono inline-block text-center w-[5ch]">{formatTime(dj.timeLeft)}</span></p>) : (
+                                // ▼▼▼ 【修正】 my-1 -> my-4 で残り時間表示の上下マージンを追加 ▼▼▼
+                                <p className="flex items-baseline justify-center md:justify-start text-4xl sp:text-5xl sm:text-6xl md:text-8xl text-on-surface my-4 whitespace-nowrap"><span className="text-lg sp:text-2xl sm:text-3xl md:text-4xl text-on-surface-variant mr-3 font-sans font-bold">残り</span><span className="font-mono inline-block text-left w-[5ch]">{formatTime(dj.timeLeft)}</span></p>
+                            )}
                             <div className={`bg-surface-container rounded-full h-3.5 overflow-hidden w-full mt-2`}><div className="h-full rounded-full transition-all duration-500 ease-in-out" style={{ width: `${dj.progress}%`, backgroundColor: dj.color }}></div></div>
                         </div>
                         {dj.nextDj && (<div className="mt-6 pt-4 border-t border-on-surface-variant/20"><p className="text-sm text-on-surface-variant font-bold tracking-widest mb-1">NEXT UP</p><p className="text-xl sm:text-2xl font-semibold">{dj.nextDj.name}<span className="text-base sm:text-lg font-sans text-on-surface-variant ml-2 font-mono">{dj.nextDj.startTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ~</span></p></div>)}
@@ -334,7 +339,9 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
     const scheduleForModal = useMemo(() => schedule.map(dj => ({ ...dj, startTime: dj.startTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), endTime: dj.endTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), startTimeDate: dj.startTimeDate.toISOString(), endTimeDate: dj.endTimeDate.toISOString() })), [schedule]);
     const isAlreadyDisplayed = displayedDjKeysRef.current.has(visibleDjContent?.animationKey);
     const djAnimationClass = isDjFadingOut ? 'animate-fade-out-down' : (suppressEntryAnimation || isAlreadyDisplayed ? '' : 'animate-fade-in-up');
-    const contentPositionClass = isVjActive ? 'bottom-24 md:bottom-56' : 'bottom-24 pb-20';
+
+    // ▼▼▼ 【修正】 VJアクティブ時の位置調整 (bottom-48 に上げてVJバーとの重なりを回避) ▼▼▼
+    const contentPositionClass = isVjActive ? 'bottom-48 md:bottom-56' : 'bottom-24 pb-20';
 
     return (
         <div className="fixed inset-0">
@@ -343,13 +350,15 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
             <ToastNotification message={toast.message} isVisible={toast.visible} className="top-32 md:top-24" />
             <header className="absolute top-0 left-0 right-0 p-4 md:p-8 z-20 flex flex-col gap-2">
                 <div className="flex flex-wrap justify-between items-center gap-y-0 md:gap-y-2">
-                    <div className="w-auto md:flex-1 flex flex-row items-center gap-4 order-1">
+                    {/* ▼▼▼ 【修正】 w-auto -> flex-1 でSP時に幅を確保、min-w-0 で縮小可能に ▼▼▼ */}
+                    <div className="flex-1 flex flex-row items-center gap-2 md:gap-4 order-1 min-w-0">
                         {!isReadOnly && (
                             <button onClick={() => { if (isPreview) { setMode('edit'); } }} className={`flex-shrink-0 flex items-center justify-center w-12 h-12 bg-surface-container hover:bg-surface-container/80 text-on-surface font-semibold rounded-full shadow-md transition-all duration-200 active:scale-95 hover:-translate-y-0.5`}>
                                 {isPreview ? (<LogOutIcon className="w-5 h-5 rotate-180" />) : (eventId ? (<Link to={`/edit/${eventId}/${currentFloorId}`} className="flex items-center justify-center w-full h-full"><LogOutIcon className="w-5 h-5 rotate-180" /></Link>) : (<Link to="/" className="flex items-center justify-center w-full h-full"><LogOutIcon className="w-5 h-5 rotate-180" /></Link>))}
                             </button>
                         )}
-                        <h1 className="text-xl md:text-2xl font-bold text-on-surface-variant tracking-wider truncate max-w-[calc(100vw-120px)] md:max-w-xs">{eventConfig.title}</h1>
+                        {/* ▼▼▼ 【修正】 text-lg, text-center (SP) で編集画面と統一。w-full で中央寄せを有効化 ▼▼▼ */}
+                        <h1 className="text-lg md:text-2xl font-bold text-on-surface-variant tracking-wider truncate w-full md:w-auto text-center md:text-left">{eventConfig.title}</h1>
                     </div>
                     <div className="w-full md:w-auto flex-shrink-0 mx-auto order-3 md:order-2">
                         <div className="bg-surface-container dark:bg-black/60 text-on-surface font-bold py-2 px-4 rounded-full text-xl tracking-wider font-mono text-center min-w-[10ch] tabular-nums cursor-pointer active:scale-95 transition-transform" onClick={handleTimerClick} title="クリックで表示切替">

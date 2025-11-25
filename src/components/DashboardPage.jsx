@@ -25,8 +25,6 @@ import { EventCard } from './dashboard/EventCard';
 import { EventSetupModal } from './dashboard/EventSetupModal';
 import { DashboardSettingsModal } from './dashboard/DashboardSettingsModal';
 
-// ★ 以前定義した const PlanTag = ... は削除してください
-
 export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, isPerfMonitorVisible, onTogglePerfMonitor }) => {
     // ... (State定義などは変更なし) ...
     const [events, setEvents] = useState([]);
@@ -48,8 +46,6 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
 
     // ゲスト判定
     const isGuest = user?.isAnonymous;
-
-    // ★ planBadge の useMemo も削除してOKです (PlanTag内でロジック完結したため)
 
     const showToast = (message) => {
         if (toastTimerRef.current) { clearTimeout(toastTimerRef.current); setToast({ message: '', visible: false }); }
@@ -200,8 +196,8 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
                     <div className="flex flex-col items-start select-none flex-shrink-0"><h1 className="text-xl md:text-2xl font-bold tracking-widest text-on-surface">DJ TIMEKEEPER <span className="text-brand-primary">PRO</span></h1><span className="text-[10px] font-bold tracking-[0.3em] text-on-surface-variant uppercase">Dashboard</span></div>
                     <div className="flex items-center gap-3 md:gap-5">
 
-                        {/* ▼▼▼ 修正: PlanTag を使用 ▼▼▼ */}
-                        <div className="hidden sp:block">
+                        {/* ▼▼▼ 修正: PlanTag をSPでは非表示 (hidden md:block) ▼▼▼ */}
+                        <div className="hidden md:block">
                             <PlanTag role={userProfile?.role} isGuest={isGuest} />
                         </div>
 
@@ -219,8 +215,8 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
                                     <div className="absolute top-full right-0 mt-3 w-72 bg-surface-container rounded-2xl shadow-2xl border border-on-surface/10 p-2 z-50 animate-fade-in origin-top-right">
                                         <div className="px-4 py-3 border-b border-on-surface/10 mb-2">
                                             <div className="flex items-center justify-between mb-1">
-                                                {/* 極小画面向けプラン表示 */}
-                                                <div className="sp:hidden mb-1">
+                                                {/* 極小画面向けプラン表示 (メニュー内には残す) */}
+                                                <div className="md:hidden mb-1">
                                                     <PlanTag role={userProfile?.role} isGuest={isGuest} />
                                                 </div>
                                             </div>
