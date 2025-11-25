@@ -21,23 +21,56 @@ import {
 import { FullTimelineView } from './FullTimelineView';
 import { BaseModal } from './ui/BaseModal';
 
-// --- サブコンポーネント: マルチビュー用カード ---
+// --- サブコンポーネント: マルチビュー用カード (デザイン修正版 v4) ---
 const MiniFloorCard = ({ floorId, floorData, eventConfig, now, onClick }) => {
     const { schedule, currentlyPlayingIndex, eventStatus } = useTimetable(floorData.timetable, eventConfig.startDate, eventConfig.startTime, now);
+
     let currentDj = null;
     let statusText = 'STANDBY';
-    let statusColor = 'text-on-surface-variant';
+    let progress = 0;
+
+    // スタイル定義
+    let containerStyle = {};
+    // デフォルトスタイル
+    let containerClass = 'bg-surface-container border border-on-surface/10 shadow-sm hover:shadow-xl hover:border-on-surface/20 hover:-translate-y-1';
+    let statusBadgeClass = 'bg-surface-background/50 text-on-surface-variant border-on-surface/5';
+    let titleClass = 'text-on-surface group-hover:text-brand-primary';
+    let activeColor = 'transparent';
 
     if (eventStatus === 'ON_AIR_BLOCK' && currentlyPlayingIndex !== -1) {
         currentDj = schedule[currentlyPlayingIndex];
         statusText = 'ON AIR';
-        statusColor = 'text-red-500 animate-pulse';
+
+        // プログレス計算
+        const startTime = currentDj.startTimeDate.getTime();
+        const endTime = currentDj.endTimeDate.getTime();
+        const nowTime = now.getTime();
+        const total = endTime - startTime;
+        const elapsed = nowTime - startTime;
+        progress = Math.min(100, Math.max(0, (elapsed / total) * 100));
+
+        activeColor = currentDj.color || '#ef4444';
+
+        // ★ ONAIR: カード本体は「発光」させる (以前のデザインを踏襲)
+        containerStyle = {
+            borderColor: `${activeColor}80`, // ボーダー
+            boxShadow: `0 0 30px -5px ${activeColor}4D` // 発光
+        };
+        containerClass = 'border shadow-lg hover:-translate-y-1';
+
+        statusBadgeClass = 'bg-surface-background text-surface-on font-bold animate-pulse border-transparent';
+        titleClass = 'text-on-surface font-bold';
+
     } else if (eventStatus === 'UPCOMING') {
         currentDj = schedule.length > 0 ? schedule[0] : null;
         statusText = 'UPCOMING';
-        statusColor = 'text-brand-primary';
+        containerClass = 'bg-surface-container border border-brand-primary/30 shadow-md hover:shadow-xl hover:border-brand-primary/50 hover:-translate-y-1';
+        statusBadgeClass = 'bg-brand-primary/10 text-brand-primary border-brand-primary/20 font-bold';
     } else if (eventStatus === 'FINISHED') {
         statusText = 'FINISHED';
+        progress = 100;
+        containerClass = 'bg-surface-container/50 border border-on-surface/5 opacity-70 hover:opacity-100 transition-opacity';
+        statusBadgeClass = 'bg-on-surface/10 text-on-surface-variant';
     }
 
     let timeDisplay = '--:--';
@@ -54,30 +87,89 @@ const MiniFloorCard = ({ floorId, floorData, eventConfig, now, onClick }) => {
     }
 
     return (
-        <div onClick={() => onClick(floorId)} className="bg-surface-container rounded-2xl p-4 shadow-lg cursor-pointer hover:scale-[1.02] transition-transform relative overflow-hidden group">
-            <div className="absolute top-0 left-0 w-1.5 h-full" style={{ backgroundColor: currentDj?.color || 'transparent' }} />
-            <div className="pl-3">
-                <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-bold text-lg truncate">{floorData.name}</h3>
-                    <span className={`text-xs font-bold tracking-wider ${statusColor}`}>{statusText}</span>
+        <div
+            onClick={() => onClick(floorId)}
+            className={`
+                relative rounded-2xl p-0 cursor-pointer 
+                transition-all duration-300 transform group overflow-hidden flex flex-col
+                ${containerClass}
+            `}
+            style={containerStyle}
+        >
+            {/* 1. Header Section */}
+            <div className="px-5 pt-5 pb-3 bg-surface-container">
+                <div className="flex justify-between items-start">
+                    <h3 className={`text-lg truncate pr-2 transition-colors ${titleClass}`}>{floorData.name}</h3>
+                    <span
+                        className={`text-[10px] tracking-widest flex-shrink-0 px-2 py-1 rounded-md border transition-colors ${statusBadgeClass}`}
+                        style={eventStatus === 'ON_AIR_BLOCK' ? { color: activeColor } : {}}
+                    >
+                        {statusText}
+                    </span>
                 </div>
+            </div>
+
+            {/* 2. Progress Bar (Middle) - 光らせない & 要素間に配置 */}
+            <div className="w-full h-1 bg-on-surface/5 relative">
+                {eventStatus === 'ON_AIR_BLOCK' && (
+                    <div
+                        className="absolute top-0 left-0 h-full transition-all duration-1000 ease-linear"
+                        style={{
+                            width: `${progress}%`,
+                            backgroundColor: activeColor,
+                            // boxShadowは削除 (マットな質感へ)
+                        }}
+                    />
+                )}
+            </div>
+
+            {/* 3. Body Section */}
+            <div className="px-5 pt-3 pb-5 flex-grow bg-surface-container">
                 {currentDj ? (
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-surface-background shrink-0 overflow-hidden flex items-center justify-center">
-                            {currentDj.imageUrl ? (<SimpleImage src={currentDj.imageUrl} className="w-full h-full object-cover" />) : (<UserIcon className="w-5 h-5 text-on-surface-variant" />)}
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-surface-background shrink-0 overflow-hidden flex items-center justify-center border border-on-surface/5 shadow-inner">
+                            {currentDj.imageUrl ? (
+                                <SimpleImage src={currentDj.imageUrl} className="w-full h-full object-cover" />
+                            ) : (
+                                <UserIcon className="w-6 h-6 text-on-surface-variant" />
+                            )}
                         </div>
-                        <div className="min-w-0">
-                            <p className="font-bold text-base truncate">{currentDj.name}</p>
-                            <p className="font-mono text-sm text-on-surface-variant">{eventStatus === 'UPCOMING' ? '開始まで ' : '残り '} <span className="font-bold text-on-surface">{timeDisplay}</span></p>
+                        <div className="min-w-0 flex-1">
+                            <p className="font-bold text-base truncate leading-tight mb-1 text-on-surface">{currentDj.name}</p>
+                            <div className="flex items-center justify-between">
+                                <p className="font-mono text-xs text-on-surface-variant">
+                                    {eventStatus === 'UPCOMING' ? 'START' : 'END'} <span className="text-on-surface font-bold">{eventStatus === 'UPCOMING' ? currentDj.startTime : currentDj.endTime}</span>
+                                </p>
+                                <p className="font-mono text-sm font-bold text-on-surface bg-surface-background/50 px-2 rounded">
+                                    {timeDisplay}
+                                </p>
+                            </div>
                         </div>
                     </div>
-                ) : (<div className="h-10 flex items-center text-sm text-on-surface-variant">情報なし</div>)}
+                ) : (
+                    <div className="h-12 flex items-center justify-center text-sm text-on-surface-variant bg-surface-background/30 rounded-xl border border-dashed border-on-surface/10">
+                        <span>NO DATA</span>
+                    </div>
+                )}
+            </div>
+
+            {/* 4. Footer Decoration */}
+            <div className="px-5 py-3 bg-surface-background/30 border-t border-on-surface/5 flex justify-between items-center mt-auto">
+                <div className="flex items-center gap-1 text-[10px] text-on-surface-variant/70 font-bold uppercase tracking-wider">
+                    <LayersIcon className="w-3 h-3" />
+                    <span>Floor View</span>
+                </div>
+                <div
+                    className="w-1.5 h-1.5 rounded-full transition-colors"
+                    style={{ backgroundColor: eventStatus === 'ON_AIR_BLOCK' ? activeColor : 'rgba(var(--color-on-surface-variant), 0.2)' }}
+                ></div>
             </div>
         </div>
     );
 };
 
-// --- サブコンポーネント: 設定モーダル ---
+// ... LiveSettingsModal, VjDisplay ...
+// (変更なし)
 const LiveSettingsModal = ({ isOpen, onClose, theme, toggleTheme, isWakeLockEnabled, onWakeLockToggle }) => {
     return (
         <BaseModal isOpen={isOpen} onClose={onClose} title="設定" maxWidthClass="max-w-md">
@@ -95,7 +187,6 @@ const LiveSettingsModal = ({ isOpen, onClose, theme, toggleTheme, isWakeLockEnab
     );
 };
 
-// VjDisplayコンポーネント
 const VjDisplay = ({ vjTimetable, eventConfig, now, djEventStatus, suppressAnimation }) => {
     const [currentVjData, setCurrentVjData] = useState(null);
     const [visibleVjContent, setVisibleVjContent] = useState(null);
@@ -165,10 +256,10 @@ const VjDisplay = ({ vjTimetable, eventConfig, now, djEventStatus, suppressAnima
         if (content.status === 'ON AIR') {
             const timeParts = formatVjTime(content.vjRemainingSeconds);
             return (
-                <div className="w-full max-w-3xl mt-4 md:mt-8">
-                    <div className="w-full max-w-3xl border-t border-on-surface/10 mb-4" />
-                    <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center w-full max-w-3xl gap-2 md:gap-4">
-                        <div className="flex items-center gap-4 md:gap-6 min-w-0 justify-center md:justify-end">
+                <div className="w-full max-w-3xl mt-2 md:mt-8">
+                    <div className="w-full max-w-3xl border-t border-on-surface/10 mb-2 md:mb-4" />
+                    <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center w-full max-w-3xl gap-1 md:gap-4">
+                        <div className="flex items-center gap-3 md:gap-6 min-w-0 justify-center md:justify-end">
                             {content.currentVj ? (
                                 <><span className="flex-shrink truncate text-center md:text-right text-lg sm:text-2xl font-bold max-w-[calc(100%-10ch)]">{content.currentVj.name}</span><span className="inline-block w-[8ch] flex-shrink-0 text-right md:text-left text-lg sm:text-2xl font-mono font-bold text-on-surface-variant tabular-nums"><span className={timeParts.isZeroHour ? 'opacity-50' : ''}>{timeParts.h}:</span><span>{timeParts.m}:{timeParts.s}</span></span></>
                             ) : (content.nextVj ? <span className="text-lg sm:text-2xl font-bold text-on-surface-variant/50">VJ STANDBY</span> : null)}
@@ -188,8 +279,13 @@ const VjDisplay = ({ vjTimetable, eventConfig, now, djEventStatus, suppressAnima
     const animationClass = isVjFadingOut ? 'animate-fade-out-down' : (suppressAnimation || isAlreadyDisplayed ? '' : 'animate-fade-in-up');
 
     return (
-        // ▼▼▼ 【修正】 bottom-4 -> bottom-24 に上げ、タイムラインとの重なりを防止 (PCはbottom-32のまま) ▼▼▼
-        <div className={`absolute left-0 right-0 w-full z-10 flex flex-col items-center justify-center px-4 md:px-8 py-4 bottom-24 md:bottom-32 min-h-[6rem] md:min-h-[8rem] transition-opacity duration-500`}>
+        <div className={`
+            absolute left-0 right-0 w-full z-10 
+            flex flex-col items-center justify-center px-4 md:px-8 py-2 md:py-4 
+            bottom-[8%] md:bottom-32 
+            min-h-[5rem] md:min-h-[8rem] 
+            transition-opacity duration-500
+        `}>
             <div key={visibleVjContent?.animationKey} className={`w-full flex flex-col items-center will-change-[transform,opacity] ${animationClass}`}>{renderVjContent(visibleVjContent)}</div>
         </div>
     );
@@ -199,6 +295,7 @@ const VjDisplay = ({ vjTimetable, eventConfig, now, djEventStatus, suppressAnima
 export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentFloorId, setMode, onSelectFloor, loadedUrls, timeOffset, isReadOnly, theme, toggleTheme, eventId, isPreview = false }) => {
     const [now, setNow] = useState(new Date(new Date().getTime() + timeOffset));
     const timelineContainerRef = useRef(null);
+    const tabsContainerRef = useRef(null);
     const [containerWidth, setContainerWidth] = useState(0);
     const [isFullTimelineOpen, setIsFullTimelineOpen] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -225,25 +322,69 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
     const [visualTimetable, setVisualTimetable] = useState(timetable);
     const [visualVjTimetable, setVisualVjTimetable] = useState(vjTimetable);
 
+    // ★ MultiView用リアルタイムデータマージ
+    const floorsWithPreview = useMemo(() => {
+        if (!floors) return {};
+        const newFloors = { ...floors };
+        if (currentFloorId && newFloors[currentFloorId]) {
+            newFloors[currentFloorId] = {
+                ...newFloors[currentFloorId],
+                timetable: timetable,
+                vjTimetable: vjTimetable
+            };
+        }
+        return newFloors;
+    }, [floors, currentFloorId, timetable, vjTimetable]);
+
+    const sortedFloors = useMemo(() => {
+        const targetFloors = floorsWithPreview;
+        if (!targetFloors) return [];
+        return Object.entries(targetFloors)
+            .map(([id, data]) => ({ id, ...data }))
+            .sort((a, b) => (a.order || 0) - (b.order || 0));
+    }, [floorsWithPreview]);
+
+    useEffect(() => {
+        if (viewMode === 'single' && tabsContainerRef.current) {
+            const activeBtn = tabsContainerRef.current.querySelector(`[data-floor-id="${displayFloorId}"]`);
+            if (activeBtn) {
+                activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
+        }
+    }, [displayFloorId, viewMode]);
+
     useEffect(() => {
         const showControls = () => { setIsControlsVisible(true); if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current); controlsTimeoutRef.current = setTimeout(() => { setIsControlsVisible(false); }, 3000); };
         window.addEventListener('mousemove', showControls); window.addEventListener('touchstart', showControls); showControls();
         return () => { window.removeEventListener('mousemove', showControls); window.removeEventListener('touchstart', showControls); if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current); };
     }, []);
 
+    // ★ フロア遷移ロジックの修正
     useEffect(() => {
         if (currentFloorId !== displayFloorId) {
+            // ★ MultiViewからの遷移時は、アニメーションなしで即時切り替え
+            if (viewMode === 'multi') {
+                setDisplayFloorId(currentFloorId);
+                setVisualTimetable(timetable);
+                setVisualVjTimetable(vjTimetable);
+                setMainOpacity(1);
+                setSuppressEntryAnimation(false);
+                setViewMode('single'); // ここで初めてSingleモードへ
+                return;
+            }
+
+            // 通常の遷移（Single -> Single）
             setSuppressEntryAnimation(true); setMainOpacity(0);
             const timer = setTimeout(() => { setDisplayFloorId(currentFloorId); setVisualTimetable(timetable); setVisualVjTimetable(vjTimetable); requestAnimationFrame(() => { setMainOpacity(1); setTimeout(() => { setSuppressEntryAnimation(false); }, 500); }); }, 500);
             return () => clearTimeout(timer);
         } else { setVisualTimetable(timetable); setVisualVjTimetable(vjTimetable); }
-    }, [currentFloorId, timetable, vjTimetable, displayFloorId]);
+    }, [currentFloorId, timetable, vjTimetable, displayFloorId, viewMode]); // viewModeを依存に追加
 
     const { schedule, eventStartTimeDate, eventEndTimeDate, eventStatus, currentlyPlayingIndex, eventRemainingSeconds, eventElapsedSeconds } = useTimetable(visualTimetable, eventConfig.startDate, eventConfig.startTime, now);
     const { schedule: vjSchedule, eventStatus: vjEventStatus } = useTimetable(visualVjTimetable, eventConfig.startDate, eventConfig.startTime, now);
     const hasVjData = visualVjTimetable && visualVjTimetable.length > 0;
     const isVjActive = eventConfig.vjFeatureEnabled && hasVjData && eventStatus === 'ON_AIR_BLOCK';
-    const sortedFloors = useMemo(() => { if (!floors) return []; return Object.entries(floors).map(([id, data]) => ({ id, ...data })).sort((a, b) => (a.order || 0) - (b.order || 0)); }, [floors]);
+
     const isAllFloorsFinished = useMemo(() => { if (!floors || Object.keys(floors).length === 0) return eventStatus === 'FINISHED'; const nowTime = now.getTime(); const startDateTime = parseDateTime(eventConfig.startDate, eventConfig.startTime); return Object.values(floors).every(floor => { const fTimetable = floor.timetable || []; if (fTimetable.length === 0) return true; const totalDurationMinutes = fTimetable.reduce((acc, item) => acc + (parseFloat(item.duration) || 0), 0); const floorEndTime = new Date(startDateTime.getTime() + totalDurationMinutes * 60000); return nowTime >= floorEndTime.getTime(); }); }, [floors, eventConfig, now, eventStatus]);
 
     useEffect(() => { const timer = setInterval(() => setNow(new Date(new Date().getTime() + timeOffset)), 1000); const updateWidth = () => { if (timelineContainerRef.current) setContainerWidth(timelineContainerRef.current.offsetWidth); }; updateWidth(); window.addEventListener('resize', updateWidth); return () => { clearInterval(timer); window.removeEventListener('resize', updateWidth); }; }, [timeOffset]);
@@ -313,20 +454,58 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
         if (content.status === 'ON AIR') {
             const dj = content; const isImageReady = !dj.imageUrl || loadedUrls.has(dj.imageUrl);
             return (
-                // ▼▼▼ 【修正】 space-y-4 -> space-y-8 で縦方向の余白を拡大 ▼▼▼
-                <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8">
-                    {!dj.isBuffer && (<div className={`w-full max-w-[12rem] sp:max-w-[14rem] sm:max-w-[16rem] md:max-w-sm aspect-square bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0 relative transform-gpu flex items-center justify-center transition-opacity duration-300 ease-in-out ${isImageReady ? 'opacity-100' : 'opacity-100'}`}>{dj.imageUrl && isImageReady ? (<SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" />) : (<UserIcon className="w-1/2 h-1/2 text-on-surface-variant" />)}{dj.imageUrl && !isImageReady && (<div className={`absolute inset-0 flex items-center justify-center bg-surface-container opacity-100`}><div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div></div>)}</div>)}
+                <main className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8">
+                    {!dj.isBuffer && (
+                        <div className={`
+                            w-[55vw] max-w-[280px] aspect-square
+                            md:w-auto md:max-w-sm md:h-96 md:w-96
+                            bg-surface-container rounded-full shadow-2xl overflow-hidden flex-shrink-0 relative transform-gpu flex items-center justify-center transition-opacity duration-300 ease-in-out 
+                            ${isImageReady ? 'opacity-100' : 'opacity-100'}
+                        `}>
+                            {dj.imageUrl && isImageReady ? (
+                                <SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" />
+                            ) : (
+                                <UserIcon className="w-1/2 h-1/2 text-on-surface-variant" />
+                            )}
+                            {dj.imageUrl && !isImageReady && (
+                                <div className={`absolute inset-0 flex items-center justify-center bg-surface-container opacity-100`}>
+                                    <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spinner"></div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     <div className={`flex flex-col ${dj.isBuffer ? 'items-center text-center' : 'text-center md:text-left'}`}>
                         <div className="flex flex-col">
-                            <h1 className="text-3xl sp:text-4xl sm:text-5xl md:text-7xl font-bold break-words leading-tight mb-2">{dj.name}</h1>
+                            <h1 className="text-3xl sp:text-4xl sm:text-5xl md:text-7xl font-bold break-words leading-tight mb-2 px-2">{dj.name}</h1>
                             <p className="text-base sm:text-2xl md:text-3xl font-semibold tracking-wider font-mono mb-2" style={{ color: dj.color }}>{dj.startTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {dj.endTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                            {dj.isBuffer ? (<p className="flex flex-col items-center justify-center text-4xl sp:text-5xl sm:text-6xl md:text-8xl text-on-surface my-2"><span className="text-lg sp:text-2xl sm:text-3xl md:text-4xl text-on-surface-variant font-sans font-bold mb-1 mt-2">残り</span><span className="font-mono inline-block text-center w-[5ch]">{formatTime(dj.timeLeft)}</span></p>) : (
-                                // ▼▼▼ 【修正】 my-1 -> my-4 で残り時間表示の上下マージンを追加 ▼▼▼
-                                <p className="flex items-baseline justify-center md:justify-start text-4xl sp:text-5xl sm:text-6xl md:text-8xl text-on-surface my-4 whitespace-nowrap"><span className="text-lg sp:text-2xl sm:text-3xl md:text-4xl text-on-surface-variant mr-3 font-sans font-bold">残り</span><span className="font-mono inline-block text-left w-[5ch]">{formatTime(dj.timeLeft)}</span></p>
+
+                            {dj.isBuffer ? (
+                                <p className="flex flex-col items-center justify-center text-4xl sp:text-5xl sm:text-6xl md:text-8xl text-on-surface my-2">
+                                    <span className="text-lg sp:text-2xl sm:text-3xl md:text-4xl text-on-surface-variant font-sans font-bold mb-1 mt-2">残り</span>
+                                    <span className="font-mono inline-block text-center w-[5ch]">{formatTime(dj.timeLeft)}</span>
+                                </p>
+                            ) : (
+                                <p className="flex items-baseline justify-center md:justify-start text-5xl sp:text-6xl sm:text-6xl md:text-8xl text-on-surface my-2 md:my-4 whitespace-nowrap">
+                                    <span className="text-lg sp:text-2xl sm:text-3xl md:text-4xl text-on-surface-variant mr-3 font-sans font-bold">残り</span>
+                                    <span className="font-mono inline-block text-left w-[5ch]">{formatTime(dj.timeLeft)}</span>
+                                </p>
                             )}
-                            <div className={`bg-surface-container rounded-full h-3.5 overflow-hidden w-full mt-2`}><div className="h-full rounded-full transition-all duration-500 ease-in-out" style={{ width: `${dj.progress}%`, backgroundColor: dj.color }}></div></div>
+
+                            <div className={`bg-surface-container rounded-full h-2 md:h-3.5 overflow-hidden w-full mt-2 mx-auto max-w-[80%] md:max-w-full`}>
+                                <div className="h-full rounded-full transition-all duration-500 ease-in-out" style={{ width: `${dj.progress}%`, backgroundColor: dj.color }}></div>
+                            </div>
                         </div>
-                        {dj.nextDj && (<div className="mt-6 pt-4 border-t border-on-surface-variant/20"><p className="text-sm text-on-surface-variant font-bold tracking-widest mb-1">NEXT UP</p><p className="text-xl sm:text-2xl font-semibold">{dj.nextDj.name}<span className="text-base sm:text-lg font-sans text-on-surface-variant ml-2 font-mono">{dj.nextDj.startTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ~</span></p></div>)}
+
+                        {dj.nextDj && (
+                            <div className="mt-4 md:mt-6 pt-3 md:pt-4 border-t border-on-surface-variant/20">
+                                <p className="text-xs md:text-sm text-on-surface-variant font-bold tracking-widest mb-1">NEXT UP</p>
+                                <p className="text-lg md:text-2xl font-semibold flex items-center justify-center md:justify-start gap-2">
+                                    {dj.nextDj.name}
+                                    <span className="text-sm md:text-lg font-sans text-on-surface-variant font-mono">{dj.nextDj.startTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ~</span>
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </main>
             );
@@ -340,7 +519,6 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
     const isAlreadyDisplayed = displayedDjKeysRef.current.has(visibleDjContent?.animationKey);
     const djAnimationClass = isDjFadingOut ? 'animate-fade-out-down' : (suppressEntryAnimation || isAlreadyDisplayed ? '' : 'animate-fade-in-up');
 
-    // ▼▼▼ 【修正】 VJアクティブ時の位置調整 (bottom-48 に上げてVJバーとの重なりを回避) ▼▼▼
     const contentPositionClass = isVjActive ? 'bottom-48 md:bottom-56' : 'bottom-24 pb-20';
 
     return (
@@ -348,43 +526,99 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
             <div className="absolute inset-0 will-change-[opacity]" style={bg1Style} />
             <div className="absolute inset-0 will-change-[opacity]" style={bg2Style} />
             <ToastNotification message={toast.message} isVisible={toast.visible} className="top-32 md:top-24" />
-            <header className="absolute top-0 left-0 right-0 p-4 md:p-8 z-20 flex flex-col gap-2">
-                <div className="flex flex-wrap justify-between items-center gap-y-0 md:gap-y-2">
-                    {/* ▼▼▼ 【修正】 w-auto -> flex-1 でSP時に幅を確保、min-w-0 で縮小可能に ▼▼▼ */}
+
+            {/* Header Area */}
+            <header className="absolute top-0 left-0 right-0 p-4 md:p-8 z-20 flex flex-col gap-2 pointer-events-none">
+                {/* Pointer events enabled for interactive children */}
+                {/* ★ ヘッダーの縦マージンを拡大 (gap-y-0 -> gap-y-2) */}
+                <div className="flex flex-wrap justify-between items-center gap-y-2 md:gap-y-2 pointer-events-auto">
                     <div className="flex-1 flex flex-row items-center gap-2 md:gap-4 order-1 min-w-0">
                         {!isReadOnly && (
                             <button onClick={() => { if (isPreview) { setMode('edit'); } }} className={`flex-shrink-0 flex items-center justify-center w-12 h-12 bg-surface-container hover:bg-surface-container/80 text-on-surface font-semibold rounded-full shadow-md transition-all duration-200 active:scale-95 hover:-translate-y-0.5`}>
                                 {isPreview ? (<LogOutIcon className="w-5 h-5 rotate-180" />) : (eventId ? (<Link to={`/edit/${eventId}/${currentFloorId}`} className="flex items-center justify-center w-full h-full"><LogOutIcon className="w-5 h-5 rotate-180" /></Link>) : (<Link to="/" className="flex items-center justify-center w-full h-full"><LogOutIcon className="w-5 h-5 rotate-180" /></Link>))}
                             </button>
                         )}
-                        {/* ▼▼▼ 【修正】 text-lg, text-center (SP) で編集画面と統一。w-full で中央寄せを有効化 ▼▼▼ */}
                         <h1 className="text-lg md:text-2xl font-bold text-on-surface-variant tracking-wider truncate w-full md:w-auto text-center md:text-left">{eventConfig.title}</h1>
                     </div>
-                    <div className="w-full md:w-auto flex-shrink-0 mx-auto order-3 md:order-2">
+                    <div className="w-full md:w-auto flex-shrink-0 mx-auto order-3 md:order-2 pointer-events-auto">
                         <div className="bg-surface-container dark:bg-black/60 text-on-surface font-bold py-2 px-4 rounded-full text-xl tracking-wider font-mono text-center min-w-[10ch] tabular-nums cursor-pointer active:scale-95 transition-transform" onClick={handleTimerClick} title="クリックで表示切替">
                             {timerDisplayMode === 'currentTime' && (now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))}
                             {timerDisplayMode === 'eventRemaining' && (`-${formatDurationHHMMSS(eventRemainingSeconds)}`)}
                             {timerDisplayMode === 'eventElapsed' && (`+${formatDurationHHMMSS(eventElapsedSeconds)}`)}
                         </div>
                     </div>
-                    <div className="w-auto md:flex-1 flex justify-end order-2 md:order-3 relative">
+                    <div className="w-auto md:flex-1 flex justify-end order-2 md:order-3 relative pointer-events-auto">
                         <button onClick={() => setIsMenuOpen(!isMenuOpen)} className={`flex-shrink-0 flex items-center justify-center w-12 h-12 bg-surface-container hover:bg-surface-container/80 text-on-surface font-semibold rounded-full shadow-md transition-all duration-200 active:scale-95 hover:-translate-y-0.5`}>
                             <MenuIcon className="w-5 h-5" />
                         </button>
                         {isMenuOpen && (<><div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)} /><div className="absolute top-full right-0 mt-3 w-64 bg-surface-container rounded-2xl shadow-2xl border border-on-surface/10 p-2 z-50 animate-fade-in origin-top-right"><div className="px-4 py-3 border-b border-on-surface/10 mb-2"><p className="font-bold text-sm text-on-surface">Menu</p></div><div className="flex flex-col gap-1"><button onClick={() => { setIsFullTimelineOpen(true); setIsMenuOpen(false); }} disabled={schedule.length === 0} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-background transition-colors text-left text-on-surface disabled:opacity-50 disabled:cursor-not-allowed group"><LayersIcon className="w-5 h-5 text-on-surface-variant" /><span className="font-bold text-sm">全体を見る</span></button>{!isReadOnly && (<button onClick={() => setMode('edit')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-background transition-colors text-left text-on-surface group"><LogOutIcon className="w-5 h-5 text-on-surface-variant rotate-180" /><span className="font-bold text-sm">編集モードに戻る</span></button>)}<button onClick={() => { setIsSettingsOpen(true); setIsMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-background transition-colors text-left text-on-surface group"><SettingsIcon className="w-5 h-5 text-on-surface-variant" /><span className="font-bold text-sm">表示設定</span></button></div></div></>)}
                     </div>
                 </div>
-                {sortedFloors.length > 1 && (<div className={`flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar justify-center mt-4 transition-opacity duration-500 ${isControlsVisible ? 'opacity-100' : 'opacity-50'}`}>{sortedFloors.map(floor => (<button key={floor.id} onClick={() => { onSelectFloor(floor.id); setViewMode('single'); }} className={`px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap transition-colors flex items-center gap-2 ${(viewMode === 'single' && floor.id === displayFloorId) ? 'bg-on-surface-variant text-surface-background shadow-md' : 'bg-surface-container hover:bg-surface-container/80 text-on-surface-variant hover:text-on-surface shadow-sm'}`}><LayersIcon className="w-3 h-3" />{floor.name}</button>))}{sortedFloors.length > 1 && (<button onClick={() => setViewMode('multi')} className={`px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap transition-colors flex items-center gap-2 ${viewMode === 'multi' ? 'bg-on-surface-variant text-surface-background shadow-md' : 'bg-surface-container hover:bg-surface-container/80 text-on-surface-variant hover:text-on-surface shadow-sm'}`}><span className="text-xs">田</span><span>Multi View</span></button>)}</div>)}
+                {sortedFloors.length > 1 && (
+                    <div ref={tabsContainerRef} className={`flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar justify-start md:justify-center mt-4 transition-opacity duration-500 pointer-events-auto ${isControlsVisible ? 'opacity-100' : 'opacity-50'}`}>
+                        {sortedFloors.map(floor => (
+                            <button
+                                key={floor.id}
+                                data-floor-id={floor.id}
+                                onClick={() => {
+                                    // ★ 修正: 同じフロアならモード切替、違うならフロア選択のみ(モード切替はeffectで)
+                                    if (floor.id === currentFloorId) {
+                                        setViewMode('single');
+                                    } else {
+                                        onSelectFloor(floor.id);
+                                    }
+                                }}
+                                className={`px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap transition-colors flex items-center gap-2 ${(viewMode === 'single' && floor.id === displayFloorId) ? 'bg-on-surface-variant text-surface-background shadow-md' : 'bg-surface-container hover:bg-surface-container/80 text-on-surface-variant hover:text-on-surface shadow-sm'}`}
+                            >
+                                <LayersIcon className="w-3 h-3" />
+                                {floor.name}
+                            </button>
+                        ))}
+                        {sortedFloors.length > 1 && (<button onClick={() => setViewMode('multi')} className={`px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap transition-colors flex items-center gap-2 ${viewMode === 'multi' ? 'bg-on-surface-variant text-surface-background shadow-md' : 'bg-surface-container hover:bg-surface-container/80 text-on-surface-variant hover:text-on-surface shadow-sm'}`}><span className="text-xs">田</span><span>Multi View</span></button>)}
+                    </div>
+                )}
             </header>
+
             <LiveSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} theme={theme} toggleTheme={toggleTheme} isWakeLockEnabled={isWakeLockEnabled} onWakeLockToggle={handleWakeLockToggle} />
+
             {viewMode === 'single' ? (
                 <div className="w-full h-full transition-opacity duration-500 ease-in-out" style={{ opacity: mainOpacity }}>
-                    <div className={`absolute top-36 md:top-40 left-0 right-0 px-4 flex items-center justify-center overflow-hidden transition-all duration-500 ease-in-out ${contentPositionClass}`}><div className="w-full h-full overflow-y-auto flex items-center justify-center relative">{visibleDjContent && (<div key={visibleDjContent.animationKey} className={`w-full absolute inset-0 p-4 flex items-center justify-center will-change-[transform,opacity] ${djAnimationClass}`}>{renderDjContent(visibleDjContent)}</div>)}</div></div>
+
+                    <div className={`
+                        absolute inset-0 md:top-40 md:bottom-32
+                        flex flex-col items-center justify-center 
+                        pt-28 pb-10 md:pt-0 md:pb-0
+                        overflow-hidden transition-all duration-500 ease-in-out
+                    `}>
+                        <div className="w-full flex-1 flex flex-col items-center justify-center relative px-4">
+                            {visibleDjContent && (
+                                <div key={visibleDjContent.animationKey} className={`w-full p-2 flex items-center justify-center will-change-[transform,opacity] ${djAnimationClass}`}>
+                                    {renderDjContent(visibleDjContent)}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
                     {isVjActive && (<VjDisplay vjTimetable={visualVjTimetable} eventConfig={eventConfig} now={now} djEventStatus={eventStatus} suppressAnimation={suppressEntryAnimation} />)}
                     {schedule.length > 0 && eventStatus !== 'STANDBY' && (<div ref={timelineContainerRef} className="absolute bottom-0 left-0 right-0 w-full shrink-0 overflow-hidden mask-gradient z-10 pb-4 hidden md:block h-20 md:h-32"><div className="flex h-full items-center space-x-4 md:space-x-6 px-4 py-2 will-change-transform" style={{ transform: timelineTransform, transition: 'transform 0.4s ease-in-out' }}>{schedule.map((dj, index) => { const isPlaying = currentlyPlayingIndex === index; const borderClass = isPlaying ? 'border border-on-surface dark:border-white' : 'border border-on-surface/30 dark:border-white/30'; const isActive = isPlaying || (eventStatus === 'ON_AIR_BLOCK' && currentlyPlayingIndex === -1 && index === 0); return (<div key={dj.id} className={`shrink-0 w-40 md:w-64 h-16 md:h-24 bg-surface-container/40 backdrop-blur-sm rounded-2xl p-3 md:p-4 flex items-center ${borderClass} ${dj.isBuffer ? 'justify-center' : 'space-x-2 md:space-x-6'} ${isActive ? 'opacity-100 scale-100' : 'opacity-60 scale-90'} transition-all duration-1000 ease-in-out will-change-[opacity,transform,border]`}>{dj.imageUrl ? (<div className="w-8 h-8 md:w-14 md:h-14 rounded-full bg-surface-container flex-shrink-0 grid place-items-center overflow-hidden"><SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" /></div>) : !dj.isBuffer ? (<div className="w-8 h-8 md:w-14 md:h-14 rounded-full bg-surface-container flex-shrink-0 grid place-items-center overflow-hidden"><UserIcon className="w-5 h-5 md:w-8 md:h-8 text-on-surface-variant" /></div>) : null}<div className="overflow-hidden flex flex-col justify-center"><p className={`text-sm md:text-lg font-bold truncate w-full ${dj.isBuffer ? 'text-center' : 'text-left'}`}>{dj.name}</p><p className={`text-xs md:text-sm font-mono text-on-surface-variant ${dj.isBuffer ? 'text-center' : 'text-left'}`}>{dj.startTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p></div></div>); })}</div></div>)}
                 </div>
             ) : (
-                <div className="absolute top-36 bottom-0 left-0 right-0 p-4 overflow-y-auto"><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 max-w-7xl mx-auto">{sortedFloors.map(floor => (<MiniFloorCard key={floor.id} floorId={floor.id} floorData={floor} eventConfig={eventConfig} now={now} onClick={(fid) => { onSelectFloor(fid); setViewMode('single'); }} />))}</div></div>
+                <div className="absolute top-0 bottom-0 left-0 right-0 p-4 pt-48 md:pt-60 overflow-y-auto">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
+                        {sortedFloors.map(floor => (
+                            <MiniFloorCard key={floor.id} floorId={floor.id} floorData={floor} eventConfig={eventConfig} now={now}
+                                onClick={(fid) => {
+                                    // ★ 修正: カードクリック時も同様
+                                    if (fid === currentFloorId) {
+                                        setViewMode('single');
+                                    } else {
+                                        onSelectFloor(fid);
+                                    }
+                                }}
+                            />
+                        ))}
+                    </div>
+                </div>
             )}
             <FullTimelineView isOpen={isFullTimelineOpen} onClose={() => setIsFullTimelineOpen(false)} schedule={scheduleForModal} now={now} currentlyPlayingIndex={currentlyPlayingIndex} />
         </div >

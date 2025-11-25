@@ -30,7 +30,6 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
     const dbRef = useRef(db);
     const storageRef = useRef(storage);
 
-    // データState
     const [eventData, setEventData] = useState(null);
     const [eventConfig, setEventConfig] = useState(getDefaultEventConfig());
     const [floors, setFloors] = useState({});
@@ -43,18 +42,12 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
     const [timeOffset, setTimeOffset] = useState(0);
     const [isDevPanelOpen, setIsDevPanelOpen] = useState(false);
 
-    // ★ 保存状態管理
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [toast, setToast] = useState({ message: '', visible: false });
 
-    // ★ タイマー管理用 Ref
     const autoSaveTimerRef = useRef(null);
-
-    // ★ 「最新の未保存状態」を即座に参照するためのRef
     const hasUnsavedChangesRef = useRef(false);
-
-    // ★ プログラムによる更新中フラグ (読み込み時の変更検知防止)
     const isProgrammaticUpdate = useRef(true);
 
     const imageUrlsToPreload = useMemo(() => timetable.map(dj => dj.imageUrl), [timetable]);
@@ -66,7 +59,6 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
         setTimeout(() => setToast(prev => ({ ...prev, visible: false })), 3000);
     };
 
-    // --- 保存ロジック ---
     const saveDataToFirestore = useCallback(async (isSilent = false) => {
         if (pageStatus !== 'ready' || !user || !currentFloorId) return;
 
@@ -74,37 +66,6 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
 
         setIsSaving(true);
         try {
-            // ▼▼▼ デバッグログ開始 ▼▼▼
-            console.group("🔥 Firestore Save Debug");
-            console.log("Saving as User:", user.uid);
-            console.log("Is Guest?", user.isAnonymous);
-            console.log("Current Floor:", currentFloorId);
-
-            let dataToSend = {};
-            if (eventData && !eventData.floors && eventData.timetable) {
-                // 旧データモード
-                dataToSend = { eventConfig, timetable, vjTimetable };
-                console.log("📦 Mode: Single Floor (Legacy)");
-                console.log("Sending Data:", dataToSend);
-            } else if (eventData && eventData.floors) {
-                // マルチフロアモード
-                const updates = {
-                    eventConfig,
-                    [`floors.${currentFloorId}.timetable`]: timetable,
-                    [`floors.${currentFloorId}.vjTimetable`]: vjTimetable,
-                };
-                dataToSend = updates;
-                console.log("📦 Mode: Multi Floor");
-                console.log("Sending Updates:", updates);
-
-                // バリデーション用：配列の1つ目をチェック
-                if (timetable.length > 0) console.log("🔍 DJ Check [0]:", timetable[0]);
-                if (vjTimetable.length > 0) console.log("🔍 VJ Check [0]:", vjTimetable[0]);
-            }
-            console.groupEnd();
-            // ▲▲▲ デバッグログ終了 ▲▲▲
-
-            // 実際の保存処理
             if (eventData && !eventData.floors && eventData.timetable) {
                 await setDoc(docRef, { eventConfig, timetable, vjTimetable }, { merge: true });
             } else if (eventData && eventData.floors) {
@@ -120,48 +81,31 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
             hasUnsavedChangesRef.current = false;
 
             if (!isSilent) showToast("保存しました");
-            console.log("✅ Save Success!");
         } catch (error) {
             console.error("❌ Save failed:", error);
             showToast("保存に失敗しました: " + error.code);
-
-            // エラーの詳細をアラートでも出す
-            if (error.code === 'permission-denied') {
-                console.warn("⚠️ 権限エラーです。firestore.rulesのバリデーションに引っかかっています。");
-                console.warn("送信データの形式がルールと一致しているか確認してください（特に色、URL、文字数）。");
-            }
         } finally {
             setIsSaving(false);
         }
     }, [docRef, eventConfig, timetable, vjTimetable, pageStatus, user, currentFloorId, eventData]);
 
-    // ★ 最新の保存関数を常にRefに入れておく (クロージャ対策)
     const latestSaveDataRef = useRef(saveDataToFirestore);
     useEffect(() => {
         latestSaveDataRef.current = saveDataToFirestore;
     }, [saveDataToFirestore]);
 
-    // --- ★ 能動的な変更通知関数 ---
     const markAsDirty = useCallback(() => {
-        // プログラム更新中は無視
         if (isProgrammaticUpdate.current) return;
-
-        // 1. 未保存フラグを立てる
         setHasUnsavedChanges(true);
         hasUnsavedChangesRef.current = true;
-
-        // 2. 既存のタイマーがあればキャンセル
         if (autoSaveTimerRef.current) {
             clearTimeout(autoSaveTimerRef.current);
         }
-
-        // 3. 新しく20秒タイマーをセット
         autoSaveTimerRef.current = setTimeout(() => {
             latestSaveDataRef.current(true);
         }, 20000);
     }, []);
 
-    // --- State更新用ラッパー ---
     const handleEventConfigChange = (newValOrFunc) => {
         setEventConfig(prev => {
             const next = typeof newValOrFunc === 'function' ? newValOrFunc(prev) : newValOrFunc;
@@ -183,7 +127,6 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
         });
         markAsDirty();
     };
-
 
     useEffect(() => {
         setMode(location.hash === '#live' ? 'live' : 'edit');
@@ -212,13 +155,10 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                     return;
                 }
 
-                // ★ 編集中（未保存）でない場合のみ反映
                 if (!hasUnsavedChangesRef.current) {
-                    // ★ プログラム更新フラグをON
                     isProgrammaticUpdate.current = true;
 
                     setEventData(data);
-
                     setEventConfig(prev => ({ ...prev, ...(data.eventConfig || {}) }));
                     setFloors(data.floors || {});
 
@@ -235,13 +175,18 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                             setTimetable(data.floors[currentFloorId].timetable || []);
                             setVjTimetable(data.floors[currentFloorId].vjTimetable || []);
                         } else {
-                            const firstFloorId = Object.keys(data.floors).sort((a, b) => (data.floors[a].order || 0) - (data.floors[b].order || 0))[0];
-                            if (firstFloorId) navigate(`/edit/${eventId}/${firstFloorId}`, { replace: true });
+                            // URLのIDがデータにない場合、一番若いIDに飛ばすか、あるいは新規フロアの可能性も考慮
+                            // ここでは一番若いIDへのリダイレクトを維持
+                            const sortedFloorIds = Object.keys(data.floors).sort((a, b) => (data.floors[a].order || 0) - (data.floors[b].order || 0));
+                            const firstFloorId = sortedFloorIds[0];
+
+                            // もしデータ自体が空（フロア削除後など）の場合はリダイレクトしない
+                            if (firstFloorId && !data.floors[currentFloorId]) {
+                                navigate(`/edit/${eventId}/${firstFloorId}`, { replace: true });
+                            }
                         }
                     }
                     setPageStatus('ready');
-
-                    // State更新完了後、少し待ってからフラグを下ろす (useEffectの実行順序対策)
                     setTimeout(() => { isProgrammaticUpdate.current = false; }, 100);
                 }
             } else {
@@ -254,19 +199,23 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
         return () => unsubscribe();
     }, [user, eventId, docRef, navigate, isDevMode, currentFloorId]);
 
-    // フロア切り替え
+    // --- フロア切り替え時のデータ更新 ---
     useEffect(() => {
         if (!hasUnsavedChangesRef.current && eventData) {
+            isProgrammaticUpdate.current = true;
             if (eventData.floors && eventData.floors[currentFloorId]) {
-                isProgrammaticUpdate.current = true;
                 setTimetable(eventData.floors[currentFloorId].timetable || []);
                 setVjTimetable(eventData.floors[currentFloorId].vjTimetable || []);
-                setTimeout(() => { isProgrammaticUpdate.current = false; }, 100);
+            } else {
+                // ★ 重要: フロアデータが存在しない場合（新規フロア移動時など）は、
+                // 前のフロアのデータを引き継がないよう、明示的に空にする
+                setTimetable([]);
+                setVjTimetable([]);
             }
+            setTimeout(() => { isProgrammaticUpdate.current = false; }, 100);
         }
     }, [currentFloorId, eventData]);
 
-    // --- 離脱時の安全策 ---
     useEffect(() => {
         const handleBeforeUnload = (e) => {
             if (hasUnsavedChanges) {
@@ -278,11 +227,9 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [hasUnsavedChanges]);
 
-    // アンマウント時の保存試行
     useEffect(() => {
         return () => {
             if (hasUnsavedChangesRef.current) {
-                console.log("Unmounting with unsaved changes...");
                 latestSaveDataRef.current(true);
             }
         };
@@ -295,16 +242,33 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
 
     const handleFloorsUpdate = async (newFloorsMap) => {
         if (pageStatus !== 'ready' || !user) return;
+
+        // ★ 重要: フロア情報の更新時、現在編集中のタイムテーブルデータ（未保存）も含めて保存する
+        // これをしないと、フロア追加/削除時に編集中のデータが「保存前の状態（eventData）」で上書きされ消えてしまう
+        if (newFloorsMap[currentFloorId]) {
+            newFloorsMap[currentFloorId] = {
+                ...newFloorsMap[currentFloorId],
+                timetable: timetable, // 現在のStateを使用
+                vjTimetable: vjTimetable // 現在のStateを使用
+            };
+        }
+
         try {
             await updateDoc(docRef, { floors: newFloorsMap });
+            // フロア情報の更新は全体保存とみなせるため、未保存フラグを下ろす
+            setHasUnsavedChanges(false);
+            hasUnsavedChangesRef.current = false;
         } catch (error) {
             console.error(error);
             setPageStatus('offline');
         }
     };
 
-    const handleSelectFloor = (newFloorId) => {
-        if (hasUnsavedChanges) saveDataToFirestore(true);
+    const handleSelectFloor = async (newFloorId) => {
+        // ★ 重要: 移動前に保存を完了させる (await)
+        if (hasUnsavedChanges) {
+            await saveDataToFirestore(true);
+        }
         if (newFloorId !== currentFloorId) {
             navigate({ pathname: `/edit/${eventId}/${newFloorId}`, hash: location.hash }, { replace: true });
         }
@@ -330,7 +294,7 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
             {mode === 'edit' ? (
                 <>
                     <TimetableEditor
-                        user={user} // ★ ここに user を渡しています！
+                        user={user}
                         eventConfig={eventConfig}
                         setEventConfig={handleEventConfigChange}
                         timetable={timetable}
@@ -350,7 +314,6 @@ export const EditorPage = ({ user, isDevMode, onToggleDevMode, theme, toggleThem
                         expireAt={eventData?.expireAt}
                     />
 
-                    {/* 更新反映ボタン */}
                     <div
                         className={`
                             fixed bottom-8 right-8 z-40 
