@@ -1,6 +1,7 @@
 // [src/components/LoginPage.jsx]
 import React from 'react';
-import { GoogleIcon, UserIcon, InfoIcon, Button } from './common';
+// ★追加: APP_COPYRIGHT をインポート
+import { GoogleIcon, UserIcon, InfoIcon, Button, APP_COPYRIGHT } from './common';
 
 export const LoginPage = ({ onLoginClick, onGuestClick, isLoggingIn }) => {
     return (
@@ -63,7 +64,7 @@ export const LoginPage = ({ onLoginClick, onGuestClick, isLoggingIn }) => {
                     </div>
                 </main>
 
-                {/* フッター注釈: 幅を合わせるために max-w-sm を削除し px-4 に変更 */}
+                {/* フッター注釈 */}
                 <footer className="mt-8 w-full px-4">
                     <div className="flex flex-col gap-2 text-left bg-surface-container/40 p-4 rounded-2xl border border-on-surface/5">
                         <div className="flex items-center gap-2 text-brand-primary">
@@ -73,6 +74,12 @@ export const LoginPage = ({ onLoginClick, onGuestClick, isLoggingIn }) => {
                         <p className="text-[10px] text-on-surface-variant leading-relaxed pl-6">
                             画像のアップロードやデータの無期限保存が可能になります。<br />
                             <span className="opacity-70">※ゲスト利用のデータは36時間後に削除されます。</span>
+                        </p>
+                    </div>
+                    {/* ★追加: コピーライト表示 */}
+                    <div className="mt-6 text-center">
+                        <p className="text-[10px] text-on-surface-variant/40 font-mono tracking-wide">
+                            {APP_COPYRIGHT}
                         </p>
                     </div>
                 </footer>

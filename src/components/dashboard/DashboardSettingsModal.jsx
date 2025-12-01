@@ -25,7 +25,8 @@ import {
     LayersIcon,
     PlanTag,
     ConfirmModal, // ★追加: 削除確認用モーダル
-    SparklesIcon // ★追加: Pro機能アイコン
+    SparklesIcon, // ★追加: Pro機能アイコン
+    APP_COPYRIGHT,
 } from '../common';
 
 export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, onLogout, user, userProfile, onViewUser }) => {
@@ -280,6 +281,7 @@ export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, on
 
                         <div className="hidden md:block mt-auto pt-4 border-t border-on-surface/10 p-4">
                             <p className="text-[10px] text-on-surface-variant/50 font-mono text-center">GIG DECK {APP_VERSION}</p>
+                            <p className="text-[10px] text-on-surface-variant/30 font-mono text-center mt-1 scale-90 origin-center">{APP_COPYRIGHT}</p>
                         </div>
                     </aside>
 

@@ -13,7 +13,8 @@ export { Toggle, ToggleSwitch } from './ui/Toggle';
 export { Badge } from './ui/Badge';
 
 // --- Constants ---
-export const APP_VERSION = 'v2.2.0';
+export const APP_VERSION = 'v1.1.0';
+export const APP_COPYRIGHT = '© 2025 GIG DECK. All rights reserved.';
 
 export const VIVID_COLORS = [
     '#EF4444', '#F97316', '#F59E0B', '#EAB308',
