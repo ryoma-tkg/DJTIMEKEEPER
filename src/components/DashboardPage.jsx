@@ -95,29 +95,11 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
         }
     }, [isLoading, user, events.length, isCreating, viewingTarget]);
 
-    const { nowEvents, upcomingEvents, pastEvents } = useMemo(() => {
-        const now = new Date();
-        const nowList = [], upcomingList = [], pastList = [];
-        events.forEach(event => {
-            const { startDate, startTime } = event.eventConfig || {};
-            if (!startDate || !startTime) { pastList.push(event); return; }
-            const start = new Date(`${startDate}T${startTime}`);
-            const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
-            if (now >= start && now < end) nowList.push(event);
-            else if (now < start) upcomingList.push(event);
-            else pastList.push(event);
-        });
-        upcomingList.sort((a, b) => new Date(`${a.eventConfig.startDate}T${a.eventConfig.startTime}`) - new Date(`${b.eventConfig.startDate}T${b.eventConfig.startTime}`));
-        pastList.sort((a, b) => new Date(`${b.eventConfig.startDate}T${b.eventConfig.startTime}`) - new Date(`${a.eventConfig.startDate}T${a.eventConfig.startTime}`));
-        return { nowEvents: nowList, upcomingEvents: upcomingList, pastEvents: pastList };
-    }, [events]);
-
     const handleCreateClick = () => {
         const role = userProfile?.role || 'free';
         const limit = isGuest ? 1 : (role === 'admin' || role === 'pro' ? Infinity : 3);
 
         if (events.length >= limit) {
-            // ★変更: 文言を「準備中」のニュアンスに
             const message = isGuest
                 ? "ゲストはイベントを1つまでしか作成できません。"
                 : "現在、作成できるイベントは3件までです。（無制限プラン準備中）";
@@ -126,6 +108,57 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
         }
         setIsSetupModalOpen(true);
     };
+
+    // ▼▼▼ 【修正】正確な終了時刻に基づいた振り分けロジック ▼▼▼
+    const { nowEvents, upcomingEvents, pastEvents } = useMemo(() => {
+        const now = new Date();
+        const nowList = [], upcomingList = [], pastList = [];
+
+        events.forEach(event => {
+            const { startDate, startTime } = event.eventConfig || {};
+            // 設定がないものは過去へ
+            if (!startDate || !startTime) { pastList.push(event); return; }
+
+            const start = new Date(`${startDate}T${startTime}`);
+
+            // 合計時間の計算 (分)
+            let maxDurationMinutes = 0;
+
+            // 1. 旧データ形式 or シングル構成の場合
+            if (event.timetable && Array.isArray(event.timetable)) {
+                const total = event.timetable.reduce((sum, item) => sum + (parseFloat(item.duration) || 0), 0);
+                maxDurationMinutes = Math.max(maxDurationMinutes, total);
+            }
+
+            // 2. 複数フロア構成の場合 (最も遅く終わるフロアに合わせる)
+            if (event.floors) {
+                Object.values(event.floors).forEach(floor => {
+                    if (floor.timetable && Array.isArray(floor.timetable)) {
+                        const total = floor.timetable.reduce((sum, item) => sum + (parseFloat(item.duration) || 0), 0);
+                        maxDurationMinutes = Math.max(maxDurationMinutes, total);
+                    }
+                });
+            }
+
+            // 終了時刻を計算
+            const end = new Date(start.getTime() + maxDurationMinutes * 60 * 1000);
+
+            if (now >= start && now < end) {
+                nowList.push(event);
+            } else if (now < start) {
+                upcomingList.push(event);
+            } else {
+                pastList.push(event);
+            }
+        });
+
+        // ソート処理
+        upcomingList.sort((a, b) => new Date(`${a.eventConfig.startDate}T${a.eventConfig.startTime}`) - new Date(`${b.eventConfig.startDate}T${b.eventConfig.startTime}`));
+        pastList.sort((a, b) => new Date(`${b.eventConfig.startDate}T${b.eventConfig.startTime}`) - new Date(`${a.eventConfig.startDate}T${a.eventConfig.startTime}`));
+
+        return { nowEvents: nowList, upcomingEvents: upcomingList, pastEvents: pastList };
+    }, [events]);
+    // ▲▲▲ 修正ここまで ▲▲▲
 
     const handleSetupComplete = async (modalConfig) => {
         if (isCreating || !user) return;
@@ -260,7 +293,7 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
                 </header>
                 {events.length > 0 ? (
                     <div className="space-y-12">
-                        {nowEvents.length > 0 && (<section className="animate-fade-in-up opacity-0"><div className="flex items-center gap-2 mb-4 text-red-500"><span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span><h2 className="text-lg font-bold tracking-widest">NOW ON AIR</h2></div><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{nowEvents.map(event => <EventCard key={event.id} event={event} onDeleteClick={(id, title) => setDeleteTarget({ id, title })} onClick={() => navigate(`/edit/${event.id}`)} />)}</div></section>)}
+                        {nowEvents.length > 0 && (<section className="animate-fade-in-up opacity-0"><div className="flex items-center gap-2 mb-4 text-red-500"><span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span><h2 className="text-lg font-bold tracking-widest">NOW ON AIR</h2></div><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{nowEvents.map(event => <EventCard key={event.id} event={event} isActive={true} onDeleteClick={(id, title) => setDeleteTarget({ id, title })} onClick={() => navigate(`/edit/${event.id}`)} />)}</div></section>)}
                         {upcomingEvents.length > 0 && (<section className="animate-fade-in-up opacity-0" style={{ animationDelay: '0.1s' }}><h2 className="text-lg font-bold text-on-surface-variant mb-4 tracking-widest flex items-center gap-2"><span className="text-brand-primary">●</span> UPCOMING</h2><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{upcomingEvents.map(event => <EventCard key={event.id} event={event} onDeleteClick={(id, title) => setDeleteTarget({ id, title })} onClick={() => navigate(`/edit/${event.id}`)} />)}</div></section>)}
                         {pastEvents.length > 0 && (<section className="animate-fade-in-up opacity-0" style={{ animationDelay: '0.2s' }}><h2 className="text-lg font-bold text-on-surface-variant/50 mb-4 tracking-widest">ARCHIVE</h2><div className="transition-opacity duration-300"><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{pastEvents.map(event => <EventCard key={event.id} event={event} onDeleteClick={(id, title) => setDeleteTarget({ id, title })} onClick={() => navigate(`/edit/${event.id}`)} />)}</div></div></section>)}
                     </div>

@@ -17,21 +17,17 @@ const formatDateForIcon = (dateStr) => {
     return { month: monthNames[date.getMonth()], day: String(date.getDate()).padStart(2, '0') };
 };
 
-const isEventActive = (event) => {
-    const { startDate, startTime } = event.eventConfig;
-    if (!startDate || !startTime) return false;
-    const start = new Date(`${startDate}T${startTime}`);
-    const now = new Date();
-    // 簡易的に24時間イベントと仮定
-    const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
-    return now >= start && now < end;
-};
+// ▼▼▼ 修正: 内部にあった isEventActive 関数を削除しました ▼▼▼
 
-export const EventCard = ({ event, onDeleteClick, onClick }) => {
+export const EventCard = ({ event, onDeleteClick, onClick, isActive = false }) => {
+    // ↑ propsに isActive を追加し、デフォルトを false に設定
+
     const floorCount = event.floors ? Object.keys(event.floors).length : 0;
     const displayFloors = (floorCount === 0 && event.timetable) ? '1 Floor' : `${floorCount} Floors`;
     const { month, day } = formatDateForIcon(event.eventConfig.startDate);
-    const isActive = isEventActive(event);
+
+    // ▼▼▼ 修正: ここで isActive を計算するのをやめ、props の値をそのまま使います ▼▼▼
+
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef(null);
 
