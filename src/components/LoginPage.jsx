@@ -72,7 +72,7 @@ export const LoginPage = ({ onLoginClick, onGuestClick, isLoggingIn }) => {
                             <span className="text-xs font-bold">推奨: Googleログイン</span>
                         </div>
                         <p className="text-[10px] text-on-surface-variant leading-relaxed pl-6">
-                            画像のアップロードやデータの無期限保存が可能になります。<br />
+                            画像のアップロードなどが可能になります。<br />
                             <span className="opacity-70">※ゲスト利用のデータは36時間後に削除されます。</span>
                         </p>
                     </div>
