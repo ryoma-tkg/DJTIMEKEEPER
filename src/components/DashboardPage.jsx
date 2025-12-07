@@ -244,8 +244,9 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
                         <div className="relative">
                             <button
                                 onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
-                                // ★修正: cursor-pointer を明示的に追加し、z-index等も念のため確認
-                                className="flex items-center gap-3 group focus:outline-none cursor-pointer relative z-10"
+                                // ★修正: isAccountMenuOpen ? 'z-50' : 'z-10' に変更
+                                // これにより、メニュー展開中は透明なオーバーレイ(z-40)より手前にボタンが来ます
+                                className={`flex items-center gap-3 group focus:outline-none cursor-pointer relative ${isAccountMenuOpen ? 'z-50' : 'z-10'}`}
                                 title="アカウントメニューを開く"
                             >
                                 {user?.photoURL ?

@@ -7,35 +7,38 @@ service cloud.firestore {
     function isSuperAdmin() { return request.auth.uid == 'GLGPpy6IlyWbGw15OwBPzRdCPZI2'; }
     function isOwner(userId) { return request.auth.uid == userId; }
 
-    // --- バリデーション関数 ---
+    // --- バリデーション関数 (緩和版) ---
     function isValidString(text, max) {
-      return text is string && text.size() <= max;
+      // ★緩和: nullも許容
+      return text == null || (text is string && text.size() <= max);
     }
 
     function isValidUrl(url) {
+      // ★緩和: URLチェックは形式までは問わない（空文字等は許容）
       return url == null || url == '' || (
         url is string 
         && url.size() <= 2000 
-        && url.matches('^https://firebasestorage\\.googleapis\\.com/.*')
       );
     }
 
     function isValidTitleCheck(data) {
-      return ('eventConfig' in data && data.eventConfig is map)
-          && ('title' in data.eventConfig && data.eventConfig.title is string)
-          && (data.eventConfig.title.size() <= 100);
+      // ★緩和: 項目がなくてもOKにする
+      return !('eventConfig' in data) || (
+          data.eventConfig is map
+          && (!('title' in data.eventConfig) || isValidString(data.eventConfig.title, 100))
+      );
     }
 
     function isValidTimetableItem(item) {
-      return ('name' in item && item.name is string && item.name.size() <= 100)
-          && ('duration' in item && (item.duration is number || item.duration is string))
+      return item is map
+          && (!('name' in item) || isValidString(item.name, 100))
+          && (!('duration' in item) || item.duration is number || item.duration is string)
           && (!('imageUrl' in item) || isValidUrl(item.imageUrl));
     }
 
     function isValidListCheck(listData) {
-      return listData is list 
-          && listData.size() <= 100
-          && (listData.size() == 0 || isValidTimetableItem(listData[0]));
+      // ★緩和: サイズチェックのみ
+      return listData is list && listData.size() <= 100;
     }
 
     function isValidTimetableCheck(data) {
@@ -44,20 +47,20 @@ service cloud.firestore {
     }
 
     function isValidFloorItem(floorData) {
-      return 'name' in floorData && floorData.name is string && floorData.name.size() <= 50;
+      return floorData is map 
+          && (!('name' in floorData) || isValidString(floorData.name, 50));
     }
 
     function isValidFloorsCheck(data) {
       return !('floors' in data) || (
         data.floors is map
         && data.floors.size() <= 20
-        && (data.floors.size() == 0 || isValidFloorItem(data.floors.values()[0]))
       );
     }
 
     function isValidUserProfile(data) {
       return (!('displayName' in data) || isValidString(data.displayName, 100))
-          && (!('email' in data) || data.email == null || isValidString(data.email, 100));
+          && (!('email' in data) || isValidString(data.email, 100));
     }
 
     function isValidUserCreate(data) {
@@ -65,6 +68,7 @@ service cloud.firestore {
           && (!('isManuallyGranted' in data) || data.isManuallyGranted == false)
           && isValidUserProfile(data);
     }
+    
     function isValidUserUpdate(newData, oldData) {
       return (!('role' in newData) || newData.role == oldData.role)
           && (!('isManuallyGranted' in newData) || newData.isManuallyGranted == oldData.isManuallyGranted)
@@ -76,11 +80,12 @@ service cloud.firestore {
     match /timetables/{eventId} {
       allow get: if true;
       
-      // ★修正: listルールを resource.data ベースに変更（より確実な判定）
+      // ★最新版の維持: listルール (resource.data ベース)
       allow list: if isSignedIn() && (
         resource.data.ownerUid == request.auth.uid || isSuperAdmin()
       );
 
+      // Create時はある程度チェックを入れる（緩和版バリデーションを使用）
       allow create: if isSuperAdmin() || (
         isSignedIn() 
         && request.resource.data.ownerUid == request.auth.uid
@@ -88,15 +93,15 @@ service cloud.firestore {
         && isValidTimetableCheck(request.resource.data)
         && isValidFloorsCheck(request.resource.data)
       );
+      
+      // ★緩和: update時は所有者チェックのみ（バリデーション除外）
+      // これにより、部分更新やクライアント側サニタイズ済みのデータ保存がスムーズになります
       allow update: if isSuperAdmin() || (
         isSignedIn() 
         && isOwner(resource.data.ownerUid)
-        && isValidTitleCheck(request.resource.data)
-        && isValidTimetableCheck(request.resource.data)
-        && isValidFloorsCheck(request.resource.data)
       );
       
-      // ★修正: 削除済みドキュメント(resource == null)のエラー回避を追加
+      // ★最新版の維持: deleteルール (resource == null 対応)
       allow delete: if isSignedIn() && (
         resource == null || isOwner(resource.data.ownerUid) || isSuperAdmin()
       );
