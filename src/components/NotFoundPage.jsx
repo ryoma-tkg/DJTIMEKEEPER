@@ -20,7 +20,7 @@ export const NotFoundPage = ({ user }) => {
                     <div className="text-[8rem] font-black text-on-surface/5 leading-none select-none font-mono">
                         404
                     </div>
-                    <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="absolute inset-0 flex items-center justify-center mt-1">
                         <div className="w-20 h-20 rounded-3xl bg-surface-container shadow-2xl border border-on-surface/10 flex items-center justify-center transform rotate-12 hover:rotate-0 transition-transform duration-500">
                             <AlertTriangleIcon className="w-10 h-10 text-brand-primary" />
                         </div>
