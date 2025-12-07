@@ -4,13 +4,13 @@ import { Routes, Route, useNavigate, Navigate, Link, useParams } from 'react-rou
 
 import {
     auth,
-    db, // ここは './firebase' が正しいです
+    db,
     googleProvider,
     onAuthStateChanged,
     signInWithPopup,
     signInAnonymously,
     signOut
-} from './firebase'; // ★重要: App.jsxはsrc直下なので './firebase'
+} from './firebase';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { LoadingScreen } from './components/common';
 import { PerformanceMonitor } from './components/PerformanceMonitor';
@@ -21,8 +21,10 @@ const DashboardPage = lazy(() => import('./components/DashboardPage').then(modul
 const EditorPage = lazy(() => import('./components/EditorPage').then(module => ({ default: module.EditorPage })));
 const LivePage = lazy(() => import('./components/LivePage').then(module => ({ default: module.LivePage })));
 const SetupPage = lazy(() => import('./components/SetupPage').then(module => ({ default: module.SetupPage })));
+// ★追加: NotFoundPage の遅延ロード
+const NotFoundPage = lazy(() => import('./components/NotFoundPage').then(module => ({ default: module.NotFoundPage })));
 
-// --- Redirector コンポーネント ---
+// --- Redirector コンポーネント (変更なし) ---
 const EditorRedirector = () => {
     const { eventId } = useParams();
     const [targetFloorId, setTargetFloorId] = useState(null);
@@ -55,7 +57,7 @@ const EditorRedirector = () => {
     }, [eventId]);
 
     if (status === 'loading') return <LoadingScreen text="フロア情報を検索中..." />;
-    if (status === 'not-found') return <Navigate to="/" replace />;
+    if (status === 'not-found') return <Navigate to="/404" replace />; // 見つからない場合は404へ
     return <Navigate to={`/edit/${eventId}/${targetFloorId}`} replace />;
 };
 
@@ -90,7 +92,7 @@ const LiveRedirector = () => {
     }, [eventId]);
 
     if (status === 'loading') return <LoadingScreen text="フロア情報を検索中..." />;
-    if (status === 'not-found') return <Navigate to="/" replace />;
+    if (status === 'not-found') return <Navigate to="/404" replace />; // 見つからない場合は404へ
     return <Navigate to={`/live/${eventId}/${targetFloorId}`} replace />;
 };
 
@@ -231,20 +233,14 @@ const App = () => {
         return () => unsubscribe();
     }, []);
 
-    // [src/App.jsx] の handleLogin 関数を修正
     const handleLogin = async () => {
         if (isLoggingIn) return;
         setIsLoggingIn(true);
         try {
             await signInWithPopup(auth, googleProvider);
         } catch (error) {
-            // ★修正: ポップアップを閉じただけの場合はエラーアラートを出さない
-            if (error.code === 'auth/popup-closed-by-user') {
-                console.log("Login canceled by user");
-            } else {
-                console.error("Googleログインに失敗:", error);
-                alert("ログインに失敗しました。");
-            }
+            console.error("Googleログインに失敗:", error);
+            alert("ログインに失敗しました。");
         } finally {
             setIsLoggingIn(false);
         }
@@ -398,14 +394,10 @@ const App = () => {
                         }
                     />
 
+                    {/* ★修正: 404ページのデザイン適用 */}
                     <Route
                         path="*"
-                        element={
-                            <div className="p-8">
-                                <h1>404 - ページが見つかりません</h1>
-                                <Link to="/">ダッシュボードに戻る</Link>
-                            </div>
-                        }
+                        element={<NotFoundPage user={user} />}
                     />
                 </Routes>
             </Suspense>
