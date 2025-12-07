@@ -7,7 +7,7 @@ import {
     ConfirmModal,
     BaseModal,
     Input,
-    SparklesIcon // ★追加
+    SparklesIcon
 } from './common';
 
 // (FloorEditItem - Catalog Style)
@@ -64,7 +64,6 @@ export const FloorManagerModal = ({ isOpen, onClose, floors, onSaveFloors, maxFl
             .sort((a, b) => (a.order || 0) - (b.order || 0));
     }, [localFloors]);
 
-    // ★追加: 制限チェック
     const isLimitReached = sortedFloorArray.length >= maxFloors;
 
     const handleNameChange = (floorId, newName) => {
@@ -73,9 +72,27 @@ export const FloorManagerModal = ({ isOpen, onClose, floors, onSaveFloors, maxFl
 
     const handleAddFloor = () => {
         if (isLimitReached) return;
-        const newFloorId = `floor_${Date.now()}`;
+
+        // ★変更: シンプルなID生成 (f1, f2, f3...)
+        // 現在のフロア数 + 1 をベースにするが、ID重複を防ぐために既存IDもチェック
+        let newIndex = sortedFloorArray.length + 1;
+        let newFloorId = `f${newIndex}`;
+        while (localFloors[newFloorId]) {
+            newIndex++;
+            newFloorId = `f${newIndex}`;
+        }
+
         const newOrder = sortedFloorArray.length > 0 ? Math.max(...sortedFloorArray.map(f => f.order || 0)) + 1 : 0;
-        setLocalFloors(prev => ({ ...prev, [newFloorId]: { name: `New Floor ${newOrder + 1}`, order: newOrder, timetable: [], vjTimetable: [] } }));
+
+        setLocalFloors(prev => ({
+            ...prev,
+            [newFloorId]: {
+                name: `New Floor ${newIndex}`,
+                order: newOrder,
+                timetable: [],
+                vjTimetable: []
+            }
+        }));
     };
 
     const handleDeleteClick = (floorId) => {
@@ -91,7 +108,7 @@ export const FloorManagerModal = ({ isOpen, onClose, floors, onSaveFloors, maxFl
 
     const handleSave = () => { onSaveFloors(localFloors); onClose(); };
 
-    // --- D&Dロジック (変更なし) ---
+    // --- D&Dロジック ---
     const [draggedIndex, setDraggedIndex] = useState(null);
     const [overIndex, _setOverIndex] = useState(null);
     const [currentY, setCurrentY] = useState(0);
@@ -249,7 +266,7 @@ export const FloorManagerModal = ({ isOpen, onClose, floors, onSaveFloors, maxFl
                         </span>
                     </button>
 
-                    {/* ★追加: 制限時のメッセージ */}
+                    {/* 制限時のメッセージ */}
                     {isLimitReached && maxFloors === 1 && (
                         <div className="mt-2 p-3 bg-brand-primary/5 border border-brand-primary/20 rounded-xl flex items-start gap-3">
                             <SparklesIcon className="w-4 h-4 text-brand-primary mt-0.5 shrink-0" />

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
-import { collection, addDoc, deleteDoc, doc, query, where, onSnapshot, Timestamp, writeBatch, orderBy, limit } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, doc, query, where, onSnapshot, Timestamp, writeBatch, orderBy, limit, setDoc } from 'firebase/firestore';
 import {
     PlusIcon,
     SettingsIcon,
@@ -25,8 +25,17 @@ import { EventCard } from './dashboard/EventCard';
 import { EventSetupModal } from './dashboard/EventSetupModal';
 import { DashboardSettingsModal } from './dashboard/DashboardSettingsModal';
 
+// 短いIDを生成するヘルパー関数
+const generateShortId = (length = 8) => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < length; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+};
+
 export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, isPerfMonitorVisible, onTogglePerfMonitor }) => {
-    // ... (State定義などは変更なし) ...
     const [events, setEvents] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
@@ -44,7 +53,6 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
 
     const navigate = useNavigate();
 
-    // ゲスト判定
     const isGuest = user?.isAnonymous;
 
     const showToast = (message) => {
@@ -95,6 +103,23 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
         }
     }, [isLoading, user, events.length, isCreating, viewingTarget]);
 
+    const { nowEvents, upcomingEvents, pastEvents } = useMemo(() => {
+        const now = new Date();
+        const nowList = [], upcomingList = [], pastList = [];
+        events.forEach(event => {
+            const { startDate, startTime } = event.eventConfig || {};
+            if (!startDate || !startTime) { pastList.push(event); return; }
+            const start = new Date(`${startDate}T${startTime}`);
+            const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+            if (now >= start && now < end) nowList.push(event);
+            else if (now < start) upcomingList.push(event);
+            else pastList.push(event);
+        });
+        upcomingList.sort((a, b) => new Date(`${a.eventConfig.startDate}T${a.eventConfig.startTime}`) - new Date(`${b.eventConfig.startDate}T${b.eventConfig.startTime}`));
+        pastList.sort((a, b) => new Date(`${b.eventConfig.startDate}T${b.eventConfig.startTime}`) - new Date(`${a.eventConfig.startDate}T${a.eventConfig.startTime}`));
+        return { nowEvents: nowList, upcomingEvents: upcomingList, pastEvents: pastList };
+    }, [events]);
+
     const handleCreateClick = () => {
         const role = userProfile?.role || 'free';
         const limit = isGuest ? 1 : (role === 'admin' || role === 'pro' ? Infinity : 3);
@@ -109,68 +134,23 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
         setIsSetupModalOpen(true);
     };
 
-    // ▼▼▼ 【修正】正確な終了時刻に基づいた振り分けロジック ▼▼▼
-    const { nowEvents, upcomingEvents, pastEvents } = useMemo(() => {
-        const now = new Date();
-        const nowList = [], upcomingList = [], pastList = [];
-
-        events.forEach(event => {
-            const { startDate, startTime } = event.eventConfig || {};
-            // 設定がないものは過去へ
-            if (!startDate || !startTime) { pastList.push(event); return; }
-
-            const start = new Date(`${startDate}T${startTime}`);
-
-            // 合計時間の計算 (分)
-            let maxDurationMinutes = 0;
-
-            // 1. 旧データ形式 or シングル構成の場合
-            if (event.timetable && Array.isArray(event.timetable)) {
-                const total = event.timetable.reduce((sum, item) => sum + (parseFloat(item.duration) || 0), 0);
-                maxDurationMinutes = Math.max(maxDurationMinutes, total);
-            }
-
-            // 2. 複数フロア構成の場合 (最も遅く終わるフロアに合わせる)
-            if (event.floors) {
-                Object.values(event.floors).forEach(floor => {
-                    if (floor.timetable && Array.isArray(floor.timetable)) {
-                        const total = floor.timetable.reduce((sum, item) => sum + (parseFloat(item.duration) || 0), 0);
-                        maxDurationMinutes = Math.max(maxDurationMinutes, total);
-                    }
-                });
-            }
-
-            // 終了時刻を計算
-            const end = new Date(start.getTime() + maxDurationMinutes * 60 * 1000);
-
-            if (now >= start && now < end) {
-                nowList.push(event);
-            } else if (now < start) {
-                upcomingList.push(event);
-            } else {
-                pastList.push(event);
-            }
-        });
-
-        // ソート処理
-        upcomingList.sort((a, b) => new Date(`${a.eventConfig.startDate}T${a.eventConfig.startTime}`) - new Date(`${b.eventConfig.startDate}T${b.eventConfig.startTime}`));
-        pastList.sort((a, b) => new Date(`${b.eventConfig.startDate}T${b.eventConfig.startTime}`) - new Date(`${a.eventConfig.startDate}T${a.eventConfig.startTime}`));
-
-        return { nowEvents: nowList, upcomingEvents: upcomingList, pastEvents: pastList };
-    }, [events]);
-    // ▲▲▲ 修正ここまで ▲▲▲
-
     const handleSetupComplete = async (modalConfig) => {
         if (isCreating || !user) return;
         if (viewingTarget) { if (!window.confirm("現在サポートモード中です。新規イベントは「あなた（管理者）」のアカウントで作成されます。よろしいですか？")) return; }
         setIsSetupModalOpen(false); setIsCreating(true);
+
         try {
             const floorsConfig = {};
+            // ★変更: URLを短くフラットにするため f1, f2 形式を採用
             if (modalConfig.isMultiFloor) {
-                const mainFloorId = `floor_${Date.now()}_main`; const subFloorId = `floor_${Date.now()}_sub`;
-                floorsConfig[mainFloorId] = { name: "Main Floor", order: 0, timetable: [], vjTimetable: [] };
-                floorsConfig[subFloorId] = { name: "Sub Floor", order: 1, timetable: [], vjTimetable: [] };
-            } else { const defaultFloorId = `floor_${Date.now()}`; floorsConfig[defaultFloorId] = { name: "Main Floor", order: 0, timetable: [], vjTimetable: [] }; }
+                const floor1Id = "f1";
+                const floor2Id = "f2";
+                floorsConfig[floor1Id] = { name: "Main Floor", order: 0, timetable: [], vjTimetable: [] };
+                floorsConfig[floor2Id] = { name: "Sub Floor", order: 1, timetable: [], vjTimetable: [] };
+            } else {
+                const defaultFloorId = "f1";
+                floorsConfig[defaultFloorId] = { name: "Main Floor", order: 0, timetable: [], vjTimetable: [] };
+            }
 
             const newEventDoc = {
                 ownerUid: user.uid,
@@ -190,8 +170,14 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
                 newEventDoc.expireAt = Timestamp.fromDate(expirationDate);
             }
 
-            const docRef = await addDoc(collection(db, "timetables"), newEventDoc);
-            navigate(`/edit/${docRef.id}`);
+            // ランダムな短いID (8桁) を生成
+            const shortId = generateShortId(8);
+            const docRef = doc(db, "timetables", shortId);
+
+            await setDoc(docRef, newEventDoc);
+
+            navigate(`/edit/${shortId}`);
+
         } catch (error) { console.error("作成失敗:", error); alert("イベントの作成に失敗しました。"); setIsCreating(false); }
     };
 
@@ -242,13 +228,7 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
                         </div>
 
                         <div className="relative">
-                            <button
-                                onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
-                                // ★修正: isAccountMenuOpen ? 'z-50' : 'z-10' に変更
-                                // これにより、メニュー展開中は透明なオーバーレイ(z-40)より手前にボタンが来ます
-                                className={`flex items-center gap-3 group focus:outline-none cursor-pointer relative ${isAccountMenuOpen ? 'z-50' : 'z-10'}`}
-                                title="アカウントメニューを開く"
-                            >
+                            <button onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)} className="flex items-center gap-3 group focus:outline-none" title="アカウントメニューを開く">
                                 {user?.photoURL ?
                                     <img src={user.photoURL} alt="User" className="w-10 h-10 md:w-12 md:h-12 rounded-full border-2 border-surface-container shadow-md group-hover:scale-105 transition-transform group-hover:shadow-lg object-cover" />
                                     : <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-md group-hover:scale-105 transition-transform group-hover:shadow-lg ${isGuest ? 'bg-amber-500' : 'bg-brand-primary'}`}>{user?.displayName?.[0] || "U"}</div>
@@ -299,7 +279,7 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
                 </header>
                 {events.length > 0 ? (
                     <div className="space-y-12">
-                        {nowEvents.length > 0 && (<section className="animate-fade-in-up opacity-0"><div className="flex items-center gap-2 mb-4 text-red-500"><span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span><h2 className="text-lg font-bold tracking-widest">NOW ON AIR</h2></div><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{nowEvents.map(event => <EventCard key={event.id} event={event} isActive={true} onDeleteClick={(id, title) => setDeleteTarget({ id, title })} onClick={() => navigate(`/edit/${event.id}`)} />)}</div></section>)}
+                        {nowEvents.length > 0 && (<section className="animate-fade-in-up opacity-0"><div className="flex items-center gap-2 mb-4 text-red-500"><span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span><h2 className="text-lg font-bold tracking-widest">NOW ON AIR</h2></div><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{nowEvents.map(event => <EventCard key={event.id} event={event} onDeleteClick={(id, title) => setDeleteTarget({ id, title })} onClick={() => navigate(`/edit/${event.id}`)} />)}</div></section>)}
                         {upcomingEvents.length > 0 && (<section className="animate-fade-in-up opacity-0" style={{ animationDelay: '0.1s' }}><h2 className="text-lg font-bold text-on-surface-variant mb-4 tracking-widest flex items-center gap-2"><span className="text-brand-primary">●</span> UPCOMING</h2><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{upcomingEvents.map(event => <EventCard key={event.id} event={event} onDeleteClick={(id, title) => setDeleteTarget({ id, title })} onClick={() => navigate(`/edit/${event.id}`)} />)}</div></section>)}
                         {pastEvents.length > 0 && (<section className="animate-fade-in-up opacity-0" style={{ animationDelay: '0.2s' }}><h2 className="text-lg font-bold text-on-surface-variant/50 mb-4 tracking-widest">ARCHIVE</h2><div className="transition-opacity duration-300"><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{pastEvents.map(event => <EventCard key={event.id} event={event} onDeleteClick={(id, title) => setDeleteTarget({ id, title })} onClick={() => navigate(`/edit/${event.id}`)} />)}</div></div></section>)}
                     </div>
