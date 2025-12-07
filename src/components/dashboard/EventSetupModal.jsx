@@ -13,7 +13,8 @@ import {
     getTodayDateString,
     SparklesIcon,
     UserIcon,
-    InfoIcon // 追加
+    InfoIcon,
+    DatePickerInput // ★追加
 } from '../common';
 
 export const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences, user, userProfile }) => {
@@ -84,7 +85,14 @@ export const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences,
                         error={hasAttemptedSubmit && isTitleError ? "イベント名を入力してください" : null}
                     />
                     <div className="space-y-3">
-                        <div><Label>開催日</Label><Input type="date" value={config.startDate} onChange={(e) => setConfig({ ...config, startDate: e.target.value })} icon={CalendarIcon} className="font-mono text-sm" /></div>
+                        <div>
+                            {/* ★ここを修正: InputからDatePickerInputに変更 */}
+                            <DatePickerInput
+                                label="開催日"
+                                value={config.startDate}
+                                onChange={(val) => setConfig({ ...config, startDate: val })}
+                            />
+                        </div>
                         <div><Label>開始時間</Label><CustomTimeInput value={config.startTime} onChange={(v) => setConfig({ ...config, startTime: v })} /></div>
                     </div>
                 </div>
@@ -114,7 +122,7 @@ export const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences,
                                 label={!canUseProFeatures ? "複数フロア (Pro限定)" : "複数フロアを使用"}
                                 icon={LayersIcon}
                                 description="メインフロア以外のステージを追加します"
-                                disabled={!canUseProFeatures} // Admin/Proなら disabled=false なのでON/OFF可能
+                                disabled={!canUseProFeatures}
                             />
                         </div>
                     </div>
@@ -157,27 +165,4 @@ export const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences,
             </div>
         </BaseModal>
     );
-};
-
-const handleDateChange = (e) => {
-    let val = e.target.value;
-    if (!val) {
-        setConfig({ ...config, startDate: val });
-        return;
-    }
-
-    // 年が4桁を超えているかチェック (yyyy-mm-dd)
-    const parts = val.split('-');
-    if (parts[0] && parts[0].length > 4) {
-        // 4桁に切り詰め
-        parts[0] = parts[0].substring(0, 4);
-        val = parts.join('-');
-    }
-
-    // 念のため max="9999-12-31" を超えていないかチェック
-    if (val > '9999-12-31') {
-        val = '9999-12-31';
-    }
-
-    setConfig({ ...config, startDate: val });
 };

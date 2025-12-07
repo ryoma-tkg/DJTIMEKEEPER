@@ -11,9 +11,11 @@ export { Button } from './ui/Button';
 export { Input } from './ui/Input';
 export { Toggle, ToggleSwitch } from './ui/Toggle';
 export { Badge } from './ui/Badge';
+export { DatePickerInput } from './ui/DatePickerInput'; // ★ここに追加
 
 // --- Constants ---
 export const APP_VERSION = 'v1.1.0';
+// ... (以下変更なし、ファイル全体を維持) ...
 export const APP_COPYRIGHT = '© 2025 GIG DECK. All rights reserved.';
 
 export const VIVID_COLORS = [
@@ -23,7 +25,7 @@ export const VIVID_COLORS = [
     '#8B5CF6', '#A855F7', '#D946EF', '#EC4899'
 ];
 
-// --- Icons (Keeping them here for now) ---
+// ... (以下アイコン定義なども変更なし) ...
 export const PlayIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>);
 export const PlusIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>);
 export const TrashIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>);
@@ -64,7 +66,8 @@ export const parseTime = (timeStr) => { const date = new Date(); if (!timeStr) r
 
 // --- Helper Modals ---
 import { BaseModal } from './ui/BaseModal';
-import { Button } from './ui/Button'; // <--- Added this import
+import { Button } from './ui/Button';
+
 export const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
     if (!isOpen) return null;
     return (
@@ -90,41 +93,9 @@ export const ToastNotification = ({ message, isVisible, className = '' }) => {
 };
 
 export const PlanTag = ({ role, isGuest, className = "" }) => {
-    let config = {
-        label: 'FREE',
-        // Blue: 知的でクリアな印象
-        style: 'bg-blue-500/5 text-blue-600 border-blue-500/20'
-    };
-
-    if (isGuest) {
-        config = {
-            label: 'GUEST',
-            // Gray: 無機質でニュートラル
-            style: 'bg-slate-500/5 text-slate-500 border-slate-500/20'
-        };
-    } else if (role === 'admin') {
-        config = {
-            label: 'ADMIN',
-            // Purple: 高貴で特別な権限
-            style: 'bg-purple-500/5 text-purple-600 border-purple-500/20'
-        };
-    } else if (role === 'pro') {
-        config = {
-            label: 'PRO',
-            // Yellow/Amber: 活力とプレミアム感
-            style: 'bg-amber-500/5 text-amber-600 border-amber-500/20'
-        };
-    }
-
-    return (
-        <div className={`
-            inline-flex items-center justify-center px-3 h-6 rounded-md border
-            text-[10px] font-bold font-sans tracking-[0.15em] uppercase
-            backdrop-blur-[2px]
-            ${config.style}
-            ${className}
-        `}>
-            {config.label}
-        </div>
-    );
+    let config = { label: 'FREE', style: 'bg-blue-500/5 text-blue-600 border-blue-500/20' };
+    if (isGuest) { config = { label: 'GUEST', style: 'bg-slate-500/5 text-slate-500 border-slate-500/20' }; }
+    else if (role === 'admin') { config = { label: 'ADMIN', style: 'bg-purple-500/5 text-purple-600 border-purple-500/20' }; }
+    else if (role === 'pro') { config = { label: 'PRO', style: 'bg-amber-500/5 text-amber-600 border-amber-500/20' }; }
+    return (<div className={`inline-flex items-center justify-center px-3 h-6 rounded-md border text-[10px] font-bold font-sans tracking-[0.15em] uppercase backdrop-blur-[2px] ${config.style} ${className}`}>{config.label}</div>);
 };

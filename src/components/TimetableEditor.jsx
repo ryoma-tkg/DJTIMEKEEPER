@@ -16,6 +16,7 @@ import {
     Label,
     CustomTimeInput,
     SortableListCard,
+    DatePickerInput, // ★追加
 
     // Icons & Utils
     ConfirmModal,
@@ -133,7 +134,7 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, ev
     );
 };
 
-// --- SettingsModal (Updated to Match Catalog Design) ---
+// --- SettingsModal (Updated) ---
 const SettingsModal = ({ isOpen, onClose, eventConfig, handleEventConfigChange, handleShare, onResetClick, theme, toggleTheme, isGuest }) => {
     const isTitleError = !eventConfig.title || eventConfig.title.trim() === '';
 
@@ -158,8 +159,12 @@ const SettingsModal = ({ isOpen, onClose, eventConfig, handleEventConfigChange, 
                         />
                         <div className="space-y-3">
                             <div>
-                                <Label>開催日</Label>
-                                <Input type="date" value={eventConfig.startDate || ''} onChange={(e) => handleEventConfigChange('startDate', e.target.value)} icon={CalendarIcon} className="font-mono text-sm" />
+                                {/* ★ここを修正: DatePickerInputに変更 */}
+                                <DatePickerInput
+                                    label="開催日"
+                                    value={eventConfig.startDate || ''}
+                                    onChange={(val) => handleEventConfigChange('startDate', val)}
+                                />
                             </div>
                             <div>
                                 <Label>開始時間</Label>
@@ -311,19 +316,13 @@ export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, 
 
                     <input
                         type="text"
-                        // ▼▼▼ 変更: 空文字を許容するため、フォールバックを空文字 '' に変更 ▼▼▼
                         value={eventConfig.title || ''}
                         onChange={(e) => handleEventConfigChange('title', e.target.value)}
-
-                        // ▼▼▼ 追加: フォーカスが外れた（確定した）時に、空ならデフォルト名を入れる ▼▼▼
                         onBlur={() => {
                             if (!eventConfig.title || eventConfig.title.trim() === '') {
                                 handleEventConfigChange('title', 'GIG DECK Event');
                             }
                         }}
-                        // ▲▲▲ 追加ここまで ▲▲▲
-
-                        /* ▼▼▼ 【修正】 text-center md:text-left を追加し、SPのみ中央揃え、PCは左揃え ▼▼▼ */
                         className="text-lg sm:text-2xl md:text-3xl font-bold text-brand-secondary tracking-wide bg-transparent focus:outline-none focus:bg-surface-container/50 rounded-lg p-1 md:p-2 flex-1 min-w-0 text-center md:text-left"
                         placeholder="イベントタイトル"
                     />
