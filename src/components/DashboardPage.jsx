@@ -242,7 +242,12 @@ export const DashboardPage = ({ user, onLogout, theme, toggleTheme, isDevMode, i
                         </div>
 
                         <div className="relative">
-                            <button onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)} className="flex items-center gap-3 group focus:outline-none" title="アカウントメニューを開く">
+                            <button
+                                onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
+                                // ★修正: cursor-pointer を明示的に追加し、z-index等も念のため確認
+                                className="flex items-center gap-3 group focus:outline-none cursor-pointer relative z-10"
+                                title="アカウントメニューを開く"
+                            >
                                 {user?.photoURL ?
                                     <img src={user.photoURL} alt="User" className="w-10 h-10 md:w-12 md:h-12 rounded-full border-2 border-surface-container shadow-md group-hover:scale-105 transition-transform group-hover:shadow-lg object-cover" />
                                     : <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-md group-hover:scale-105 transition-transform group-hover:shadow-lg ${isGuest ? 'bg-amber-500' : 'bg-brand-primary'}`}>{user?.displayName?.[0] || "U"}</div>

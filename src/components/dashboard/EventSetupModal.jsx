@@ -158,3 +158,26 @@ export const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences,
         </BaseModal>
     );
 };
+
+const handleDateChange = (e) => {
+    let val = e.target.value;
+    if (!val) {
+        setConfig({ ...config, startDate: val });
+        return;
+    }
+
+    // 年が4桁を超えているかチェック (yyyy-mm-dd)
+    const parts = val.split('-');
+    if (parts[0] && parts[0].length > 4) {
+        // 4桁に切り詰め
+        parts[0] = parts[0].substring(0, 4);
+        val = parts.join('-');
+    }
+
+    // 念のため max="9999-12-31" を超えていないかチェック
+    if (val > '9999-12-31') {
+        val = '9999-12-31';
+    }
+
+    setConfig({ ...config, startDate: val });
+};

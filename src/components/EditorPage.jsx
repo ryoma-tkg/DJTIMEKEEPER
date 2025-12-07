@@ -16,6 +16,7 @@ import {
     ToastNotification
 } from './common';
 
+// デフォルト設定
 const getDefaultEventConfig = () => ({
     title: 'EVENT NAME',
     startDate: new Date().toISOString().split('T')[0],
@@ -23,7 +24,53 @@ const getDefaultEventConfig = () => ({
     vjFeatureEnabled: false
 });
 
-// ★変更: userProfile を受け取る
+/**
+ * データサニタイズ関数
+ * Firestoreのセキュリティルールに抵触しないよう、型変換や不要なフィールドの削除を行う
+ */
+const sanitizeEventData = (data) => {
+    if (data === null || data === undefined) return null;
+
+    // オブジェクトのディープコピーを作成（副作用防止）
+    const clean = JSON.parse(JSON.stringify(data));
+
+    const sanitize = (obj) => {
+        if (obj === null || typeof obj !== 'object') return obj;
+
+        if (Array.isArray(obj)) {
+            return obj.map(v => sanitize(v));
+        }
+
+        const newObj = {};
+        for (const key in obj) {
+            const val = obj[key];
+            if (val !== undefined) {
+                // 文字列フィールドの空文字保証 (title, name)
+                if (key === 'title' || key === 'name') {
+                    newObj[key] = val == null ? '' : String(val).trim();
+                }
+                // 数値フィールドの強制変換 (duration)
+                else if (key === 'duration') {
+                    const num = parseFloat(val);
+                    newObj[key] = isNaN(num) ? 0 : num;
+                }
+                // URLフィールド (imageUrl)
+                else if (key === 'imageUrl') {
+                    // 空文字または文字列であることを保証
+                    newObj[key] = val == null ? '' : String(val);
+                }
+                // その他のフィールドは再帰的に処理
+                else {
+                    newObj[key] = sanitize(val);
+                }
+            }
+        }
+        return newObj;
+    };
+
+    return sanitize(clean);
+};
+
 export const EditorPage = ({ user, userProfile, isDevMode, onToggleDevMode, theme, toggleTheme, isPerfMonitorVisible, onTogglePerfMonitor }) => {
     const { eventId, floorId } = useParams();
     const navigate = useNavigate();
@@ -55,7 +102,7 @@ export const EditorPage = ({ user, userProfile, isDevMode, onToggleDevMode, them
     const { loadedUrls, allLoaded: imagesLoaded } = useImagePreloader(imageUrlsToPreload);
     const docRef = useMemo(() => doc(dbRef.current, 'timetables', eventId), [eventId]);
 
-    // ★追加: 権限判定とフロア数上限の設定
+    // 権限判定とフロア数上限の設定
     const SUPER_ADMIN_UID = "GLGPpy6IlyWbGw15OwBPzRdCPZI2";
     const isAdmin = user?.uid === SUPER_ADMIN_UID || userProfile?.role === 'admin';
     const isProUser = userProfile?.role === 'pro';
@@ -68,20 +115,33 @@ export const EditorPage = ({ user, userProfile, isDevMode, onToggleDevMode, them
         setTimeout(() => setToast(prev => ({ ...prev, visible: false })), 3000);
     };
 
+    // --- 保存処理 (サニタイズ対応版) ---
     const saveDataToFirestore = useCallback(async (isSilent = false) => {
         if (pageStatus !== 'ready' || !user || !currentFloorId) return;
 
+        // 保存前にタイマーをクリア
         if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
 
         setIsSaving(true);
         try {
+            // 送信データをサニタイズ（undefined除去、型変換など）
+            const cleanEventConfig = sanitizeEventData(eventConfig);
+            const cleanTimetable = sanitizeEventData(timetable) || [];
+            const cleanVjTimetable = sanitizeEventData(vjTimetable) || [];
+
             if (eventData && !eventData.floors && eventData.timetable) {
-                await setDoc(docRef, { eventConfig, timetable, vjTimetable }, { merge: true });
+                // 旧データ構造の場合
+                await setDoc(docRef, {
+                    eventConfig: cleanEventConfig,
+                    timetable: cleanTimetable,
+                    vjTimetable: cleanVjTimetable
+                }, { merge: true });
             } else if (eventData && eventData.floors) {
+                // 新データ構造 (複数フロア) の場合
                 const updates = {
-                    eventConfig,
-                    [`floors.${currentFloorId}.timetable`]: timetable,
-                    [`floors.${currentFloorId}.vjTimetable`]: vjTimetable,
+                    eventConfig: cleanEventConfig,
+                    [`floors.${currentFloorId}.timetable`]: cleanTimetable,
+                    [`floors.${currentFloorId}.vjTimetable`]: cleanVjTimetable,
                 };
                 await updateDoc(docRef, updates);
             }
@@ -92,7 +152,8 @@ export const EditorPage = ({ user, userProfile, isDevMode, onToggleDevMode, them
             if (!isSilent) showToast("保存しました");
         } catch (error) {
             console.error("❌ Save failed:", error);
-            showToast("保存に失敗しました: " + error.code);
+            // エラーコードを含めてトースト表示 (デバッグ用)
+            showToast("保存に失敗しました: " + (error.message || error.code));
         } finally {
             setIsSaving(false);
         }
@@ -110,6 +171,7 @@ export const EditorPage = ({ user, userProfile, isDevMode, onToggleDevMode, them
         if (autoSaveTimerRef.current) {
             clearTimeout(autoSaveTimerRef.current);
         }
+        // 20秒デバウンスの自動保存
         autoSaveTimerRef.current = setTimeout(() => {
             latestSaveDataRef.current(true);
         }, 20000);
@@ -250,18 +312,22 @@ export const EditorPage = ({ user, userProfile, isDevMode, onToggleDevMode, them
         if (newFloorsMap[currentFloorId]) {
             newFloorsMap[currentFloorId] = {
                 ...newFloorsMap[currentFloorId],
-                timetable: timetable,
-                vjTimetable: vjTimetable
+                // ここでもサニタイズしておくのが安全
+                timetable: sanitizeEventData(timetable) || [],
+                vjTimetable: sanitizeEventData(vjTimetable) || []
             };
         }
 
+        // フロアデータのサニタイズ (name等)
+        const cleanFloorsMap = sanitizeEventData(newFloorsMap);
+
         try {
-            await updateDoc(docRef, { floors: newFloorsMap });
+            await updateDoc(docRef, { floors: cleanFloorsMap });
             setHasUnsavedChanges(false);
             hasUnsavedChangesRef.current = false;
         } catch (error) {
             console.error(error);
-            setPageStatus('offline');
+            showToast("フロア情報の保存に失敗しました");
         }
     };
 
@@ -312,7 +378,6 @@ export const EditorPage = ({ user, userProfile, isDevMode, onToggleDevMode, them
                         toggleTheme={toggleTheme}
                         imagesLoaded={imagesLoaded}
                         expireAt={eventData?.expireAt}
-                        // ★追加: maxFloorsを渡す
                         maxFloors={maxFloors}
                     />
 

@@ -231,14 +231,20 @@ const App = () => {
         return () => unsubscribe();
     }, []);
 
+    // [src/App.jsx] の handleLogin 関数を修正
     const handleLogin = async () => {
         if (isLoggingIn) return;
         setIsLoggingIn(true);
         try {
             await signInWithPopup(auth, googleProvider);
         } catch (error) {
-            console.error("Googleログインに失敗:", error);
-            alert("ログインに失敗しました。");
+            // ★修正: ポップアップを閉じただけの場合はエラーアラートを出さない
+            if (error.code === 'auth/popup-closed-by-user') {
+                console.log("Login canceled by user");
+            } else {
+                console.error("Googleログインに失敗:", error);
+                alert("ログインに失敗しました。");
+            }
         } finally {
             setIsLoggingIn(false);
         }

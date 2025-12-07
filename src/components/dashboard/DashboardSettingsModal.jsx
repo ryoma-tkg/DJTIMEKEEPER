@@ -87,14 +87,16 @@ export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, on
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            if (user && displayName !== user.displayName) {
+            // ★修正: ゲストでない場合のみ Authプロファイルを更新
+            if (user && !isGuest && displayName !== user.displayName) {
                 await updateProfile(user, { displayName: displayName });
             }
+
+            // Firestoreの更新 (こちらはゲストでもuserドキュメントがあればOK、なければエラーになるが通常ゲストでも作成済み)
             if (user) {
                 const userRef = doc(db, "users", user.uid);
                 await updateDoc(userRef, {
                     displayName: displayName,
-                    // 権限がない場合は強制的にfalseにする（念のため）
                     preferences: {
                         ...preferences,
                         defaultMultiFloor: canUseProFeatures ? preferences.defaultMultiFloor : false
@@ -104,7 +106,12 @@ export const DashboardSettingsModal = ({ isOpen, onClose, theme, toggleTheme, on
             onClose();
         } catch (error) {
             console.error("設定保存エラー:", error);
-            alert("設定の保存に失敗しました。");
+            // ゲストでドキュメントがない場合などは静かに失敗させるか、アラートを出す
+            if (isGuest) {
+                alert("ゲスト設定の保存に失敗しました。一部機能が制限されています。");
+            } else {
+                alert("設定の保存に失敗しました。");
+            }
         } finally {
             setIsSaving(false);
         }

@@ -136,14 +136,23 @@ const MiniFloorCard = ({ floorId, floorData, eventConfig, now, onClick }) => {
                         </div>
                         <div className="min-w-0 flex-1">
                             <p className="font-bold text-base truncate leading-tight mb-1 text-on-surface">{currentDj.name}</p>
-                            <div className="flex items-center justify-between">
-                                <p className="font-mono text-xs text-on-surface-variant">
-                                    {eventStatus === 'UPCOMING' ? 'START' : 'END'} <span className="text-on-surface font-bold">{eventStatus === 'UPCOMING' ? currentDj.startTime : currentDj.endTime}</span>
-                                </p>
-                                <p className="font-mono text-sm font-bold text-on-surface bg-surface-background/50 px-2 rounded">
+
+                            {/* ▼▼▼ 修正: 持ち時間表示を追加 ▼▼▼ */}
+                            <div className="flex items-end justify-between">
+                                <div>
+                                    <p className="font-mono text-xs text-on-surface-variant">
+                                        {eventStatus === 'UPCOMING' ? 'START' : 'END'} <span className="text-on-surface font-bold">{eventStatus === 'UPCOMING' ? currentDj.startTime : currentDj.endTime}</span>
+                                    </p>
+                                    <p className="font-mono text-xs text-on-surface-variant mt-0.5">
+                                        TIME <span className="text-on-surface font-bold">{currentDj.duration}min</span>
+                                    </p>
+                                </div>
+                                <p className="font-mono text-sm font-bold text-on-surface bg-surface-background/50 px-2 rounded mb-0.5">
                                     {timeDisplay}
                                 </p>
                             </div>
+                            {/* ▲▲▲ 修正ここまで ▲▲▲ */}
+
                         </div>
                     </div>
                 ) : (
@@ -169,7 +178,6 @@ const MiniFloorCard = ({ floorId, floorData, eventConfig, now, onClick }) => {
 };
 
 // ... LiveSettingsModal, VjDisplay ...
-// (変更なし)
 const LiveSettingsModal = ({ isOpen, onClose, theme, toggleTheme, isWakeLockEnabled, onWakeLockToggle }) => {
     return (
         <BaseModal isOpen={isOpen} onClose={onClose} title="設定" maxWidthClass="max-w-md">

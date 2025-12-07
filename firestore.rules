@@ -75,9 +75,12 @@ service cloud.firestore {
 
     match /timetables/{eventId} {
       allow get: if true;
+      
+      // ★修正: listルールを resource.data ベースに変更（より確実な判定）
       allow list: if isSignedIn() && (
-        request.query.filters.ownerUid == request.auth.uid || isSuperAdmin()
+        resource.data.ownerUid == request.auth.uid || isSuperAdmin()
       );
+
       allow create: if isSuperAdmin() || (
         isSignedIn() 
         && request.resource.data.ownerUid == request.auth.uid
@@ -92,7 +95,8 @@ service cloud.firestore {
         && isValidTimetableCheck(request.resource.data)
         && isValidFloorsCheck(request.resource.data)
       );
-      // ★修正: ドキュメントが存在しない(resource == null)場合も許可する
+      
+      // ★修正: 削除済みドキュメント(resource == null)のエラー回避を追加
       allow delete: if isSignedIn() && (
         resource == null || isOwner(resource.data.ownerUid) || isSuperAdmin()
       );
@@ -104,7 +108,7 @@ service cloud.firestore {
       allow create: if isSuperAdmin() || (isSignedIn() && isOwner(userId) && isValidUserCreate(request.resource.data));
       allow update: if isSuperAdmin() || (isSignedIn() && isOwner(userId) && isValidUserUpdate(request.resource.data, resource.data));
       
-      // ▼▼▼ 必須: アカウント削除許可 ▼▼▼
+      // アカウント削除用
       allow delete: if isSignedIn() && (isOwner(userId) || isSuperAdmin());
     }
   }
