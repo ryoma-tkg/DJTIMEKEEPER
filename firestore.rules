@@ -3,72 +3,74 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // --- 基本関数 ---
-    function isSignedIn() { return request.auth != null; }
-    function isSuperAdmin() { return request.auth.uid == 'GLGPpy6IlyWbGw15OwBPzRdCPZI2'; }
-    function isOwner(userId) { return request.auth.uid == userId; }
-
-    // --- バリデーション関数 (緩和版) ---
-    function isValidString(text, max) {
-      // ★緩和: nullも許容
-      return text == null || (text is string && text.size() <= max);
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isSuperAdmin() {
+      // あなたのUID（最強の管理者）
+      return request.auth.uid == 'GLGPpy6IlyWbGw15OwBPzRdCPZI2';
+    }
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
 
+    // --- 厳格なバリデーション関数 ---
+    
+    // 文字列が存在し、かつ指定文字数以内であること（null不可）
+    function isValidStringStrict(text, min, max) {
+      return text is string && text.size() >= min && text.size() <= max;
+    }
+    
+    // オプション項目用（nullまたは空文字はOK、あるなら文字数チェック）
+    function isValidStringOptional(text, max) {
+      return text == null || text == '' || (text is string && text.size() <= max);
+    }
+
+    // URL形式チェック（簡易版：httpsから始まる、または空）
     function isValidUrl(url) {
-      // ★緩和: URLチェックは形式までは問わない（空文字等は許容）
       return url == null || url == '' || (
-        url is string 
-        && url.size() <= 2000 
+        url is string && url.size() <= 2000 
+        // && url.matches('^https?://.*') // 必要ならコメントアウト解除
       );
     }
 
-    function isValidTitleCheck(data) {
-      // ★緩和: 項目がなくてもOKにする
-      return !('eventConfig' in data) || (
-          data.eventConfig is map
-          && (!('title' in data.eventConfig) || isValidString(data.eventConfig.title, 100))
-      );
+    // --- イベント（Timetables）のチェック ---
+    
+    // 必須項目のチェック
+    function isValidEventConfig(config) {
+      return config is map
+        && isValidStringStrict(config.title, 1, 100) // タイトルは1文字以上必須
+        && isValidStringOptional(config.startDate, 20)
+        && isValidStringOptional(config.startTime, 10);
     }
 
+    // タイムテーブル1行ごとのチェック
     function isValidTimetableItem(item) {
       return item is map
-          && (!('name' in item) || isValidString(item.name, 100))
-          && (!('duration' in item) || item.duration is number || item.duration is string)
-          && (!('imageUrl' in item) || isValidUrl(item.imageUrl));
+        && isValidStringStrict(item.name, 1, 100) // DJ名は必須
+        && (item.duration is number || (item.duration is string && item.duration.size() > 0)) // 持ち時間は必須
+        && isValidUrl(item.imageUrl);
     }
 
     function isValidListCheck(listData) {
-      // ★緩和: サイズチェックのみ
+      // リストサイズ上限 100件
       return listData is list && listData.size() <= 100;
     }
 
     function isValidTimetableCheck(data) {
-      return (!('timetable' in data) || isValidListCheck(data.timetable))
-          && (!('vjTimetable' in data) || isValidListCheck(data.vjTimetable));
+      // timetableフィールド自体は必須ではないが、あるなら中身をチェック
+      return (!('timetable' in data) || (isValidListCheck(data.timetable) && data.timetable.hasOnly(isValidTimetableItem)))
+          && (!('vjTimetable' in data) || (isValidListCheck(data.vjTimetable) && data.vjTimetable.hasOnly(isValidTimetableItem)));
     }
 
-    function isValidFloorItem(floorData) {
-      return floorData is map 
-          && (!('name' in floorData) || isValidString(floorData.name, 50));
-    }
-
-    function isValidFloorsCheck(data) {
-      return !('floors' in data) || (
-        data.floors is map
-        && data.floors.size() <= 20
-      );
-    }
-
-    function isValidUserProfile(data) {
-      return (!('displayName' in data) || isValidString(data.displayName, 100))
-          && (!('email' in data) || isValidString(data.email, 100));
-    }
-
-    function isValidUserCreate(data) {
-      return (!('role' in data) || data.role == 'free')
-          && (!('isManuallyGranted' in data) || data.isManuallyGranted == false)
-          && isValidUserProfile(data);
-    }
+    // --- ユーザー（Users）のチェック ---
     
+    function isValidUserProfile(data) {
+      return (!('displayName' in data) || isValidStringStrict(data.displayName, 1, 100))
+          && (!('email' in data) || isValidStringStrict(data.email, 1, 100));
+    }
+
+    // 更新時のルール：権限（role）の変更は絶対に許さない
     function isValidUserUpdate(newData, oldData) {
       return (!('role' in newData) || newData.role == oldData.role)
           && (!('isManuallyGranted' in newData) || newData.isManuallyGranted == oldData.isManuallyGranted)
@@ -79,29 +81,24 @@ service cloud.firestore {
 
     match /timetables/{eventId} {
       allow get: if true;
-      
-      // ★最新版の維持: listルール (resource.data ベース)
       allow list: if isSignedIn() && (
         resource.data.ownerUid == request.auth.uid || isSuperAdmin()
       );
 
-      // Create時はある程度チェックを入れる（緩和版バリデーションを使用）
+      // 作成: 厳格なチェックを通過した場合のみ許可
       allow create: if isSuperAdmin() || (
         isSignedIn() 
         && request.resource.data.ownerUid == request.auth.uid
-        && isValidTitleCheck(request.resource.data)
-        && isValidTimetableCheck(request.resource.data)
-        && isValidFloorsCheck(request.resource.data)
+        && isValidEventConfig(request.resource.data.eventConfig)
+        // && isValidTimetableCheck(request.resource.data) // 初期作成時は空配列が多いので一旦緩和してもOK
       );
-      
-      // ★緩和: update時は所有者チェックのみ（バリデーション除外）
-      // これにより、部分更新やクライアント側サニタイズ済みのデータ保存がスムーズになります
+
+      // 更新: 所有者のみ。バリデーションはクライアント側制御を信頼しつつ、所有権は絶対守る
       allow update: if isSuperAdmin() || (
         isSignedIn() 
         && isOwner(resource.data.ownerUid)
       );
-      
-      // ★最新版の維持: deleteルール (resource == null 対応)
+
       allow delete: if isSignedIn() && (
         resource == null || isOwner(resource.data.ownerUid) || isSuperAdmin()
       );
@@ -109,11 +106,17 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow get: if isSignedIn() && (isOwner(userId) || isSuperAdmin());
-      allow list: if isSuperAdmin();
-      allow create: if isSuperAdmin() || (isSignedIn() && isOwner(userId) && isValidUserCreate(request.resource.data));
-      allow update: if isSuperAdmin() || (isSignedIn() && isOwner(userId) && isValidUserUpdate(request.resource.data, resource.data));
+      allow list: if isSuperAdmin(); // 管理者のみ全ユーザーリスト取得可
       
-      // アカウント削除用
+      allow create: if isSuperAdmin() || (
+        isSignedIn() && isOwner(userId) 
+        && request.resource.data.role == 'free' // 作成時は必ずfreeプラン
+      );
+      
+      allow update: if isSuperAdmin() || (
+        isSignedIn() && isOwner(userId) && isValidUserUpdate(request.resource.data, resource.data)
+      );
+      
       allow delete: if isSignedIn() && (isOwner(userId) || isSuperAdmin());
     }
   }
