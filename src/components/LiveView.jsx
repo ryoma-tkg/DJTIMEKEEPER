@@ -308,7 +308,11 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
     const [isFullTimelineOpen, setIsFullTimelineOpen] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+    // ★ 論理的なモード（ターゲット）と描画モード（アニメーション用）を分離
     const [viewMode, setViewMode] = useState('single');
+    const [displayViewMode, setDisplayViewMode] = useState('single');
+
     const [currentDjData, setCurrentDjData] = useState(null);
     const [visibleDjContent, setVisibleDjContent] = useState(null);
     const [isDjFadingOut, setIsDjFadingOut] = useState(false);
@@ -325,6 +329,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
     const isBg1ActiveRef = useRef(true);
     const [isControlsVisible, setIsControlsVisible] = useState(true);
     const controlsTimeoutRef = useRef(null);
+
     const [displayFloorId, setDisplayFloorId] = useState(currentFloorId);
     const [mainOpacity, setMainOpacity] = useState(1);
     const [visualTimetable, setVisualTimetable] = useState(timetable);
@@ -353,13 +358,13 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
     }, [floorsWithPreview]);
 
     useEffect(() => {
-        if (viewMode === 'single' && tabsContainerRef.current) {
+        if (displayViewMode === 'single' && tabsContainerRef.current) {
             const activeBtn = tabsContainerRef.current.querySelector(`[data-floor-id="${displayFloorId}"]`);
             if (activeBtn) {
                 activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
             }
         }
-    }, [displayFloorId, viewMode]);
+    }, [displayFloorId, displayViewMode]);
 
     useEffect(() => {
         const showControls = () => { setIsControlsVisible(true); if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current); controlsTimeoutRef.current = setTimeout(() => { setIsControlsVisible(false); }, 3000); };
@@ -367,26 +372,39 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
         return () => { window.removeEventListener('mousemove', showControls); window.removeEventListener('touchstart', showControls); if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current); };
     }, []);
 
-    // ★ フロア遷移ロジックの修正
+    // ★ 統合された遷移ロジック: フロア変更 OR ビューモード変更
     useEffect(() => {
-        if (currentFloorId !== displayFloorId) {
-            // ★ MultiViewからの遷移時は、アニメーションなしで即時切り替え
-            if (viewMode === 'multi') {
+        const isFloorChanged = currentFloorId !== displayFloorId;
+        const isModeChanged = viewMode !== displayViewMode;
+
+        if (isFloorChanged || isModeChanged) {
+            // アニメーション開始: フェードアウト
+            setSuppressEntryAnimation(true);
+            setMainOpacity(0);
+
+            const timer = setTimeout(() => {
+                // 状態更新
                 setDisplayFloorId(currentFloorId);
+                setDisplayViewMode(viewMode);
                 setVisualTimetable(timetable);
                 setVisualVjTimetable(vjTimetable);
-                setMainOpacity(1);
-                setSuppressEntryAnimation(false);
-                setViewMode('single'); // ここで初めてSingleモードへ
-                return;
-            }
 
-            // 通常の遷移（Single -> Single）
-            setSuppressEntryAnimation(true); setMainOpacity(0);
-            const timer = setTimeout(() => { setDisplayFloorId(currentFloorId); setVisualTimetable(timetable); setVisualVjTimetable(vjTimetable); requestAnimationFrame(() => { setMainOpacity(1); setTimeout(() => { setSuppressEntryAnimation(false); }, 500); }); }, 500);
+                // フェードイン
+                requestAnimationFrame(() => {
+                    setMainOpacity(1);
+                    setTimeout(() => {
+                        setSuppressEntryAnimation(false);
+                    }, 500);
+                });
+            }, 500); // フェードアウト待機
+
             return () => clearTimeout(timer);
-        } else { setVisualTimetable(timetable); setVisualVjTimetable(vjTimetable); }
-    }, [currentFloorId, timetable, vjTimetable, displayFloorId, viewMode]); // viewModeを依存に追加
+        } else {
+            // 遷移なしのデータ更新
+            setVisualTimetable(timetable);
+            setVisualVjTimetable(vjTimetable);
+        }
+    }, [currentFloorId, displayFloorId, viewMode, displayViewMode, timetable, vjTimetable]);
 
     const { schedule, eventStartTimeDate, eventEndTimeDate, eventStatus, currentlyPlayingIndex, eventRemainingSeconds, eventElapsedSeconds } = useTimetable(visualTimetable, eventConfig.startDate, eventConfig.startTime, now);
     const { schedule: vjSchedule, eventStatus: vjEventStatus } = useTimetable(visualVjTimetable, eventConfig.startDate, eventConfig.startTime, now);
@@ -438,7 +456,7 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
     const timelineTransform = useMemo(() => { if (schedule.length === 0 || containerWidth === 0) return 'translateX(0px)'; const itemWidthSP = 160; const gapSP = 16; const stepSP = itemWidthSP + gapSP; const itemWidthMD = 256; const gapMD = 24; const stepMD = itemWidthMD + gapMD; const isMobile = containerWidth < 768; const itemWidth = isMobile ? itemWidthSP : itemWidthMD; const step = isMobile ? stepSP : stepMD; const centerScreenOffset = containerWidth / 2; const centerItemOffset = itemWidth / 2; const targetId = visibleDjContent?.id; let targetIndex = schedule.findIndex(dj => dj.id === targetId); if (targetIndex === -1) { if (visibleDjContent?.status === 'FINISHED' || visibleDjContent?.status === 'STANDBY') targetIndex = schedule.length - 1; else targetIndex = 0; } const finalX = centerScreenOffset - centerItemOffset - (targetIndex * step); return `translateX(${finalX}px)`; }, [visibleDjContent, containerWidth, schedule]);
     const formatTime = (seconds) => { if (seconds < 0) seconds = 0; const h = Math.floor(seconds / 3600); const m = Math.floor((seconds % 3600) / 60); const s = Math.floor(seconds % 60); return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`; };
     const formatDurationHHMMSS = (totalSeconds) => { if (totalSeconds < 0) totalSeconds = 0; const h = Math.floor(totalSeconds / 3600); const m = Math.floor((totalSeconds % 3600) / 60); const s = Math.floor(totalSeconds % 60); return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`; };
-    const currentBgColor = useMemo(() => { if (viewMode === 'multi') return '#000000'; if (visibleDjContent?.status !== 'ON AIR' || isDjFadingOut) return null; return visibleDjContent.color; }, [visibleDjContent, isDjFadingOut, viewMode]);
+    const currentBgColor = useMemo(() => { if (displayViewMode === 'multi') return '#000000'; if (visibleDjContent?.status !== 'ON AIR' || isDjFadingOut) return null; return visibleDjContent.color; }, [visibleDjContent, isDjFadingOut, displayViewMode]);
     useEffect(() => { const getGradient = (c) => { if (!c) return 'transparent'; const opacity = theme === 'light' ? '66' : '33'; return `radial-gradient(ellipse 80% 60% at 50% 120%, ${c}${opacity}, transparent)`; }; const newGradient = getGradient(currentBgColor); const transitionStyle = 'opacity 1.0s ease-in-out'; if (isBg1ActiveRef.current) { setBg1Style(prev => ({ ...prev, opacity: 0, transition: transitionStyle })); setBg2Style(prev => ({ ...prev, background: newGradient, opacity: 1, transition: transitionStyle })); } else { setBg2Style(prev => ({ ...prev, opacity: 0, transition: transitionStyle })); setBg1Style(prev => ({ ...prev, background: newGradient, opacity: 1, transition: transitionStyle })); } isBg1ActiveRef.current = !isBg1ActiveRef.current; }, [currentBgColor, theme]);
     const showToast = (message) => { if (toastTimerRef.current) { clearTimeout(toastTimerRef.current); setToast({ message: '', visible: false }); } setTimeout(() => { setToast({ message, visible: true }); toastTimerRef.current = setTimeout(() => { setToast(prev => ({ ...prev, visible: false })); toastTimerRef.current = null; }, 2000); }, 100); };
     const handleTimerClick = () => { if (schedule.length === 0 && eventStatus !== 'UPCOMING') return; if (timerDisplayMode === 'currentTime') { setTimerDisplayMode('eventRemaining'); showToast('終了まで'); } else if (timerDisplayMode === 'eventRemaining') { setTimerDisplayMode('eventElapsed'); showToast('経過時間'); } else { setTimerDisplayMode('currentTime'); showToast('現在時刻'); } };
@@ -574,22 +592,24 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
                                         setViewMode('single');
                                     } else {
                                         onSelectFloor(floor.id);
+                                        // ★ 追加: フロア切り替え時は強制的にSingleモードへ戻す (フェード演出のため)
+                                        setViewMode('single');
                                     }
                                 }}
-                                className={`px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap transition-colors flex items-center gap-2 ${(viewMode === 'single' && floor.id === displayFloorId) ? 'bg-on-surface-variant text-surface-background shadow-md' : 'bg-surface-container hover:bg-surface-container/80 text-on-surface-variant hover:text-on-surface shadow-sm'}`}
+                                className={`px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap transition-colors flex items-center gap-2 ${(displayViewMode === 'single' && floor.id === displayFloorId) ? 'bg-on-surface-variant text-surface-background shadow-md' : 'bg-surface-container hover:bg-surface-container/80 text-on-surface-variant hover:text-on-surface shadow-sm'}`}
                             >
                                 <LayersIcon className="w-3 h-3" />
                                 {floor.name}
                             </button>
                         ))}
-                        {sortedFloors.length > 1 && (<button onClick={() => setViewMode('multi')} className={`px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap transition-colors flex items-center gap-2 ${viewMode === 'multi' ? 'bg-on-surface-variant text-surface-background shadow-md' : 'bg-surface-container hover:bg-surface-container/80 text-on-surface-variant hover:text-on-surface shadow-sm'}`}><span className="text-xs">田</span><span>Multi View</span></button>)}
+                        {sortedFloors.length > 1 && (<button onClick={() => setViewMode('multi')} className={`px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap transition-colors flex items-center gap-2 ${displayViewMode === 'multi' ? 'bg-on-surface-variant text-surface-background shadow-md' : 'bg-surface-container hover:bg-surface-container/80 text-on-surface-variant hover:text-on-surface shadow-sm'}`}><span className="text-xs">田</span><span>Multi View</span></button>)}
                     </div>
                 )}
             </header>
 
             <LiveSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} theme={theme} toggleTheme={toggleTheme} isWakeLockEnabled={isWakeLockEnabled} onWakeLockToggle={handleWakeLockToggle} />
 
-            {viewMode === 'single' ? (
+            {displayViewMode === 'single' ? (
                 <div className="w-full h-full transition-opacity duration-500 ease-in-out" style={{ opacity: mainOpacity }}>
 
                     <div className={`
@@ -611,17 +631,17 @@ export const LiveView = ({ timetable, vjTimetable, eventConfig, floors, currentF
                     {schedule.length > 0 && eventStatus !== 'STANDBY' && (<div ref={timelineContainerRef} className="absolute bottom-0 left-0 right-0 w-full shrink-0 overflow-hidden mask-gradient z-10 pb-4 hidden md:block h-20 md:h-32"><div className="flex h-full items-center space-x-4 md:space-x-6 px-4 py-2 will-change-transform" style={{ transform: timelineTransform, transition: 'transform 0.4s ease-in-out' }}>{schedule.map((dj, index) => { const isPlaying = currentlyPlayingIndex === index; const borderClass = isPlaying ? 'border border-on-surface dark:border-white' : 'border border-on-surface/30 dark:border-white/30'; const isActive = isPlaying || (eventStatus === 'ON_AIR_BLOCK' && currentlyPlayingIndex === -1 && index === 0); return (<div key={dj.id} className={`shrink-0 w-40 md:w-64 h-16 md:h-24 bg-surface-container/40 backdrop-blur-sm rounded-2xl p-3 md:p-4 flex items-center ${borderClass} ${dj.isBuffer ? 'justify-center' : 'space-x-2 md:space-x-6'} ${isActive ? 'opacity-100 scale-100' : 'opacity-60 scale-90'} transition-all duration-1000 ease-in-out will-change-[opacity,transform,border]`}>{dj.imageUrl ? (<div className="w-8 h-8 md:w-14 md:h-14 rounded-full bg-surface-container flex-shrink-0 grid place-items-center overflow-hidden"><SimpleImage src={dj.imageUrl} className="w-full h-full object-cover" /></div>) : !dj.isBuffer ? (<div className="w-8 h-8 md:w-14 md:h-14 rounded-full bg-surface-container flex-shrink-0 grid place-items-center overflow-hidden"><UserIcon className="w-5 h-5 md:w-8 md:h-8 text-on-surface-variant" /></div>) : null}<div className="overflow-hidden flex flex-col justify-center"><p className={`text-sm md:text-lg font-bold truncate w-full ${dj.isBuffer ? 'text-center' : 'text-left'}`}>{dj.name}</p><p className={`text-xs md:text-sm font-mono text-on-surface-variant ${dj.isBuffer ? 'text-center' : 'text-left'}`}>{dj.startTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p></div></div>); })}</div></div>)}
                 </div>
             ) : (
-                <div className="absolute top-0 bottom-0 left-0 right-0 p-4 pt-48 md:pt-60 overflow-y-auto">
+                <div
+                    className="absolute top-0 bottom-0 left-0 right-0 p-4 pt-48 md:pt-60 overflow-y-auto transition-opacity duration-500 ease-in-out"
+                    style={{ opacity: mainOpacity }}
+                >
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
                         {sortedFloors.map(floor => (
                             <MiniFloorCard key={floor.id} floorId={floor.id} floorData={floor} eventConfig={eventConfig} now={now}
                                 onClick={(fid) => {
-                                    // ★ 修正: カードクリック時も同様
-                                    if (fid === currentFloorId) {
-                                        setViewMode('single');
-                                    } else {
-                                        onSelectFloor(fid);
-                                    }
+                                    // ★ 修正: カードクリック時も同様。Multi->Singleへの遷移は常にフェード
+                                    onSelectFloor(fid);
+                                    setViewMode('single');
                                 }}
                             />
                         ))}

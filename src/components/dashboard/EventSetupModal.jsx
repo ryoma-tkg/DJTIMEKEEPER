@@ -14,10 +14,11 @@ import {
     SparklesIcon,
     UserIcon,
     InfoIcon,
-    DatePickerInput // ★追加
+    DatePickerInput
 } from '../common';
 
-export const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences, user, userProfile }) => {
+// ★ propsに isEditMode, initialData, onUpdate を追加
+export const EventSetupModal = ({ isOpen, onClose, onCreate, onUpdate, defaultPreferences, user, userProfile, isEditMode = false, initialData = null }) => {
     const [config, setConfig] = useState({
         title: '',
         startDate: getTodayDateString(),
@@ -29,7 +30,6 @@ export const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences,
 
     const SUPER_ADMIN_UID = "GLGPpy6IlyWbGw15OwBPzRdCPZI2";
 
-    // 権限判定
     const isGuest = user?.isAnonymous;
     const isAdmin = user?.uid === SUPER_ADMIN_UID || userProfile?.role === 'admin';
     const isProUser = userProfile?.role === 'pro';
@@ -37,17 +37,28 @@ export const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences,
 
     useEffect(() => {
         if (isOpen) {
-            setConfig({
-                title: '',
-                startDate: getTodayDateString(),
-                startTime: defaultPreferences?.defaultStartTime || '22:00',
-                // 権限がない場合は強制OFF、ある場合はデフォルト設定に従う
-                vjEnabled: isGuest ? false : (defaultPreferences?.defaultVjEnabled || false),
-                isMultiFloor: canUseProFeatures ? (defaultPreferences?.defaultMultiFloor || false) : false
-            });
+            if (isEditMode && initialData) {
+                // ★ 編集モード時の初期値セット
+                setConfig({
+                    title: initialData.eventConfig?.title || '',
+                    startDate: initialData.eventConfig?.startDate || getTodayDateString(),
+                    startTime: initialData.eventConfig?.startTime || '22:00',
+                    vjEnabled: initialData.eventConfig?.vjFeatureEnabled || false,
+                    isMultiFloor: initialData.floors && Object.keys(initialData.floors).length > 1
+                });
+            } else {
+                // 新規作成時の初期値セット
+                setConfig({
+                    title: '',
+                    startDate: getTodayDateString(),
+                    startTime: defaultPreferences?.defaultStartTime || '22:00',
+                    vjEnabled: isGuest ? false : (defaultPreferences?.defaultVjEnabled || false),
+                    isMultiFloor: canUseProFeatures ? (defaultPreferences?.defaultMultiFloor || false) : false
+                });
+            }
             setHasAttemptedSubmit(false);
         }
-    }, [isOpen, defaultPreferences, isGuest, canUseProFeatures]);
+    }, [isOpen, defaultPreferences, isGuest, canUseProFeatures, isEditMode, initialData]);
 
     const isTitleError = !config.title || config.title.trim() === '';
 
@@ -61,18 +72,32 @@ export const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences,
             vjEnabled: isGuest ? false : config.vjEnabled,
             isMultiFloor: canUseProFeatures ? config.isMultiFloor : false
         };
-        onCreate(finalConfig);
+
+        if (isEditMode) {
+            onUpdate(finalConfig);
+        } else {
+            onCreate(finalConfig);
+        }
     };
 
     const footerContent = (
         <div className="flex justify-end gap-3">
             <Button onClick={onClose} variant="ghost">キャンセル</Button>
-            <Button onClick={handleSubmit} variant="primary">作成する</Button>
+            <Button onClick={handleSubmit} variant="primary">
+                {isEditMode ? '更新する' : '作成する'}
+            </Button>
         </div>
     );
 
     return (
-        <BaseModal isOpen={isOpen} onClose={onClose} title="新規イベント作成" footer={footerContent} isScrollable={true} maxWidthClass="max-w-md">
+        <BaseModal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={isEditMode ? "イベント設定の変更" : "新規イベント作成"}
+            footer={footerContent}
+            isScrollable={true}
+            maxWidthClass="max-w-md"
+        >
             <div className="space-y-6">
                 <div className="space-y-4">
                     <Input
@@ -86,7 +111,6 @@ export const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences,
                     />
                     <div className="space-y-3">
                         <div>
-                            {/* ★ここを修正: InputからDatePickerInputに変更 */}
                             <DatePickerInput
                                 label="開催日"
                                 value={config.startDate}
@@ -100,7 +124,6 @@ export const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences,
                 <div className="pt-2">
                     <div className="text-xs font-bold text-on-surface-variant mb-2 uppercase tracking-wider">オプション設定</div>
 
-                    {/* 設定エリア */}
                     <div className="bg-surface-background/50 rounded-xl px-4 py-2 space-y-2 border border-on-surface/5">
                         <div className={isGuest ? "opacity-50 pointer-events-none grayscale" : ""}>
                             <Toggle
@@ -115,6 +138,7 @@ export const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences,
 
                         <div className="border-t border-on-surface/5"></div>
 
+                        {/* 編集モードではフロア構成の変更（特に減らす方）は複雑になるため、アラートを出すか無効化する方が安全だが、今回は有効のままにする */}
                         <div className={!canUseProFeatures ? "opacity-50 pointer-events-none grayscale" : ""}>
                             <Toggle
                                 checked={config.isMultiFloor}
@@ -127,7 +151,6 @@ export const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences,
                         </div>
                     </div>
 
-                    {/* アラートエリア (Admin/Pro以外に表示) */}
                     <div className="mt-4 space-y-3">
                         {isGuest && (
                             <div className="relative overflow-hidden rounded-lg bg-amber-500/10 border border-amber-500/20 p-4">
@@ -151,7 +174,6 @@ export const EventSetupModal = ({ isOpen, onClose, onCreate, defaultPreferences,
                                 <div className="flex items-start gap-3">
                                     <SparklesIcon className="w-5 h-5 text-brand-primary mt-0.5 shrink-0" />
                                     <div>
-                                        {/* ★変更: 文言を「Coming Soon」に */}
                                         <p className="text-sm font-bold text-brand-primary mb-1">Coming Soon...</p>
                                         <p className="text-xs text-on-surface-variant leading-relaxed">
                                             複数フロア機能は将来のアップデートで提供予定です。<br />

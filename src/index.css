@@ -41,11 +41,12 @@ body {
   font-family: 'IBM Plex Sans JP', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* ★修正: htmlタグにも背景色を適用してオーバースクロール対策 */
+  @apply bg-surface-background text-on-surface;
 }
 
 body {
   font-family: 'Montserrat', 'IBM Plex Sans JP', sans-serif;
-  @apply bg-surface-background text-on-surface;
 }
 
 /* カスタムユーティリティ */

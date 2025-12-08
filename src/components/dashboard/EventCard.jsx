@@ -5,7 +5,8 @@ import {
     LayersIcon,
     ClockIcon,
     Badge,
-    TrashIcon
+    TrashIcon,
+    SettingsIcon // 追加
 } from '../common';
 
 // ヘルパー関数
@@ -17,28 +18,33 @@ const formatDateForIcon = (dateStr) => {
     return { month: monthNames[date.getMonth()], day: String(date.getDate()).padStart(2, '0') };
 };
 
-// ▼▼▼ 修正: 内部にあった isEventActive 関数を削除しました ▼▼▼
-
-export const EventCard = ({ event, onDeleteClick, onClick, isActive = false }) => {
-    // ↑ propsに isActive を追加し、デフォルトを false に設定
-
+// ★ onEditConfig を追加
+export const EventCard = ({ event, onDeleteClick, onEditConfig, onClick, isActive = false }) => {
     const floorCount = event.floors ? Object.keys(event.floors).length : 0;
     const displayFloors = (floorCount === 0 && event.timetable) ? '1 Floor' : `${floorCount} Floors`;
     const { month, day } = formatDateForIcon(event.eventConfig.startDate);
 
-    // ▼▼▼ 修正: ここで isActive を計算するのをやめ、props の値をそのまま使います ▼▼▼
-
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef(null);
 
+    // ★ メニュー外クリックの検知を強化
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (menuRef.current && !menuRef.current.contains(event.target)) {
                 setIsMenuOpen(false);
             }
         };
-        if (isMenuOpen) document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+
+        if (isMenuOpen) {
+            // mousedown と touchstart 両方で検知して確実に閉じる
+            document.addEventListener('mousedown', handleClickOutside);
+            document.addEventListener('touchstart', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('touchstart', handleClickOutside);
+        };
     }, [isMenuOpen]);
 
     const gradientClass = isActive ? 'from-red-500/5' : 'from-brand-primary/5';
@@ -66,7 +72,7 @@ export const EventCard = ({ event, onDeleteClick, onClick, isActive = false }) =
                     onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }}
                     className={`
                         w-8 h-8 rounded-full flex items-center justify-center transition-colors
-                        ${isMenuOpen ? 'bg-surface-background text-on-surface' : 'text-on-surface-variant/50 hover:text-on-surface hover:bg-surface-background/50'}
+                        ${isMenuOpen ? 'bg-surface-background text-on-surface shadow-sm ring-1 ring-on-surface/5' : 'text-on-surface-variant/50 hover:text-on-surface hover:bg-surface-background/50'}
                     `}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
@@ -76,10 +82,25 @@ export const EventCard = ({ event, onDeleteClick, onClick, isActive = false }) =
                     </svg>
                 </button>
                 {isMenuOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-32 bg-surface-container rounded-xl shadow-xl border border-on-surface/10 overflow-hidden animate-fade-in z-30">
+                    <div className="absolute right-0 top-full mt-2 w-40 bg-surface-container rounded-xl shadow-xl border border-on-surface/10 overflow-hidden animate-fade-in z-30">
+                        {/* ★ 設定ボタンを追加 */}
                         <button
-                            className="w-full text-left px-4 py-3 text-xs font-bold text-red-500 hover:bg-red-500/10 flex items-center gap-2"
-                            onClick={(e) => { e.stopPropagation(); onDeleteClick(event.id, event.eventConfig.title); setIsMenuOpen(false); }}
+                            className="w-full text-left px-4 py-3 text-xs font-bold text-on-surface hover:bg-on-surface/5 flex items-center gap-2 transition-colors border-b border-on-surface/5"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onEditConfig(event);
+                                setIsMenuOpen(false);
+                            }}
+                        >
+                            <SettingsIcon className="w-3 h-3" /> イベント設定
+                        </button>
+                        <button
+                            className="w-full text-left px-4 py-3 text-xs font-bold text-red-500 hover:bg-red-500/10 flex items-center gap-2 transition-colors"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteClick(event.id, event.eventConfig.title);
+                                setIsMenuOpen(false);
+                            }}
                         >
                             <TrashIcon className="w-3 h-3" /> 削除
                         </button>
