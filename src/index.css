@@ -41,11 +41,12 @@ body {
   font-family: 'IBM Plex Sans JP', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* ★修正: htmlタグにも背景色を適用してオーバースクロール対策 */
+  @apply bg-surface-background text-on-surface;
 }
 
 body {
   font-family: 'Montserrat', 'IBM Plex Sans JP', sans-serif;
-  @apply bg-surface-background text-on-surface;
 }
 
 /* カスタムユーティリティ */
@@ -153,4 +154,144 @@ body {
 body.debug-layout * {
   outline: 1px solid rgba(255, 0, 0, 0.15) !important;
   background-color: rgba(255, 0, 0, 0.02) !important;
+}
+
+/* --- DatePicker Customization (GIG DECK Theme Final v3) --- */
+
+/* ★最重要: カレンダーのラッパー自体のZ-Indexを最強にする */
+.gig-deck-datepicker {
+  z-index: 2147483647 !important;
+  /* 32bit整数の最大値 */
+  position: relative;
+}
+
+/* カレンダー本体のデザイン */
+.gig-deck-datepicker .react-datepicker {
+  @apply font-sans border border-on-surface/10 rounded-2xl shadow-2xl overflow-hidden;
+  background-color: rgb(var(--color-surface-container));
+  color: rgb(var(--color-on-surface));
+  width: 320px;
+  /* 固定幅 */
+  font-family: 'IBM Plex Sans JP', sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 内部コンテナの幅調整 */
+.gig-deck-datepicker .react-datepicker__month-container {
+  width: 100%;
+  float: none;
+}
+
+/* ヘッダーエリア */
+.gig-deck-datepicker .react-datepicker__header {
+  @apply border-b border-on-surface/5 pt-4 pb-2;
+  background-color: rgb(var(--color-surface-container));
+  position: relative;
+}
+
+/* 年月表示 */
+.gig-deck-datepicker .react-datepicker__current-month {
+  @apply text-base font-bold text-on-surface tracking-wider mb-2;
+  font-family: 'Montserrat', sans-serif;
+}
+
+/* 曜日ヘッダー (左右均等に配置) */
+.gig-deck-datepicker .react-datepicker__day-names {
+  @apply flex justify-between px-4 mt-2;
+  width: 100%;
+}
+
+.gig-deck-datepicker .react-datepicker__day-name {
+  @apply text-on-surface-variant/50 font-bold text-[10px] uppercase tracking-wide flex items-center justify-center;
+  width: 2.25rem;
+  margin: 0;
+}
+
+/* 日付エリア */
+.gig-deck-datepicker .react-datepicker__month {
+  @apply m-0 p-4;
+}
+
+/* 週の行 (左右均等に配置) */
+.gig-deck-datepicker .react-datepicker__week {
+  @apply flex justify-between mb-1;
+}
+
+/* 個別の日付セル */
+.gig-deck-datepicker .react-datepicker__day {
+  @apply rounded-full font-medium transition-all duration-200 text-sm text-on-surface relative flex items-center justify-center;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin: 0;
+  border: 1px solid transparent;
+  /* box-sizing: border-box; を明示 */
+  box-sizing: border-box;
+}
+
+/* ★ホバー時の挙動修正: 形が変わらないようにする */
+.gig-deck-datepicker .react-datepicker__day:hover {
+  /* scale-110 は削除し、背景とボーダーのみ変化させる */
+  @apply bg-on-surface/5 border-on-surface/10 z-10;
+  /* rounded-full を確実に維持 */
+  border-radius: 9999px !important;
+}
+
+/* 選択状態 */
+.gig-deck-datepicker .react-datepicker__day--selected,
+.gig-deck-datepicker .react-datepicker__day--keyboard-selected {
+  background-color: rgb(var(--color-brand-primary)) !important;
+  color: white !important;
+  box-shadow: 0 4px 12px -3px rgba(var(--color-brand-primary), 0.5);
+  font-weight: bold;
+  /* 選択時も丸を維持 */
+  border-radius: 9999px !important;
+}
+
+/* 今日の日付 */
+.gig-deck-datepicker .react-datepicker__day--today {
+  @apply font-bold text-brand-primary;
+}
+
+.gig-deck-datepicker .react-datepicker__day--today:not(.react-datepicker__day--selected) {
+  @apply bg-brand-primary/5 border border-brand-primary/20;
+}
+
+/* 範囲外 */
+.gig-deck-datepicker .react-datepicker__day--outside-month {
+  @apply text-on-surface-variant/30 pointer-events-none;
+}
+
+/* 矢印ボタン */
+.gig-deck-datepicker .react-datepicker__navigation {
+  @apply top-4 w-8 h-8 rounded-full flex items-center justify-center transition-colors;
+  background: transparent;
+  border: 1px solid rgba(var(--color-on-surface-variant), 0.1);
+  z-index: 10;
+}
+
+.gig-deck-datepicker .react-datepicker__navigation:hover {
+  @apply bg-on-surface/5 border-on-surface/20;
+}
+
+/* 矢印の位置調整 */
+.gig-deck-datepicker .react-datepicker__navigation--previous {
+  left: 16px;
+}
+
+.gig-deck-datepicker .react-datepicker__navigation--next {
+  right: 16px;
+}
+
+/* 矢印アイコン描画 */
+.gig-deck-datepicker .react-datepicker__navigation-icon::before {
+  @apply border-on-surface-variant;
+  border-width: 2px 2px 0 0;
+  width: 6px;
+  height: 6px;
+  top: 10px;
+}
+
+.gig-deck-datepicker .react-datepicker__navigation:hover .react-datepicker__navigation-icon::before {
+  @apply border-on-surface;
 }

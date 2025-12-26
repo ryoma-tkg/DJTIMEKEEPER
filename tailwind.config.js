@@ -9,7 +9,7 @@ export default {
   theme: {
     extend: {
       screens: {
-        'sp': '390px', // 最新のスマホ向けブレイクポイント
+        'sp': '390px',
       },
       fontFamily: {
         sans: ['Montserrat', '"IBM Plex Sans JP"', 'sans-serif'],
@@ -28,11 +28,16 @@ export default {
           '0%': { opacity: '0', transform: 'translateY(20px) translateZ(0)' },
           '100%': { opacity: '1', transform: 'translateY(0) translateZ(0)' },
         },
-        // 高級感のあるモーダル出現アニメーション
         modalIn: {
           '0%': { opacity: '0', transform: 'scale(0.95) translateY(10px)' },
           '100%': { opacity: '1', transform: 'scale(1) translateY(0)' },
         },
+        // ▼▼▼ 追加: ボトムシート用アニメーション ▼▼▼
+        slideUp: {
+          '0%': { transform: 'translateY(100%)' },
+          '100%': { transform: 'translateY(0)' },
+        },
+        // ▲▲▲ 追加ここまで ▲▲▲
         fadeIn: {
           'from': { opacity: '0' },
           'to': { opacity: '1' },
@@ -61,6 +66,9 @@ export default {
       animation: {
         'fade-in-up': 'fadeInUp 0.4s ease-out forwards',
         'modal-in': 'modalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        // ▼▼▼ 追加: アニメーションクラス ▼▼▼
+        'slide-up': 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        // ▲▲▲ 追加ここまで ▲▲▲
         'fade-out-down': 'fadeOutDown 0.3s ease-out forwards',
         'fade-in': 'fadeIn 0.3s ease-in-out forwards',
         'fade-out': 'fadeOut 0.3s ease-in-out forwards',

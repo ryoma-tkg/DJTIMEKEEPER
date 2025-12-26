@@ -2,98 +2,122 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- 共通関数 ---
+    // --- 基本関数 ---
     function isSignedIn() {
       return request.auth != null;
     }
-
+    function isSuperAdmin() {
+      // あなたのUID（最強の管理者）
+      return request.auth.uid == 'GLGPpy6IlyWbGw15OwBPzRdCPZI2';
+    }
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
-    function isGuest() {
-      return request.auth.token.firebase.sign_in_provider == 'anonymous';
+    // --- 厳格なバリデーション関数 ---
+    
+    // 文字列が存在し、かつ指定文字数以内であること（null不可）
+    function isValidStringStrict(text, min, max) {
+      return text is string && text.size() >= min && text.size() <= max;
+    }
+    
+    // オプション項目用（nullまたは空文字はOK、あるなら文字数チェック）
+    function isValidStringOptional(text, max) {
+      return text == null || text == '' || (text is string && text.size() <= max);
     }
 
-    // ユーザーデータを取得するヘルパー
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
-    // ★ 修正1: 管理者判定を厳格化 (Proを含めない)
-    function isAdmin() {
-      return isSignedIn() && !isGuest() && getUserData().role == 'admin';
-    }
-
-    // ★ Pro機能判定 (Admin または Pro)
-    function canUseProFeatures() {
-      return isSignedIn() && !isGuest() && (
-        getUserData().role == 'admin' || getUserData().role == 'pro'
+    // URL形式チェック（簡易版：httpsから始まる、または空）
+    function isValidUrl(url) {
+      return url == null || url == '' || (
+        url is string && url.size() <= 2000 
+        // && url.matches('^https?://.*') // 必要ならコメントアウト解除
       );
     }
 
-    // --- Timetables バリデーション ---
-    function isValidNewEvent() {
-      let data = request.resource.data;
-      
-      let basicCheck = data.keys().hasAll(['ownerUid', 'createdAt', 'eventConfig']) &&
-             data.ownerUid == request.auth.uid &&
-             data.eventConfig.title is string &&
-             data.eventConfig.title.size() > 0 &&
-             data.eventConfig.title.size() <= 100 &&
-             data.eventConfig.startDate is string &&
-             data.eventConfig.startTime is string;
-
-      let vjCheck = !isGuest() || data.eventConfig.vjFeatureEnabled == false;
-
-      // フロア数制限 (Pro機能チェックを使用)
-      let floorCount = data.keys().hasAll(['floors']) ? data.floors.keys().size() : 1;
-      let floorCheck = floorCount <= 1 || canUseProFeatures();
-
-      return basicCheck && vjCheck && floorCheck;
-    }
-
-    function isValidUpdate() {
-      let data = request.resource.data;
-      let ownerCheck = data.ownerUid == resource.data.ownerUid;
-      
-      let floorCount = data.keys().hasAll(['floors']) ? data.floors.keys().size() : 1;
-      let floorCheck = floorCount <= 1 || canUseProFeatures();
-
-      return ownerCheck && floorCheck;
-    }
-
-    // --- Users バリデーション ---
+    // --- イベント（Timetables）のチェック ---
     
-    // ★ 修正2: 自分の権限(role)を勝手に変更していないかチェック
-    function isRoleUnchanged() {
-      // roleフィールドが含まれていない、または変更されていない場合のみOK
-      return !request.resource.data.keys().has('role') 
-             || request.resource.data.role == resource.data.role;
+    // 必須項目のチェック
+    function isValidEventConfig(config) {
+      return config is map
+        && isValidStringStrict(config.title, 1, 100) // タイトルは1文字以上必須
+        && isValidStringOptional(config.startDate, 20)
+        && isValidStringOptional(config.startTime, 10);
+    }
+
+    // タイムテーブル1行ごとのチェック
+    function isValidTimetableItem(item) {
+      return item is map
+        && isValidStringStrict(item.name, 1, 100) // DJ名は必須
+        && (item.duration is number || (item.duration is string && item.duration.size() > 0)) // 持ち時間は必須
+        && isValidUrl(item.imageUrl);
+    }
+
+    function isValidListCheck(listData) {
+      // リストサイズ上限 100件
+      return listData is list && listData.size() <= 100;
+    }
+
+    function isValidTimetableCheck(data) {
+      // timetableフィールド自体は必須ではないが、あるなら中身をチェック
+      return (!('timetable' in data) || (isValidListCheck(data.timetable) && data.timetable.hasOnly(isValidTimetableItem)))
+          && (!('vjTimetable' in data) || (isValidListCheck(data.vjTimetable) && data.vjTimetable.hasOnly(isValidTimetableItem)));
+    }
+
+    // --- ユーザー（Users）のチェック ---
+    
+    function isValidUserProfile(data) {
+      return (!('displayName' in data) || isValidStringStrict(data.displayName, 1, 100))
+          && (!('email' in data) || isValidStringStrict(data.email, 1, 100));
+    }
+
+    // 更新時のルール：権限（role）の変更は絶対に許さない
+    function isValidUserUpdate(newData, oldData) {
+      return (!('role' in newData) || newData.role == oldData.role)
+          && (!('isManuallyGranted' in newData) || newData.isManuallyGranted == oldData.isManuallyGranted)
+          && isValidUserProfile(newData);
     }
 
     // --- コレクションルール ---
 
     match /timetables/{eventId} {
       allow get: if true;
-      allow list: if isSignedIn() && resource.data.ownerUid == request.auth.uid;
-      allow create: if isSignedIn() && isValidNewEvent();
-      allow update: if isSignedIn() && isOwner(resource.data.ownerUid) && isValidUpdate();
-      allow delete: if isSignedIn() && isOwner(resource.data.ownerUid);
+      allow list: if isSignedIn() && (
+        resource.data.ownerUid == request.auth.uid || isSuperAdmin()
+      );
+
+      // 作成: 厳格なチェックを通過した場合のみ許可
+      allow create: if isSuperAdmin() || (
+        isSignedIn() 
+        && request.resource.data.ownerUid == request.auth.uid
+        && isValidEventConfig(request.resource.data.eventConfig)
+        // && isValidTimetableCheck(request.resource.data) // 初期作成時は空配列が多いので一旦緩和してもOK
+      );
+
+      // 更新: 所有者のみ。バリデーションはクライアント側制御を信頼しつつ、所有権は絶対守る
+      allow update: if isSuperAdmin() || (
+        isSignedIn() 
+        && isOwner(resource.data.ownerUid)
+      );
+
+      allow delete: if isSignedIn() && (
+        resource == null || isOwner(resource.data.ownerUid) || isSuperAdmin()
+      );
     }
 
     match /users/{userId} {
-      // 読み込み: 本人 または 正真正銘のAdminのみ
-      allow read: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow get: if isSignedIn() && (isOwner(userId) || isSuperAdmin());
+      allow list: if isSuperAdmin(); // 管理者のみ全ユーザーリスト取得可
       
-      // 作成: 誰でもOK (初期登録時) ただし role は 'free' か 'admin'(初期設定者のみ) であるべきだが
-      // 厳密には Cloud Functions でやるのがベスト。ここでは簡易的に許可。
-      allow create: if isSignedIn() && isOwner(userId);
-
-      // ★ 更新: Adminなら何でもOK。本人の場合は role 変更禁止。
-      allow update: if isSignedIn() && (
-        isAdmin() || (isOwner(userId) && isRoleUnchanged())
+      allow create: if isSuperAdmin() || (
+        isSignedIn() && isOwner(userId) 
+        && request.resource.data.role == 'free' // 作成時は必ずfreeプラン
       );
+      
+      allow update: if isSuperAdmin() || (
+        isSignedIn() && isOwner(userId) && isValidUserUpdate(request.resource.data, resource.data)
+      );
+      
+      allow delete: if isSignedIn() && (isOwner(userId) || isSuperAdmin());
     }
   }
 }

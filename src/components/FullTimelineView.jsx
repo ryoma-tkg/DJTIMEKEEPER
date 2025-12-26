@@ -13,10 +13,9 @@ const TimelineItem = ({ dj, isPlaying, isFinished, progress }) => {
             className={`
                 flex items-center gap-4 p-4 rounded-2xl relative overflow-hidden
                 ${playingBg} ${itemOpacity} transition-opacity duration-300
-                border border-on-surface/10 {/* ▼▼▼ 追加: 境界線を追加 ▼▼▼ */}
+                border border-on-surface/10
             `}
         >
-            {/* ... (中身は変更なし) ... */}
             <div
                 className="absolute left-0 top-0 bottom-0 rounded-l-2xl"
                 style={{
@@ -43,8 +42,10 @@ const TimelineItem = ({ dj, isPlaying, isFinished, progress }) => {
                 >
                     {dj.name}
                 </p>
-                <p className="font-mono text-sm text-on-surface-variant">
-                    {dj.startTime} - {dj.endTime}
+                {/* ▼▼▼ 修正: 持ち時間を表示に追加 ▼▼▼ */}
+                <p className="font-mono text-sm text-on-surface-variant flex items-center gap-2">
+                    <span>{dj.startTime} - {dj.endTime}</span>
+                    <span className="text-xs opacity-60">({dj.duration}min)</span>
                 </p>
             </div>
 
@@ -62,7 +63,6 @@ const TimelineItem = ({ dj, isPlaying, isFinished, progress }) => {
 
 // ... (FullTimelineView 本体は変更なし) ...
 export const FullTimelineView = ({ isOpen, onClose, schedule, now, currentlyPlayingIndex }) => {
-    // ... (変更なし)
     const calculateProgress = (dj) => {
         const startTime = new Date(dj.startTimeDate);
         const endTime = new Date(dj.endTimeDate);

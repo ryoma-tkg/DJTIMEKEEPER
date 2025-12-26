@@ -167,7 +167,7 @@ export const DevControls = ({
                     </div>
                     <div>
                         <h3 className="font-bold text-sm leading-none">Developer Tools</h3>
-                        <p className="text-[10px] text-on-surface-variant font-mono opacity-70 mt-0.5">for DJ Timekeeper Pro</p>
+                        <p className="text-[10px] text-on-surface-variant font-mono opacity-70 mt-0.5">for GIG DECK</p>
                     </div>
                 </div>
                 <button onClick={onClose} className="p-1.5 rounded-full hover:bg-surface-background text-on-surface-variant hover:text-on-surface transition-colors">

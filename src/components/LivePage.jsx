@@ -9,7 +9,7 @@ import { useImagePreloader } from '../hooks/useImagePreloader';
 import { LoadingScreen } from './common';
 
 const getDefaultEventConfig = () => ({
-    title: 'DJ Timekeeper Pro',
+    title: 'EVENT NAME',
     startDate: new Date().toISOString().split('T')[0],
     startTime: '22:00',
     vjFeatureEnabled: false

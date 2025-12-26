@@ -16,6 +16,7 @@ import {
     Label,
     CustomTimeInput,
     SortableListCard,
+    DatePickerInput,
 
     // Icons & Utils
     ConfirmModal,
@@ -33,7 +34,7 @@ import {
     MoonIcon,
     SunIcon,
     LayersIcon,
-    ClockIcon, // ★ 追加
+    ClockIcon,
 
     // Constants & Helpers
     VIVID_COLORS,
@@ -41,12 +42,11 @@ import {
     getTodayDateString
 } from './common';
 
-// --- アイコン回転用のラッパーコンポーネント ---
+// ... (中間コンポーネント省略: BackIcon, VjItem) ...
 const BackIcon = ({ className }) => (
     <LogOutIcon className={`${className} rotate-180`} />
 );
 
-// --- VjItem (New SortableListCard) ---
 const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging, isPlaying }) => {
     return (
         <SortableListCard
@@ -61,13 +61,19 @@ const VjItem = memo(({ vj, onPointerDown, onUpdate, onRemove, isDragging, isPlay
     );
 });
 
-// --- VjTimetableManager ---
+// ... (VjTimetableManager, SettingsModal, IntegratedFloorTabs は変更なし、省略) ...
 const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, eventStartTimeStr, now, eventTotalMinutes, onShowToast }) => {
+    // ... (省略: 内容変更なし) ...
     const { schedule: vjSchedule, eventStartTimeDate: vjEventStartTimeDate, recalculateTimes: recalculateVjTimes, currentlyPlayingIndex: currentlyPlayingVjIndex } = useTimetable(vjTimetable, eventStartDateStr, eventStartTimeStr, now);
     const { draggedIndex: vjDraggedIndex, overIndex: vjOverIndex, isDragging: vjIsDragging, listContainerRef: vjListContainerRef, handlePointerDown: handleVjPointerDown, getDragStyles: getVjDragStyles } = useDragAndDrop(vjTimetable, setVjTimetable, (newTable) => recalculateVjTimes(newTable, vjEventStartTimeDate), [eventStartDateStr, eventStartTimeStr]);
 
     const handleAddVj = () => {
         setVjTimetable(prev => {
+            if (prev.length >= 30) {
+                onShowToast("VJの数は30人までです");
+                return prev;
+            }
+
             const currentTotal = prev.reduce((acc, item) => acc + (parseFloat(item.duration) || 0), 0);
             const remaining = Math.max(0, eventTotalMinutes - currentTotal);
             const DEFAULT_DURATION = 45;
@@ -79,7 +85,7 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, ev
             return recalculateVjTimes([...prev, { id: Date.now(), name: `VJ ${prev.length + 1}`, duration: newDuration }], vjEventStartTimeDate);
         });
     };
-
+    // ... update/remove functions ...
     const handleUpdateVj = (index, field, value) => {
         setVjTimetable(prev => {
             const newVjList = [...prev];
@@ -128,72 +134,39 @@ const VjTimetableManager = ({ vjTimetable, setVjTimetable, eventStartDateStr, ev
     );
 };
 
-// --- SettingsModal (Updated to Match Catalog Design) ---
-// ★ isGuest を受け取る
 const SettingsModal = ({ isOpen, onClose, eventConfig, handleEventConfigChange, handleShare, onResetClick, theme, toggleTheme, isGuest }) => {
+    // ... (省略: 内容変更なし) ...
     const isTitleError = !eventConfig.title || eventConfig.title.trim() === '';
-
     const footerContent = (
         <div className="flex justify-end gap-3">
             <Button onClick={onClose} variant="primary" size="md">閉じる</Button>
         </div>
     );
-
     return (
         <BaseModal isOpen={isOpen} onClose={onClose} title="イベント設定" footer={footerContent} isScrollable={true} maxWidthClass="max-w-md">
             <div className="space-y-6">
                 <section>
                     <h3 className="text-sm font-bold text-on-surface-variant uppercase tracking-wider mb-3">イベント情報</h3>
                     <div className="space-y-4">
-                        <Input
-                            label="イベント名"
-                            value={eventConfig.title || ''}
-                            onChange={(e) => handleEventConfigChange('title', e.target.value)}
-                            placeholder="イベント名を入力..."
-                            isError={isTitleError}
-                        />
+                        <Input label="イベント名" value={eventConfig.title || ''} onChange={(e) => handleEventConfigChange('title', e.target.value)} placeholder="イベント名を入力..." isError={isTitleError} />
                         <div className="space-y-3">
-                            <div>
-                                <Label>開催日</Label>
-                                <Input type="date" value={eventConfig.startDate || ''} onChange={(e) => handleEventConfigChange('startDate', e.target.value)} icon={CalendarIcon} className="font-mono text-sm" />
-                            </div>
-                            <div>
-                                <Label>開始時間</Label>
-                                <CustomTimeInput value={eventConfig.startTime} onChange={(v) => handleEventConfigChange('startTime', v)} />
-                            </div>
+                            <div><DatePickerInput label="開催日" value={eventConfig.startDate || ''} onChange={(val) => handleEventConfigChange('startDate', val)} /></div>
+                            <div><Label>開始時間</Label><CustomTimeInput value={eventConfig.startTime} onChange={(v) => handleEventConfigChange('startTime', v)} /></div>
                         </div>
                     </div>
                 </section>
-
                 <hr className="border-on-surface/5" />
-
                 <section>
                     <h3 className="text-sm font-bold text-on-surface-variant uppercase tracking-wider mb-3">オプション設定</h3>
                     <div className="bg-surface-background/50 rounded-xl px-4 py-2 space-y-2 border border-on-surface/5">
-                        {/* ★ VJ機能: ゲストは不可 */}
                         <div className={isGuest ? "opacity-50 pointer-events-none grayscale" : ""}>
-                            <Toggle
-                                checked={eventConfig.vjFeatureEnabled}
-                                onChange={() => handleEventConfigChange('vjFeatureEnabled', !eventConfig.vjFeatureEnabled)}
-                                label={isGuest ? "VJタイムテーブル (登録限定)" : "VJタイムテーブル機能"}
-                                icon={VideoIcon}
-                                description={isGuest ? "ゲストは利用できません" : "VJのタイムテーブルも管理します"}
-                                disabled={isGuest}
-                            />
+                            <Toggle checked={eventConfig.vjFeatureEnabled} onChange={() => handleEventConfigChange('vjFeatureEnabled', !eventConfig.vjFeatureEnabled)} label={isGuest ? "VJタイムテーブル (登録限定)" : "VJタイムテーブル機能"} icon={VideoIcon} description={isGuest ? "ゲストは利用できません" : "VJのタイムテーブルも管理します"} disabled={isGuest} />
                         </div>
                         <div className="border-t border-on-surface/5"></div>
-                        <Toggle
-                            checked={theme === 'dark'}
-                            onChange={toggleTheme}
-                            label="ダークモード"
-                            icon={theme === 'dark' ? MoonIcon : SunIcon}
-                            description="画面を暗くし、暗所での視認性を高めます"
-                        />
+                        <Toggle checked={theme === 'dark'} onChange={toggleTheme} label="ダークモード" icon={theme === 'dark' ? MoonIcon : SunIcon} description="画面を暗くし、暗所での視認性を高めます" />
                     </div>
                 </section>
-
                 <hr className="border-on-surface/5" />
-
                 <section>
                     <h3 className="text-sm font-bold text-on-surface-variant uppercase tracking-wider mb-3">アクション</h3>
                     <div className="space-y-3">
@@ -207,6 +180,7 @@ const SettingsModal = ({ isOpen, onClose, eventConfig, handleEventConfigChange, 
 };
 
 const IntegratedFloorTabs = ({ floors, currentFloorId, onSelectFloor, onAddClick }) => {
+    // ... (省略: 内容変更なし) ...
     const sortedFloors = useMemo(() => Object.entries(floors).map(([id, data]) => ({ id, ...data })).sort((a, b) => (a.order || 0) - (b.order || 0)), [floors]);
     return (
         <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2 no-scrollbar">
@@ -218,9 +192,8 @@ const IntegratedFloorTabs = ({ floors, currentFloorId, onSelectFloor, onAddClick
     );
 };
 
-// --- Main Component ---
-// ★ expireAt を受け取る
-export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, setTimetable, vjTimetable, setVjTimetable, floors, currentFloorId, onSelectFloor, onFloorsUpdate, setMode, storage, timeOffset, theme, toggleTheme, imagesLoaded, expireAt }) => {
+export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, setTimetable, vjTimetable, setVjTimetable, floors, currentFloorId, onSelectFloor, onFloorsUpdate, setMode, storage, timeOffset, theme, toggleTheme, imagesLoaded, expireAt, maxFloors = 20 }) => {
+    // ...
     const [openColorPickerId, setOpenColorPickerId] = useState(null);
     const [editingDjIndex, setEditingDjIndex] = useState(null);
     const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
@@ -230,14 +203,15 @@ export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, 
     const [toast, setToast] = useState({ message: '', visible: false });
     const toastTimerRef = useRef(null);
 
-    // ★ ゲスト判定
+    // ★ スクロール制御用Ref
+    const bottomRef = useRef(null);
+
     const isGuest = user?.isAnonymous;
 
-    // ★ 追加: 削除日時のフォーマット
     const expireDateStr = useMemo(() => {
         if (!expireAt) return null;
         const date = expireAt.toDate ? expireAt.toDate() : new Date(expireAt);
-        const month = date.getMonth() + 1;
+        const month = date.getDate() < 10 ? date.getMonth() + 1 : date.getMonth() + 1;
         const day = date.getDate();
         const hours = String(date.getHours()).padStart(2, '0');
         const minutes = String(date.getMinutes()).padStart(2, '0');
@@ -264,12 +238,48 @@ export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, 
     };
 
     const addNewDj = (isBuffer = false) => {
-        setTimetable(prev => { const lastDj = prev[prev.length - 1]; const duration = isBuffer ? 5 : (lastDj ? lastDj.duration : 45); return recalculateTimes([...prev, { id: Date.now(), name: isBuffer ? 'バッファー' : `DJ ${prev.filter(d => !d.isBuffer).length + 1}`, duration, imageUrl: '', color: VIVID_COLORS[Math.floor(Math.random() * VIVID_COLORS.length)], isBuffer }], eventStartTimeDate); });
+        setTimetable(prev => {
+            if (prev.length >= 30) {
+                showToast("DJ/バッファーの数は30人までです");
+                return prev;
+            }
+            const lastDj = prev[prev.length - 1];
+            const duration = isBuffer ? 5 : (lastDj ? lastDj.duration : 45);
+            const newList = recalculateTimes([...prev, {
+                id: Date.now(),
+                name: isBuffer ? 'バッファー' : `DJ ${prev.filter(d => !d.isBuffer).length + 1}`,
+                duration,
+                imageUrl: '',
+                color: VIVID_COLORS[Math.floor(Math.random() * VIVID_COLORS.length)],
+                isBuffer
+            }], eventStartTimeDate);
+
+            // ★ 要素追加時に下部へスムーズスクロール
+            setTimeout(() => {
+                if (bottomRef.current) {
+                    bottomRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                }
+            }, 100);
+
+            return newList;
+        });
     };
 
     const executeReset = () => { setTimetable([]); setVjTimetable([]); setEventConfig({ title: 'My Awesome Event', startDate: getTodayDateString(), startTime: '22:00', vjFeatureEnabled: false }); setIsResetConfirmOpen(false); };
     const handleRemoveDj = (index) => setTimetable(prev => recalculateTimes(prev.filter((_, i) => i !== index), eventStartTimeDate));
-    const handleCopyDj = (index) => setTimetable(prev => recalculateTimes([...prev.slice(0, index + 1), { ...prev[index], id: Date.now() }, ...prev.slice(index + 1)], eventStartTimeDate));
+    const handleCopyDj = (index) => {
+        setTimetable(prev => {
+            if (prev.length >= 30) {
+                showToast("これ以上はコピーできません（上限30個）");
+                return prev;
+            }
+            const newList = recalculateTimes([...prev.slice(0, index + 1), { ...prev[index], id: Date.now() }, ...prev.slice(index + 1)], eventStartTimeDate);
+
+            // ★ コピー時もスクロール（追加位置によるが、とりあえず少し待って調整）
+            // 必要に応じて `listContainerRef` 内の該当要素へスクロールさせるロジックも検討可能だが、今回は簡易的に
+            return newList;
+        });
+    };
     const handleShare = () => { const liveUrl = window.location.href.replace("/edit/", "/live/"); navigator.clipboard.writeText(liveUrl).then(() => alert('LiveモードのURLをコピーしました！'), () => alert('コピーに失敗しました')); };
 
     const { displayStartTime, displayEndTime } = useMemo(() => ({ displayStartTime: schedule.length > 0 ? schedule[0].startTimeDate : eventStartTimeDate, displayEndTime: schedule.length > 0 ? schedule[schedule.length - 1].endTimeDate : null }), [schedule, eventStartTimeDate]);
@@ -278,25 +288,30 @@ export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, 
     return (
         <>
             <ToastNotification message={toast.message} isVisible={toast.visible} className="top-24" />
-            <div className="p-4 md:p-8 max-w-7xl mx-auto min-h-screen animate-fade-in-up relative">
 
-                {/* Header: justify-between で要素を配置 */}
-                <header className="flex flex-row justify-between items-center mb-6 gap-2 sm:gap-4 relative z-10">
+            {/* ★ ここで pb-40 などを指定して下部余白を確保 */}
+            <div className="p-4 md:p-8 max-w-7xl mx-auto min-h-screen animate-fade-in-up relative pb-40">
+
+                <header className="flex flex-row justify-between items-center mb-4 md:mb-6 gap-2 sm:gap-4 relative z-10">
                     <Link to="/" className="flex-shrink-0">
                         <Button variant="secondary" size="icon" icon={BackIcon} className="rounded-full" />
                     </Link>
 
                     <input
                         type="text"
-                        value={eventConfig.title || 'DJ Timekeeper Pro'}
+                        value={eventConfig.title || ''}
                         onChange={(e) => handleEventConfigChange('title', e.target.value)}
-                        className="text-xl sm:text-2xl md:text-3xl font-bold text-brand-secondary tracking-wide bg-transparent focus:outline-none focus:bg-surface-container/50 rounded-lg p-2 flex-1 min-w-0"
+                        onBlur={() => {
+                            if (!eventConfig.title || eventConfig.title.trim() === '') {
+                                handleEventConfigChange('title', 'GIG DECK Event');
+                            }
+                        }}
+                        className="text-lg sm:text-2xl md:text-3xl font-bold text-brand-secondary tracking-wide bg-transparent focus:outline-none focus:bg-surface-container/50 rounded-lg p-1 md:p-2 flex-1 min-w-0 text-center md:text-left"
                         placeholder="イベントタイトル"
                     />
 
-                    {/* ★ 修正: ヘッダー要素としてアラートを配置 (h-12でボタンと高さを統一) */}
                     {isGuest && expireDateStr && (
-                        <div className="flex-shrink-0 flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 text-red-500 px-3 h-12 rounded-xl shadow-sm">
+                        <div className="flex-shrink-0 flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 text-red-500 px-2 md:px-3 h-12 rounded-xl shadow-sm">
                             <ClockIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                             <div className="flex flex-col leading-none">
                                 <span className="text-[8px] sm:text-[10px] font-bold uppercase tracking-wider opacity-70">Auto Delete</span>
@@ -311,11 +326,19 @@ export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, 
                     </div>
                 </header>
 
-                <div className="flex flex-col sm:flex-row gap-4 mb-8">
-                    <Button onClick={() => timetable.length > 0 && setMode('live')} disabled={timetable.length === 0 || !imagesLoaded} variant="primary" size="lg" className="flex-1" icon={PlayIcon}>{imagesLoaded ? 'Liveモード' : '画像読込中...'}</Button>
-                    <div className="bg-surface-container rounded-xl py-2 px-6 flex items-center justify-center gap-4 shadow-sm border border-on-surface/5">
-                        <div className="text-center"><p className="text-xs text-on-surface-variant font-bold">START - END</p><p className="text-lg font-mono font-bold">{displayStartTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {displayEndTime ? displayEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '??:??'}</p></div>
-                        {totalEventDuration && (<div className="text-center pl-4 border-l border-on-surface-variant/20"><p className="text-xs text-on-surface-variant font-bold">TOTAL</p><p className="text-lg font-bold">{totalEventDuration}</p></div>)}
+                <div className="flex flex-col sm:flex-row gap-4 mb-6 md:mb-8">
+                    <Button onClick={() => timetable.length > 0 && setMode('live')} disabled={timetable.length === 0 || !imagesLoaded} variant="primary" size="lg" className="flex-1 min-h-[48px] md:min-h-[64px] py-3 md:py-4" icon={PlayIcon}>{imagesLoaded ? 'Liveモード' : '画像読込中...'}</Button>
+                    <div className="bg-surface-container rounded-xl py-2 px-4 md:px-6 flex items-center justify-center gap-2 md:gap-4 shadow-sm border border-on-surface/5">
+                        <div className="text-center">
+                            <p className="text-xs text-on-surface-variant font-bold">START - END</p>
+                            <p className="text-base md:text-lg font-mono font-bold">{displayStartTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {displayEndTime ? displayEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '??:??'}</p>
+                        </div>
+                        {totalEventDuration && (
+                            <div className="text-center pl-4 border-l border-on-surface-variant/20">
+                                <p className="text-xs text-on-surface-variant font-bold">TOTAL</p>
+                                <p className="text-base md:text-lg font-bold">{totalEventDuration}</p>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -329,7 +352,7 @@ export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, 
                                 <div key={dj.id} className="dj-list-item" style={getDragStyles(index)}>
                                     <DjItem
                                         dj={dj}
-                                        isGuest={isGuest} // ★ 追加: ゲストフラグを渡す
+                                        isGuest={isGuest}
                                         isPlaying={currentlyPlayingIndex === index}
                                         onPointerDown={(e) => handlePointerDown(e, index)}
                                         onEditClick={() => setEditingDjIndex(index)}
@@ -382,24 +405,14 @@ export const TimetableEditor = ({ user, eventConfig, setEventConfig, timetable, 
                     </div>
                     {eventConfig.vjFeatureEnabled && <div className="w-full lg:w-1/3 lg:max-w-md space-y-4"><VjTimetableManager vjTimetable={vjTimetable} setVjTimetable={setVjTimetable} eventStartDateStr={eventConfig.startDate} eventStartTimeStr={eventConfig.startTime} now={now} eventTotalMinutes={eventTotalMinutes} onShowToast={showToast} /></div>}
                 </div>
+
+                {/* ★ スクロールターゲット用の空要素 */}
+                <div ref={bottomRef} className="h-32"></div>
             </div>
 
             <ConfirmModal isOpen={isResetConfirmOpen} title="リセット" message="元に戻せません。よろしいですか？" onConfirm={executeReset} onCancel={() => setIsResetConfirmOpen(false)} />
-
-            {/* ★ SettingsModal に isGuest を渡す */}
-            <SettingsModal
-                isOpen={isSettingsOpen}
-                onClose={() => setIsSettingsOpen(false)}
-                eventConfig={eventConfig}
-                handleEventConfigChange={handleEventConfigChange}
-                handleShare={handleShare}
-                onResetClick={() => { setIsSettingsOpen(false); setIsResetConfirmOpen(true); }}
-                theme={theme}
-                toggleTheme={toggleTheme}
-                isGuest={isGuest}
-            />
-
-            {!isOldData && <FloorManagerModal isOpen={isFloorManagerOpen} onClose={() => setIsFloorManagerOpen(false)} floors={floors} onSaveFloors={onFloorsUpdate} />}
+            <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} eventConfig={eventConfig} handleEventConfigChange={handleEventConfigChange} handleShare={handleShare} onResetClick={() => { setIsSettingsOpen(false); setIsResetConfirmOpen(true); }} theme={theme} toggleTheme={toggleTheme} isGuest={isGuest} />
+            {!isOldData && <FloorManagerModal isOpen={isFloorManagerOpen} onClose={() => setIsFloorManagerOpen(false)} floors={floors} onSaveFloors={onFloorsUpdate} maxFloors={maxFloors} />}
             {editingDjIndex !== null && <ImageEditModal dj={timetable[editingDjIndex]} onUpdate={(f, v) => handleUpdate(editingDjIndex, f, v)} onClose={() => setEditingDjIndex(null)} storage={storage} />}
         </>
     );
